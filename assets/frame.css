@@ -1,0 +1,511 @@
+/* Block editor embedded in the Writer app: drop wp-admin chrome around it. */
+/* Doubled class to beat the admin color scheme's body.admin-color-* variables. */
+body.wfw-frame.wfw-frame {
+    --wp-admin-theme-color: var( --wfw-accent );
+    --wp-admin-theme-color-darker-10: color-mix( in srgb, var( --wfw-accent ) 90%, #000 );
+    --wp-admin-theme-color-darker-20: color-mix( in srgb, var( --wfw-accent ) 80%, #000 );
+    --wfw-pill-shadow: 0 1px 2px rgba( 0, 0, 0, 0.04 ), 0 4px 16px rgba( 0, 0, 0, 0.06 );
+    background: var( --wfw-editor-bg );
+}
+
+/* Components read the accent from inline theme-provider variables; override them. */
+html:has( body.wfw-frame ),
+body.wfw-frame [class*="__root"] {
+    --wp-components-color-accent: var( --wfw-accent ) !important;
+    --wp-components-color-accent-darker-10: color-mix( in srgb, var( --wfw-accent ) 90%, #000 ) !important;
+    --wp-components-color-accent-darker-20: color-mix( in srgb, var( --wfw-accent ) 80%, #000 ) !important;
+    --wp-components-color-accent-inverted: #ffffff !important;
+    --wp-admin-theme-color: var( --wfw-accent ) !important;
+    --wp-admin-theme-color-darker-10: color-mix( in srgb, var( --wfw-accent ) 90%, #000 ) !important;
+    --wp-admin-theme-color-darker-20: color-mix( in srgb, var( --wfw-accent ) 80%, #000 ) !important;
+}
+
+body.wfw-frame #wpadminbar,
+body.wfw-frame #adminmenumain,
+body.wfw-frame .interface-interface-skeleton__footer {
+    display: none !important;
+}
+
+html.wp-toolbar:has( body.wfw-frame ) {
+    padding-top: 0;
+}
+
+body.wfw-frame #wpcontent {
+    margin-left: 0;
+}
+
+body.wfw-frame .interface-interface-skeleton {
+    top: 0 !important;
+    left: 0 !important;
+}
+
+body.wfw-frame .interface-interface-skeleton__body {
+    padding-bottom: 0 !important;
+}
+
+body.wfw-frame .interface-interface-skeleton__content,
+body.wfw-frame .editor-visual-editor {
+    background: var( --wfw-editor-bg );
+}
+
+/*
+ * The header collapses to nothing; its useful pieces float over the canvas:
+ * save/settings/publish as a pill at the top right, the block toolbar as a
+ * formatting pill at the bottom center (like Bear).
+ */
+body.wfw-frame .interface-interface-skeleton__header {
+    height: 0;
+    border: 0;
+    overflow: visible;
+    z-index: 40;
+}
+
+body.wfw-frame .editor-header {
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    overflow: visible;
+}
+
+body.wfw-frame .editor-header__back-button,
+body.wfw-frame .editor-header__center,
+body.wfw-frame .editor-document-tools,
+body.wfw-frame .editor-header__settings > a.components-button,
+body.wfw-frame .editor-preview-dropdown,
+body.wfw-frame .editor-header__post-preview-button,
+body.wfw-frame .editor-header__settings > .components-dropdown-menu:last-child,
+body.wfw-frame .editor-collapsible-block-toolbar__toggle {
+    display: none !important;
+}
+
+body.wfw-frame .editor-header__settings {
+    position: fixed;
+    top: 10px;
+    right: 12px;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 40px;
+    padding: 0;
+    background: none;
+    border: 0;
+}
+
+/* Keep the pill clear of the settings sidebar when it is open. */
+body.wfw-frame .interface-interface-skeleton:has( .interface-interface-skeleton__sidebar .interface-complementary-area ) .editor-header__settings {
+    right: calc( 280px + 12px );
+}
+
+body.wfw-frame .editor-header__toolbar {
+    position: static;
+}
+
+/* Formatting pill: wide layout (inside header) and narrow layout (above canvas). */
+body.wfw-frame .editor-header .editor-collapsible-block-toolbar,
+body.wfw-frame .interface-interface-skeleton__content > .block-editor-block-contextual-toolbar {
+    position: fixed !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX( -50% );
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    width: auto !important;
+    max-width: calc( 100% - 32px );
+    height: auto;
+    min-height: 0;
+    padding: 2px 4px;
+    overflow: visible;
+    background: var( --wfw-editor-bg ) !important;
+    border: 1px solid var( --wfw-border ) !important;
+    border-radius: 12px;
+    box-shadow: var( --wfw-pill-shadow );
+}
+
+body.wfw-frame .editor-collapsible-block-toolbar:not( :has( .block-editor-block-toolbar ) ) {
+    display: none !important;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar,
+body.wfw-frame .block-editor-block-contextual-toolbar .block-editor-block-toolbar,
+body.wfw-frame .block-editor-block-contextual-toolbar .components-toolbar-group,
+body.wfw-frame .block-editor-block-contextual-toolbar .components-toolbar {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+/* No inline "+" on empty paragraphs (rendered as a popover outside the canvas). */
+body.wfw-frame .block-editor-block-list__empty-block-inserter,
+body.wfw-frame .block-editor-block-list__insertion-point,
+body.wfw-frame .block-editor-block-list__insertion-point-inserter {
+    display: none !important;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar :is( .block-editor-block-toolbar, .components-toolbar-group, .block-editor-block-toolbar__slot, .components-dropdown ) {
+    height: 40px;
+    min-height: 0;
+    align-items: center;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar .components-button {
+    height: 36px;
+    min-width: 36px;
+    padding: 6px;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar .components-toolbar-group:last-child,
+body.wfw-frame .block-editor-block-contextual-toolbar .block-editor-block-toolbar > :last-child {
+    border-right: 0 !important;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar .block-editor-block-toolbar > :last-child::after {
+    display: none;
+}
+
+/* Bear's bar is formatting only: no drag handle, movers or parent selector. */
+body.wfw-frame .block-editor-block-contextual-toolbar .block-editor-block-mover,
+body.wfw-frame .block-editor-block-contextual-toolbar .block-editor-block-parent-selector {
+    display: none !important;
+}
+
+body.wfw-frame .editor-header .components-button:not( .is-primary ),
+body.wfw-frame .block-editor-block-contextual-toolbar .components-button {
+    color: var( --wfw-muted );
+}
+
+body.wfw-frame .editor-header .components-button:not( .is-primary ):hover,
+body.wfw-frame .editor-header .components-button.is-pressed,
+body.wfw-frame .block-editor-block-contextual-toolbar .components-button:hover {
+    color: var( --wfw-text );
+    background: transparent;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar .components-button.is-pressed {
+    color: var( --wfw-accent );
+    background: transparent;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar .components-button.is-pressed::before {
+    background: transparent;
+}
+
+body.wfw-frame .editor-header__settings .editor-post-publish-button,
+body.wfw-frame .editor-header__settings .editor-post-publish-panel__toggle {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 16px;
+    background: var( --wfw-editor-bg ) !important;
+    color: var( --wfw-accent ) !important;
+    box-shadow: inset 0 0 0 1px var( --wfw-border ), var( --wfw-pill-shadow ) !important;
+    font-weight: 500;
+}
+
+body.wfw-frame .editor-header__settings .editor-post-publish-button:hover:not( [aria-disabled="true"] ),
+body.wfw-frame .editor-header__settings .editor-post-publish-panel__toggle:hover:not( [aria-disabled="true"] ) {
+    background: var( --wfw-accent ) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+body.wfw-frame .editor-header__settings .editor-post-publish-button[aria-disabled="true"] {
+    color: var( --wfw-muted ) !important;
+    opacity: 1;
+}
+
+body.wfw-frame .editor-post-saved-state,
+body.wfw-frame .editor-post-save-draft {
+    font-size: 12px;
+    color: var( --wfw-muted ) !important;
+}
+
+/*
+ * Editor UI surfaces (settings sidebar, panels, inputs, popovers, menus,
+ * modals, publish panel) follow the appearance tokens so dark themes stay dark.
+ */
+html:has( body.wfw-frame ),
+body.wfw-frame [class*="__root"] {
+    --wp-components-color-background: var( --wfw-editor-bg ) !important;
+    --wp-components-color-foreground: var( --wfw-text ) !important;
+    --wp-components-color-foreground-inverted: var( --wfw-editor-bg ) !important;
+    --wp-components-color-gray-100: var( --wfw-code-bg ) !important;
+    --wp-components-color-gray-200: var( --wfw-border ) !important;
+    --wp-components-color-gray-300: var( --wfw-border ) !important;
+    --wp-components-color-gray-400: var( --wfw-muted ) !important;
+    --wp-components-color-gray-600: var( --wfw-muted ) !important;
+    --wp-components-color-gray-700: var( --wfw-muted ) !important;
+    --wp-components-color-gray-800: var( --wfw-text ) !important;
+}
+
+/* Surfaces */
+body.wfw-frame .interface-complementary-area,
+body.wfw-frame .interface-complementary-area-header,
+body.wfw-frame .editor-sidebar__panel-tabs,
+body.wfw-frame .components-panel,
+body.wfw-frame .components-panel__header,
+body.wfw-frame .components-panel__body,
+body.wfw-frame .editor-post-publish-panel,
+body.wfw-frame .editor-post-publish-panel__header,
+body.wfw-frame .editor-post-publish-panel__footer,
+body.wfw-frame .editor-entities-saved-states__panel,
+body.wfw-frame .entities-saved-states__panel-header,
+body.wfw-frame .components-popover__content,
+body.wfw-frame .components-dropdown__content .components-popover__content,
+body.wfw-frame .components-modal__frame,
+body.wfw-frame .components-modal__header,
+body.wfw-frame .block-editor-inserter__menu,
+body.wfw-frame .block-editor-inserter__main-area,
+body.wfw-frame .block-editor-inserter__panel-header,
+body.wfw-frame .block-editor-inserter__search,
+body.wfw-frame .block-editor-block-inspector,
+body.wfw-frame .editor-post-panel__section,
+body.wfw-frame .editor-post-card-panel,
+body.wfw-frame .editor-sidebar,
+body.wfw-frame .editor-list-view-sidebar {
+    background: var( --wfw-editor-bg ) !important;
+    color: var( --wfw-text ) !important;
+    border-color: var( --wfw-border ) !important;
+}
+
+body.wfw-frame .interface-interface-skeleton__sidebar {
+    border-left-color: var( --wfw-border ) !important;
+    background: var( --wfw-editor-bg );
+}
+
+body.wfw-frame .components-popover__content,
+body.wfw-frame .components-modal__frame {
+    border: 1px solid var( --wfw-border ) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 30px rgba( 0, 0, 0, 0.18 ) !important;
+    outline: none !important;
+}
+
+body.wfw-frame .components-popover:not( .is-expanded ) .components-popover__content {
+    overflow: hidden;
+}
+
+body.wfw-frame .components-modal__screen-overlay {
+    background: rgba( 0, 0, 0, 0.3 );
+}
+
+body.wfw-frame .components-panel__body,
+body.wfw-frame .components-panel__header,
+body.wfw-frame .interface-complementary-area-header,
+body.wfw-frame .components-menu-group + .components-menu-group,
+body.wfw-frame .components-dropdown-menu__menu .components-menu-group + .components-menu-group,
+body.wfw-frame .editor-post-publish-panel__header,
+body.wfw-frame .editor-post-publish-panel__footer {
+    border-color: var( --wfw-border ) !important;
+}
+
+/* Text */
+body.wfw-frame .interface-complementary-area :is( h2, h3, label, legend, p, span, .components-panel__body-title, .components-base-control__label, .components-truncate ),
+body.wfw-frame .components-popover__content :is( h2, h3, label, legend, p, span ),
+body.wfw-frame .components-modal__frame :is( h1, h2, h3, label, p, span ),
+body.wfw-frame .editor-post-publish-panel :is( h2, h3, label, p, span, strong ) {
+    color: inherit;
+}
+
+body.wfw-frame .components-base-control__help,
+body.wfw-frame .components-form-token-field__help,
+body.wfw-frame .editor-post-card-panel__description,
+body.wfw-frame .editor-post-last-edited-panel,
+body.wfw-frame .components-menu-item__info,
+body.wfw-frame .components-menu-item__shortcut,
+body.wfw-frame .editor-post-panel__row-label {
+    color: var( --wfw-muted ) !important;
+}
+
+/* Buttons and menu items */
+body.wfw-frame :is( .interface-complementary-area, .components-popover__content, .components-modal__frame, .editor-post-publish-panel ) .components-button:not( .is-primary ):not( .is-destructive ) {
+    color: var( --wfw-text );
+}
+
+body.wfw-frame :is( .interface-complementary-area, .components-popover__content, .components-modal__frame, .editor-post-publish-panel ) .components-button.is-link,
+body.wfw-frame :is( .interface-complementary-area, .editor-post-publish-panel ) .components-button.is-tertiary {
+    color: var( --wfw-accent );
+}
+
+body.wfw-frame .components-panel__body-toggle.components-button,
+body.wfw-frame .components-panel__body-toggle .components-panel__arrow {
+    color: var( --wfw-text ) !important;
+}
+
+body.wfw-frame .components-panel__body-toggle.components-button:hover,
+body.wfw-frame .components-menu-item__button:hover:not( :disabled ),
+body.wfw-frame .components-menu-items-choice:hover:not( :disabled ),
+body.wfw-frame :is( .interface-complementary-area, .components-popover__content, .components-modal__frame ) .components-button:not( .is-primary ):hover:not( :disabled ) {
+    background: var( --wfw-list-active ) !important;
+    color: var( --wfw-text ) !important;
+}
+
+body.wfw-frame .components-menu-item__button,
+body.wfw-frame .components-menu-items-choice {
+    color: var( --wfw-text ) !important;
+    border-radius: 6px;
+}
+
+body.wfw-frame .components-menu-item__button svg,
+body.wfw-frame .components-panel__arrow {
+    fill: currentColor;
+}
+
+body.wfw-frame .components-button.is-secondary {
+    box-shadow: inset 0 0 0 1px var( --wfw-border ) !important;
+    color: var( --wfw-text ) !important;
+}
+
+/* Tabs */
+body.wfw-frame [role="tablist"] [role="tab"] {
+    color: var( --wfw-muted ) !important;
+}
+
+body.wfw-frame [role="tablist"] [role="tab"][aria-selected="true"] {
+    color: var( --wfw-text ) !important;
+}
+
+body.wfw-frame [role="tablist"] {
+    --indicator-color: var( --wfw-accent );
+    border-color: var( --wfw-border ) !important;
+}
+
+/* Form controls */
+body.wfw-frame :is( .interface-complementary-area, .components-popover__content, .components-modal__frame, .editor-post-publish-panel, .block-editor-inserter__menu ) :is(
+    input[type="text"], input[type="search"], input[type="url"], input[type="number"], input[type="email"], input[type="date"], input[type="time"], input[type="datetime-local"], input[type="password"], textarea, select,
+    .components-text-control__input, .components-textarea-control__input, .components-select-control__input, .components-input-control__input, .components-form-token-field__input-container, .components-search-control__input
+) {
+    background: var( --wfw-code-bg ) !important;
+    color: var( --wfw-text ) !important;
+    border-color: var( --wfw-border ) !important;
+}
+
+body.wfw-frame .components-input-control__backdrop {
+    border-color: var( --wfw-border ) !important;
+}
+
+body.wfw-frame .components-input-control__container {
+    background: var( --wfw-code-bg ) !important;
+}
+
+body.wfw-frame .components-form-token-field__input-container input[type="text"] {
+    background: transparent !important;
+}
+
+body.wfw-frame .components-form-token-field__token-text,
+body.wfw-frame .components-form-token-field__remove-token.components-button {
+    background: var( --wfw-list-active ) !important;
+    color: var( --wfw-text ) !important;
+}
+
+body.wfw-frame .components-form-token-field__suggestions-list {
+    background: var( --wfw-editor-bg );
+    border-color: var( --wfw-border ) !important;
+}
+
+body.wfw-frame .components-form-token-field__suggestion {
+    color: var( --wfw-text );
+}
+
+body.wfw-frame .components-form-token-field__suggestion.is-selected {
+    background: var( --wfw-accent );
+    color: #fff;
+}
+
+body.wfw-frame input[type="checkbox"],
+body.wfw-frame input[type="radio"] {
+    background: var( --wfw-code-bg );
+    border-color: var( --wfw-muted ) !important;
+}
+
+body.wfw-frame input[type="checkbox"]:checked,
+body.wfw-frame input[type="radio"]:checked {
+    background: var( --wfw-accent ) !important;
+    border-color: var( --wfw-accent ) !important;
+}
+
+body.wfw-frame ::placeholder {
+    color: var( --wfw-muted ) !important;
+    opacity: 1;
+}
+
+/* Hierarchical categories list, date picker, misc */
+body.wfw-frame .editor-post-taxonomies__hierarchical-terms-list,
+body.wfw-frame .components-datetime,
+body.wfw-frame .components-datetime__date,
+body.wfw-frame .components-datetime__time {
+    background: transparent;
+    color: var( --wfw-text );
+    border-color: var( --wfw-border ) !important;
+}
+
+body.wfw-frame .components-datetime__date button {
+    color: var( --wfw-text ) !important;
+}
+
+body.wfw-frame .components-snackbar {
+    background: var( --wfw-text );
+    color: var( --wfw-editor-bg );
+}
+
+body.wfw-frame .components-snackbar a,
+body.wfw-frame .components-snackbar .components-button {
+    color: var( --wfw-editor-bg ) !important;
+}
+
+body.wfw-frame .components-notice {
+    background: var( --wfw-code-bg );
+    color: var( --wfw-text );
+}
+
+body.wfw-frame .components-tooltip {
+    background: var( --wfw-text );
+    color: var( --wfw-editor-bg );
+}
+
+body.wfw-frame :is( .components-popover__content, .interface-complementary-area, .components-modal__frame, .editor-post-publish-panel ) :is( hr, .components-divider, .components-menu-group ) {
+    border-color: var( --wfw-border ) !important;
+}
+
+/* Toasts sit above the bottom formatting pill. */
+body.wfw-frame .components-snackbar-list {
+    bottom: 76px !important;
+}
+
+/*
+ * Top notices (e.g. "There is an autosave…") and the sidebar toggle are hidden.
+ * Errors still show so failed saves aren't silent. The settings sidebar is
+ * still reachable with the editor shortcut (Cmd/Ctrl + Shift + ,).
+ */
+body.wfw-frame .editor-notices :is( .components-notices__dismissible, .components-notices__pinned, .editor-notices__dismissible, .editor-notices__pinned ) .components-notice:not( .is-error ),
+body.wfw-frame .editor-header__settings .interface-pinned-items {
+    display: none !important;
+}
+
+/* Narrow editors (phones): the formatting pill scrolls sideways rather than overflowing. */
+@media ( max-width: 600px ) {
+    body.wfw-frame .editor-header .editor-collapsible-block-toolbar,
+    body.wfw-frame .interface-interface-skeleton__content > .block-editor-block-contextual-toolbar {
+        bottom: 12px;
+        max-width: calc( 100% - 24px );
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+    }
+
+    body.wfw-frame .block-editor-block-contextual-toolbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    body.wfw-frame .editor-header__settings {
+        top: 10px;
+        right: 8px;
+    }
+
+    body.wfw-frame .components-snackbar-list {
+        bottom: 68px !important;
+    }
+}
