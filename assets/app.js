@@ -87,10 +87,11 @@
         return '<svg viewBox="0 0 20 20" aria-hidden="true">' + ICONS[ name ] + '</svg>';
     }
 
+    // DOMParser builds an inert document: unlike innerHTML on a detached element,
+    // images don't load and inline handlers (onerror etc.) never run.
     function htmlToText( html ) {
-        const el = document.createElement( 'div' );
-        el.innerHTML = html || '';
-        return ( el.textContent || '' ).replace( /\s+/g, ' ' ).replace( /\s*\[…\]\s*$/, '…' ).trim();
+        const doc = new DOMParser().parseFromString( html || '', 'text/html' );
+        return ( doc.body.textContent || '' ).replace( /\s+/g, ' ' ).replace( /\s*\[…\]\s*$/, '…' ).trim();
     }
 
     function formatDate( iso ) {
