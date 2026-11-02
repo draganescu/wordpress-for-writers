@@ -79,7 +79,9 @@
             // Dock the block toolbar in the (bottom) header instead of floating over text.
             // Defaults are in-memory only, so the user's own editor preference is untouched.
             // Applied here because the editor sets its own defaults during initialization.
-            dispatch( 'core/preferences' )?.setDefaults( 'core', { fixedToolbar: true } );
+            // The sidebar toggle is hidden too, so default the settings sidebar to closed
+            // (the editor defaults it open on wide screens). Cmd/Ctrl+Shift+, reopens it.
+            dispatch( 'core/preferences' )?.setDefaults( 'core', { fixedToolbar: true, isComplementaryAreaVisible: false } );
             post( { type: 'ready', id } );
         }
 

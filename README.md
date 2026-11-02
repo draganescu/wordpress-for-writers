@@ -4,6 +4,10 @@ A WordPress plugin that replaces wp-admin with a calm, three-pane writing app in
 
 It still runs on the block editor, so your posts stay ordinary WordPress posts. The plugin only changes how you get to them and how writing feels.
 
+![Writer app on desktop: library sidebar, note list and editor](screenshots/desktop.png)
+
+<p align="center"><img src="screenshots/mobile.png" alt="Writer app on a phone: full-screen editor with the floating formatting bar" width="320"></p>
+
 ## Features
 
 - **Takeover:** writers land in the Writer app instead of the dashboard, both after logging in and when opening `/wp-admin/`.
