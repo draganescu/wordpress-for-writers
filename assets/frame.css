@@ -72,10 +72,7 @@ body.wfw-frame .editor-header {
 body.wfw-frame .editor-header__back-button,
 body.wfw-frame .editor-header__center,
 body.wfw-frame .editor-document-tools,
-body.wfw-frame .editor-header__settings > a.components-button,
-body.wfw-frame .editor-preview-dropdown,
-body.wfw-frame .editor-header__post-preview-button,
-body.wfw-frame .editor-header__settings > .components-dropdown-menu:last-child,
+body.wfw-frame :is( .editor-header__settings, .edit-post-header__settings ) > :not( .editor-post-publish-button__button, .editor-post-publish-panel__toggle, .editor-post-saved-state, .editor-post-save-draft ),
 body.wfw-frame .editor-collapsible-block-toolbar__toggle {
     display: none !important;
 }
@@ -152,10 +149,39 @@ body.wfw-frame .block-editor-block-contextual-toolbar :is( .block-editor-block-t
     align-items: center;
 }
 
+/* Dropdown wrappers are display:block upstream, which top-aligns their buttons. */
+body.wfw-frame .block-editor-block-contextual-toolbar .components-dropdown,
+body.wfw-frame .block-editor-block-contextual-toolbar .block-editor-block-toolbar > div:not( [class] ) {
+    display: flex;
+}
+
 body.wfw-frame .block-editor-block-contextual-toolbar .components-button {
     height: 36px;
     min-width: 36px;
     padding: 6px;
+}
+
+/*
+ * Undo the collapsible toolbar's header alignment: it pads the toolbar down 17px
+ * to center 32px buttons in a 64px header, and draws a trailing separator.
+ */
+body.wfw-frame .editor-collapsible-block-toolbar .block-editor-block-toolbar {
+    padding-top: 0 !important;
+}
+
+body.wfw-frame .editor-collapsible-block-toolbar::after {
+    display: none !important;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar :is( .components-toolbar-group, .components-toolbar ) {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+body.wfw-frame .block-editor-block-contextual-toolbar :is( .components-toolbar-group, .components-toolbar )::after {
+    top: 50% !important;
+    transform: translateY( -50% );
+    background-color: var( --wfw-border ) !important;
 }
 
 body.wfw-frame .block-editor-block-contextual-toolbar .components-toolbar-group:last-child,

@@ -385,7 +385,8 @@
         }
         editor.insertAdjacentHTML( 'beforeend', '<div class="wfw-editor__loading"></div>' );
         frame = document.createElement( 'iframe' );
-        frame.title = __( 'Editor', 'wordpress-for-writers' );
+        // aria-label rather than title: Safari shows an iframe's title as a hover tooltip.
+        frame.setAttribute( 'aria-label', __( 'Editor', 'wordpress-for-writers' ) );
         frame.src = src;
         editor.appendChild( frame );
     }
