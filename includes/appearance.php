@@ -140,6 +140,7 @@ add_action( 'init', function () {
         'show_in_rest'      => array(
             'schema' => array(
                 'type'                 => 'object',
+                'context'              => array( 'edit' ),
                 'properties'           => $properties,
                 'additionalProperties' => false,
             ),
