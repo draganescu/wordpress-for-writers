@@ -161,6 +161,19 @@
         } );
     }
 
+    // Tell the app once the canvas holds the content with our styles applied,
+    // so it can fade the editor in instead of showing an unstyled frame.
+    function postPainted( tries = 0 ) {
+        const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
+        const doc = canvas ? canvas.contentDocument : document;
+        const loaded = doc && doc.readyState === 'complete' && doc.querySelector( '.editor-styles-wrapper .is-root-container' );
+        if ( ! loaded && tries < 100 ) {
+            setTimeout( () => postPainted( tries + 1 ), 50 );
+            return;
+        }
+        requestAnimationFrame( () => requestAnimationFrame( () => post( { type: 'painted' } ) ) );
+    }
+
     let ready = false;
     let lastTitle = null;
     let wasSaving = false;
@@ -182,6 +195,7 @@
             // (the editor defaults it open on wide screens). Cmd/Ctrl+Shift+, reopens it.
             dispatch( 'core/preferences' )?.setDefaults( 'core', { fixedToolbar: true, isComplementaryAreaVisible: false } );
             post( { type: 'ready', id } );
+            postPainted();
         }
 
         // Same switch distraction-free mode flips: it turns off the in-between
