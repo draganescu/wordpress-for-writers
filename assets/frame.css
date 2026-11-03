@@ -239,6 +239,38 @@ body.wfw-frame .editor-header__settings .editor-post-publish-panel__toggle:hover
     box-shadow: none !important;
 }
 
+/* Publish panel Cancel/Publish: the same pills as the header, Publish filled. */
+body.wfw-frame .editor-post-publish-panel__header .components-button {
+    justify-content: center;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 16px;
+    background: var( --wfw-editor-bg ) !important;
+    color: var( --wfw-text ) !important;
+    box-shadow: inset 0 0 0 1px var( --wfw-border ) !important;
+    font-weight: 500;
+    outline: none;
+}
+
+body.wfw-frame .editor-post-publish-panel__header .components-button:not( .is-primary ):hover,
+body.wfw-frame .editor-post-publish-panel__header .components-button:not( .is-primary ):focus:not( :focus-visible ) {
+    box-shadow: inset 0 0 0 1px var( --wfw-muted ) !important;
+}
+
+body.wfw-frame .editor-post-publish-panel__header .components-button.is-primary {
+    background: var( --wfw-accent ) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+body.wfw-frame .editor-post-publish-panel__header .components-button.is-primary:hover:not( [aria-disabled="true"] ) {
+    background: color-mix( in srgb, var( --wfw-accent ) 88%, #000 ) !important;
+}
+
+body.wfw-frame .editor-post-publish-panel__header .components-button:focus-visible {
+    box-shadow: 0 0 0 2px var( --wfw-editor-bg ), 0 0 0 4px var( --wfw-accent ) !important;
+}
+
 body.wfw-frame .editor-header__settings .editor-post-publish-button[aria-disabled="true"] {
     color: var( --wfw-muted ) !important;
     opacity: 1;
