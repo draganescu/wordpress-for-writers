@@ -22,23 +22,28 @@ html {
     padding: 72px 40px 180px;
 }
 
-/* One centered column for title and content. */
+/*
+ * One centered column for title and content. The root container is doubled to
+ * beat the editor's own .is-root-container.alignfull and the hard-coded
+ * content width it puts on root children (the theme's, or 645px without one).
+ */
 .editor-styles-wrapper .editor-visual-editor__post-title-wrapper,
-.editor-styles-wrapper .is-root-container {
+.editor-styles-wrapper .is-root-container.is-root-container {
     max-width: var( --wfw-measure );
     margin-left: auto !important;
     margin-right: auto !important;
     padding: 0 !important;
 }
 
-.editor-styles-wrapper .is-root-container > * {
+.editor-styles-wrapper .is-root-container.is-root-container > *,
+.editor-styles-wrapper .editor-visual-editor__post-title-wrapper > * {
     max-width: 100%;
     margin-left: 0;
     margin-right: 0;
 }
 
-.editor-styles-wrapper .is-root-container > .alignwide,
-.editor-styles-wrapper .is-root-container > .alignfull {
+.editor-styles-wrapper .is-root-container.is-root-container > .alignwide,
+.editor-styles-wrapper .is-root-container.is-root-container > .alignfull {
     max-width: 100%;
 }
 
