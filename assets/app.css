@@ -43,6 +43,12 @@ body.wfw-takeover #wpbody-content {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Sized to the visible area by app.js while the iOS keyboard is up; it covers the home indicator. */
+.wfw.has-keyboard {
+    bottom: auto;
+    padding-bottom: 0;
+}
+
 .wfw.is-sidebar-hidden {
     grid-template-columns: 0 var( --wfw-list-w, 320px ) 1fr;
 }
