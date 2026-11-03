@@ -674,6 +674,27 @@
         }
     } );
 
+    /*
+     * iOS Safari overlays the keyboard instead of resizing the page, then pans
+     * the page to keep the caret in view, which pushes the top bar off screen
+     * and the editor's toolbar under the keyboard. While the keyboard is up,
+     * pin the app to exactly the visible area (following any pan), so the
+     * editor scrolls inside itself instead. Browsers that resize for the
+     * keyboard (interactive-widget=resizes-content) never get here.
+     */
+    const visible = window.visualViewport;
+    if ( visible ) {
+        const fitToKeyboard = () => {
+            const keyboardUp = window.innerHeight - visible.height > 80 && visible.scale < 1.01;
+            root.classList.toggle( 'has-keyboard', keyboardUp );
+            root.style.top = keyboardUp ? visible.offsetTop + 'px' : '';
+            root.style.height = keyboardUp ? visible.height + 'px' : '';
+        };
+        visible.addEventListener( 'resize', fitToKeyboard );
+        visible.addEventListener( 'scroll', fitToKeyboard );
+        window.addEventListener( 'scroll', fitToKeyboard );
+    }
+
     // ---- Boot --------------------------------------------------------------
 
     renderShell();

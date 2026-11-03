@@ -93,6 +93,23 @@
         } );
     }
 
+    // While the iOS keyboard is up the app shrinks the editor to the space above
+    // it (see app.js); bring the caret back into view inside the canvas then,
+    // leaving room for the toolbar.
+    function keepCaretVisible() {
+        const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
+        const win = canvas && canvas.contentWindow;
+        const selection = win && win.getSelection();
+        if ( ! selection || ! selection.rangeCount || ! isTyping() ) {
+            return;
+        }
+        const rect = selection.getRangeAt( 0 ).getBoundingClientRect();
+        const limit = win.innerHeight - 80;
+        if ( rect.height && rect.bottom > limit ) {
+            win.scrollBy( 0, rect.bottom - limit );
+        }
+    }
+
     // iOS reports the keyboard in steps while it animates, and its own scrolling
     // to keep the caret in view doesn't always fire an event at the end. So after
     // any change keep measuring every frame for a moment rather than trusting the
@@ -162,6 +179,7 @@
                     keyboard = -1;
                     // Typing and moving the caret can scroll the page under the keyboard too.
                     [ 'focusin', 'focusout', 'input', 'selectionchange' ].forEach( ( type ) => canvas.contentDocument.addEventListener( type, queueKeyboard, true ) );
+                    canvas.contentWindow.addEventListener( 'resize', keepCaretVisible );
                     queueKeyboard();
                 };
                 canvas.addEventListener( 'load', watch );
