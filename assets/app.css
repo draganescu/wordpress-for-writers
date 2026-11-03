@@ -378,6 +378,75 @@ body.wfw-takeover #wpbody-content {
     height: 100%;
     border: 0;
     background: var( --wfw-editor-bg );
+    transition: opacity 0.18s ease;
+}
+
+/* Hidden until its canvas has painted, so a loading frame never flashes white. */
+.wfw-editor iframe.is-loading {
+    opacity: 0;
+}
+
+.wfw-editor__skeleton {
+    position: absolute;
+    inset: 0;
+    /* Matches the canvas: its padding plus the editor's 4rem above the title. */
+    padding: calc( 72px + 64px ) 40px 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+
+.wfw-editor__skeleton-column {
+    max-width: var( --wfw-measure );
+    margin: 0 auto;
+    font-family: var( --wfw-font-body );
+    font-size: var( --wfw-size );
+    color: var( --wfw-text );
+}
+
+.wfw-editor__skeleton-title {
+    font-size: 1.75em;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.9em;
+}
+
+.wfw-editor__skeleton-column span {
+    display: block;
+    height: 0.75em;
+    margin: 0 0 1.1em;
+    border-radius: 4px;
+    background: var( --wfw-code-bg );
+    animation: wfw-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.wfw-editor__skeleton-column span:nth-child( even ) {
+    width: 85%;
+}
+
+.wfw-editor__skeleton-column span:last-child {
+    width: 60%;
+}
+
+@keyframes wfw-pulse {
+    from { opacity: 1; }
+    to { opacity: 0.5; }
+}
+
+.wfw-editor__skeleton.is-done,
+.wfw-editor__loading.is-done {
+    opacity: 0;
+}
+
+@media ( max-width: 600px ) {
+    .wfw-editor__skeleton {
+        padding: calc( 60px + 64px ) 20px 0;
+    }
+
+    .wfw-editor__skeleton-title {
+        font-size: 1.5em;
+    }
 }
 
 .wfw-editor__placeholder {
@@ -408,6 +477,7 @@ body.wfw-takeover #wpbody-content {
     background: linear-gradient( 90deg, transparent, var( --wfw-accent ), transparent );
     background-size: 50% 100%;
     animation: wfw-loading 1s linear infinite;
+    transition: opacity 0.18s ease;
     z-index: 2;
 }
 

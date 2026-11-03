@@ -56,6 +56,7 @@
 
     let frame = null;
     let frameReady = false;
+    let revealTimer = 0;
     let pendingReplies = {};
     let replySeq = 0;
     let listRequest = 0;
@@ -373,9 +374,32 @@
         return window.confirm( __( 'This published note has unsaved changes. Discard them?', 'wordpress-for-writers' ) );
     }
 
+    // Placeholder shown in the editor's colors while a note loads: its title from
+    // the list and a few faint lines, so switching notes never flashes white.
+    function skeletonHtml() {
+        const title = state.activeId && root.querySelector( `.wfw-note[data-id="${ state.activeId }"] .wfw-note__title:not(.is-empty)` );
+        const body = state.activeId ? '<span></span><span></span><span></span>' : '';
+        return `<div class="wfw-editor__skeleton" aria-hidden="true"><div class="wfw-editor__skeleton-column">${ title ? `<div class="wfw-editor__skeleton-title">${ esc( title.textContent ) }</div>` : '' }${ body }</div></div>`;
+    }
+
+    // The new frame stays transparent until its canvas has painted with our
+    // styles (or a timeout passes), then fades in over the skeleton.
+    function revealEditor() {
+        clearTimeout( revealTimer );
+        if ( ! frame ) {
+            return;
+        }
+        frame.classList.remove( 'is-loading' );
+        root.querySelectorAll( '.wfw-editor__loading, .wfw-editor__skeleton' ).forEach( ( el ) => {
+            el.classList.add( 'is-done' );
+            setTimeout( () => el.remove(), 250 );
+        } );
+    }
+
     function mountEditor( src ) {
         const editor = root.querySelector( '.wfw-editor' );
-        editor.querySelectorAll( 'iframe, .wfw-editor__placeholder, .wfw-editor__loading' ).forEach( ( el ) => el.remove() );
+        editor.querySelectorAll( 'iframe, .wfw-editor__placeholder, .wfw-editor__loading, .wfw-editor__skeleton' ).forEach( ( el ) => el.remove() );
+        clearTimeout( revealTimer );
         frameReady = false;
         root.classList.toggle( 'has-note', !! src );
         if ( ! src ) {
@@ -383,12 +407,14 @@
             editor.insertAdjacentHTML( 'beforeend', `<div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>` );
             return;
         }
-        editor.insertAdjacentHTML( 'beforeend', '<div class="wfw-editor__loading"></div>' );
+        editor.insertAdjacentHTML( 'beforeend', '<div class="wfw-editor__loading"></div>' + skeletonHtml() );
         frame = document.createElement( 'iframe' );
         // aria-label rather than title: Safari shows an iframe's title as a hover tooltip.
         frame.setAttribute( 'aria-label', __( 'Editor', 'wordpress-for-writers' ) );
+        frame.classList.add( 'is-loading' );
         frame.src = src;
         editor.appendChild( frame );
+        revealTimer = setTimeout( revealEditor, 8000 );
     }
 
     async function openNote( id ) {
@@ -432,11 +458,14 @@
             case 'ready': {
                 frameReady = true;
                 applyAppearance();
-                root.querySelector( '.wfw-editor__loading' )?.remove();
                 if ( data.id && state.activeId !== data.id ) {
                     state.activeId = data.id;
                     markActive();
                 }
+                break;
+            }
+            case 'painted': {
+                revealEditor();
                 break;
             }
             case 'title': {
