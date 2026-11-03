@@ -1,5 +1,7 @@
 # WordPress for Writers
 
+[![Try it in WordPress Playground](https://img.shields.io/badge/Try%20it%20in-WordPress%20Playground-3858e9?logo=wordpress&logoColor=white)](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/draganescu/wordpress-for-writers/trunk/blueprint.json)
+
 A WordPress plugin that replaces wp-admin with a calm, three-pane writing app inspired by [Bear](https://bear.app): a library sidebar, a note list, and a distraction-free editor.
 
 It still runs on the block editor, so your posts stay ordinary WordPress posts. The plugin only changes how you get to them and how writing feels.
@@ -24,6 +26,10 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
 - **Responsive:** on tablets the sidebar becomes a drawer, and on phones you see one pane at a time with back navigation.
 - **Focus mode:** hides everything but the editor.
 
+## Try it
+
+The **Try it in WordPress Playground** button opens a disposable WordPress in your browser with the plugin active and a demo blog, "The Slow Margin", already written. Nothing is installed and nothing is saved. The setup lives in `blueprint.json`, and the demo posts in `playground/demo-content.php`.
+
 ## Install
 
 Copy or clone this folder into `wp-content/plugins/` and activate **WordPress for Writers**. Requires WordPress 6.5+ and PHP 7.4+.
@@ -47,6 +53,7 @@ npx wp-env stop
 - `assets/app.js`, `assets/app.css`: the three-pane app.
 - `assets/frame.js`, `assets/frame.css`: run inside the embedded block editor. They handle messaging with the app, draft autosave, the fixed bottom toolbar, and theming of the editor UI.
 - `assets/editor-content.css`: the default writing surface inside the editor canvas.
+- `blueprint.json`, `playground/demo-content.php`: the Playground demo.
 
 ## License
 

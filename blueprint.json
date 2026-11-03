@@ -1,0 +1,30 @@
+{
+    "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+    "landingPage": "/wp-admin/admin.php?page=wfw",
+    "preferredVersions": {
+        "php": "8.3",
+        "wp": "latest"
+    },
+    "steps": [
+        {
+            "step": "login"
+        },
+        {
+            "step": "installPlugin",
+            "pluginData": {
+                "resource": "git:directory",
+                "url": "https://github.com/draganescu/wordpress-for-writers",
+                "ref": "trunk",
+                "refType": "branch"
+            },
+            "options": {
+                "activate": true,
+                "targetFolderName": "wordpress-for-writers"
+            }
+        },
+        {
+            "step": "runPHP",
+            "code": "<?php require '/wordpress/wp-load.php'; require WP_PLUGIN_DIR . '/wordpress-for-writers/playground/demo-content.php';"
+        }
+    ]
+}
