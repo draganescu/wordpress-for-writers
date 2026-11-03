@@ -39,6 +39,81 @@
 
     new MutationObserver( stampCanvas ).observe( document.body, { childList: true, subtree: true } );
 
+    /*
+     * Keep the bottom toolbar above the on-screen keyboard. iOS Safari (browser
+     * and home-screen app) overlays the keyboard on the page without resizing
+     * the layout viewport, so position: fixed; bottom stays hidden behind it.
+     * The top window's visual viewport is the part actually visible; the overlap
+     * between it and this frame's bottom edge becomes --wfw-keyboard, in this
+     * document and in the canvas. Only applied while text is focused, since iOS
+     * can leave the visual viewport short after the keyboard closes.
+     */
+    const viewport = window.parent.visualViewport;
+    let keyboard = -1;
+    let keyboardFrame = 0;
+
+    function isTyping() {
+        let el = document.activeElement;
+        while ( el && el.tagName === 'IFRAME' ) {
+            try {
+                el = el.contentDocument.activeElement;
+            } catch ( e ) {
+                return false;
+            }
+        }
+        return !! el && ( el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test( el.tagName ) );
+    }
+
+    function measureKeyboard() {
+        keyboardFrame = 0;
+        let overlap = 0;
+        if ( viewport && window.frameElement && isTyping() ) {
+            const bottom = window.frameElement.getBoundingClientRect().bottom;
+            overlap = Math.max( 0, Math.round( bottom - ( viewport.offsetTop + viewport.height ) ) );
+        }
+        if ( overlap === keyboard ) {
+            return;
+        }
+        keyboard = overlap;
+        const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
+        [ document, canvas && canvas.contentDocument ].forEach( ( doc ) => {
+            if ( doc && doc.documentElement ) {
+                doc.documentElement.style.setProperty( '--wfw-keyboard', overlap + 'px' );
+            }
+        } );
+    }
+
+    function queueKeyboard() {
+        if ( ! keyboardFrame ) {
+            keyboardFrame = requestAnimationFrame( measureKeyboard );
+        }
+    }
+
+    if ( viewport ) {
+        viewport.addEventListener( 'resize', queueKeyboard );
+        viewport.addEventListener( 'scroll', queueKeyboard );
+        // Focus moves inside the canvas iframe; focusin/out don't cross into this document.
+        [ 'focusin', 'focusout' ].forEach( ( type ) => {
+            document.addEventListener( type, queueKeyboard, true );
+            window.parent.document.addEventListener( type, queueKeyboard, true );
+        } );
+        new MutationObserver( () => {
+            const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
+            if ( canvas && ! canvas.dataset.wfwKeyboard ) {
+                canvas.dataset.wfwKeyboard = '1';
+                const watch = () => {
+                    keyboard = -1;
+                    [ 'focusin', 'focusout' ].forEach( ( type ) => canvas.contentDocument.addEventListener( type, queueKeyboard, true ) );
+                    queueKeyboard();
+                };
+                canvas.addEventListener( 'load', watch );
+                if ( canvas.contentDocument && canvas.contentDocument.readyState !== 'loading' ) {
+                    watch();
+                }
+            }
+        } ).observe( document.body, { childList: true, subtree: true } );
+    }
+
     function post( message ) {
         window.parent.postMessage( { source: 'wfw-frame', ...message }, window.location.origin );
     }

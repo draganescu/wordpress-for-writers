@@ -106,7 +106,8 @@ body.wfw-frame .interface-interface-skeleton__content > .block-editor-block-cont
     position: fixed !important;
     top: auto !important;
     right: auto !important;
-    bottom: 16px;
+    /* --wfw-keyboard: on-screen keyboard overlap, set by frame.js (iOS doesn't resize the layout). */
+    bottom: calc( 16px + var( --wfw-keyboard, 0px ) );
     left: 50%;
     transform: translateX( -50% );
     z-index: 40;
@@ -498,7 +499,7 @@ body.wfw-frame :is( .components-popover__content, .interface-complementary-area,
 
 /* Toasts sit above the bottom formatting pill. */
 body.wfw-frame .components-snackbar-list {
-    bottom: 76px !important;
+    bottom: calc( 76px + var( --wfw-keyboard, 0px ) ) !important;
 }
 
 /*
@@ -515,7 +516,7 @@ body.wfw-frame .editor-header__settings .interface-pinned-items {
 @media ( max-width: 600px ) {
     body.wfw-frame .editor-header .editor-collapsible-block-toolbar,
     body.wfw-frame .interface-interface-skeleton__content > .block-editor-block-contextual-toolbar {
-        bottom: 12px;
+        bottom: calc( 12px + var( --wfw-keyboard, 0px ) );
         max-width: calc( 100% - 24px );
         overflow-x: auto;
         overflow-y: hidden;
@@ -532,6 +533,6 @@ body.wfw-frame .editor-header__settings .interface-pinned-items {
     }
 
     body.wfw-frame .components-snackbar-list {
-        bottom: 68px !important;
+        bottom: calc( 68px + var( --wfw-keyboard, 0px ) ) !important;
     }
 }
