@@ -95,7 +95,22 @@
         }
     }
 
+    // After the keyboard closes, iOS can stop delivering taps to the editor
+    // iframes until something relayouts them (focusing the title "fixed" it).
+    // When the visual viewport grows back, force that relayout with a no-op
+    // transform on both frames for one frame.
+    let viewportHeight = viewport ? viewport.height : 0;
+    function refreshFrames() {
+        if ( viewport.height > viewportHeight + 80 ) {
+            const frames = [ window.frameElement, document.querySelector( 'iframe[name="editor-canvas"]' ) ].filter( Boolean );
+            frames.forEach( ( frame ) => ( frame.style.transform = 'translateZ(0)' ) );
+            requestAnimationFrame( () => frames.forEach( ( frame ) => ( frame.style.transform = '' ) ) );
+        }
+        viewportHeight = viewport.height;
+    }
+
     if ( viewport ) {
+        viewport.addEventListener( 'resize', refreshFrames );
         viewport.addEventListener( 'resize', queueKeyboard );
         viewport.addEventListener( 'scroll', queueKeyboard );
         // Focus moves inside the canvas iframe; focusin/out don't cross into this document.

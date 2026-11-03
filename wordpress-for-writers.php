@@ -80,8 +80,10 @@ add_action( 'load-toplevel_page_' . WFW_PAGE, function () {
     } );
     // Draw edge to edge (the app pads itself with the safe-area insets) and, where
     // supported (Chromium), shrink the layout when the on-screen keyboard opens.
+    // maximum-scale stops iOS zooming in on fields with text under 16px; iOS still
+    // allows pinch zoom regardless.
     add_filter( 'admin_viewport_meta', function () {
-        return 'width=device-width,initial-scale=1.0,viewport-fit=cover,interactive-widget=resizes-content';
+        return 'width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover,interactive-widget=resizes-content';
     } );
 } );
 
