@@ -57,6 +57,7 @@
     } catch ( e ) {}
     let keyboard = -1;
     let keyboardFrame = 0;
+    let keyboardSettle = 0;
 
     function isTyping() {
         let el = document.activeElement;
@@ -77,6 +78,9 @@
             const bottom = window.frameElement.getBoundingClientRect().bottom;
             overlap = Math.max( 0, Math.round( bottom - ( viewport.offsetTop + viewport.height ) ) );
         }
+        if ( performance.now() < keyboardSettle ) {
+            keyboardFrame = requestAnimationFrame( measureKeyboard );
+        }
         if ( overlap === keyboard ) {
             return;
         }
@@ -89,27 +93,56 @@
         } );
     }
 
+    // iOS reports the keyboard in steps while it animates, and its own scrolling
+    // to keep the caret in view doesn't always fire an event at the end. So after
+    // any change keep measuring every frame for a moment rather than trusting the
+    // last event, which could leave the toolbar parked behind the keyboard.
     function queueKeyboard() {
+        keyboardSettle = performance.now() + 800;
         if ( ! keyboardFrame ) {
             keyboardFrame = requestAnimationFrame( measureKeyboard );
         }
     }
 
-    // Dismissing the iOS keyboard (Done) blurs the text but leaves the block
-    // selected: the toolbar stays up, and tapping that block again doesn't
-    // bring the caret back until another block (or the title) is selected.
-    // When the visual viewport grows back and focus is nowhere, drop the
-    // selection so the next tap starts fresh.
-    let viewportHeight = viewport ? viewport.height : 0;
+    // Dismissing the iOS keyboard (Done) leaves the block selected: the toolbar
+    // stays up, and tapping that block again doesn't bring the caret back until
+    // something else is selected (tapping empty canvas "fixes" it). So once the
+    // keyboard has gone from open to closed, drop focus and selection, unless
+    // focus moved to a control in the editor chrome. Keyboard state is judged
+    // against the tallest viewport seen, after resizing settles: iPhones resize
+    // in several small steps while the keyboard animates.
+    let fullHeight = viewport ? viewport.height : 0;
+    let fullWidth = viewport ? viewport.width : 0;
+    let keyboardOpen = false;
+    let settleTimer = 0;
+
     function clearStaleSelection() {
-        if ( viewport.height > viewportHeight + 80 ) {
+        if ( viewport.width !== fullWidth ) {
+            fullWidth = viewport.width;
+            fullHeight = 0;
+        }
+        fullHeight = Math.max( fullHeight, viewport.height );
+        clearTimeout( settleTimer );
+        settleTimer = setTimeout( () => {
+            if ( viewport.height < fullHeight - 150 ) {
+                keyboardOpen = true;
+                return;
+            }
+            if ( ! keyboardOpen || viewport.height < fullHeight - 80 ) {
+                return;
+            }
+            keyboardOpen = false;
             const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
             const focused = document.activeElement;
-            if ( ( ! focused || focused === document.body || focused === canvas ) && ! isTyping() ) {
-                dispatch( 'core/block-editor' ).clearSelectedBlock();
+            if ( focused && focused !== document.body && focused !== canvas ) {
+                return;
             }
-        }
-        viewportHeight = viewport.height;
+            const editable = canvas && canvas.contentDocument && canvas.contentDocument.activeElement;
+            if ( editable && editable.isContentEditable ) {
+                editable.blur();
+            }
+            dispatch( 'core/block-editor' ).clearSelectedBlock();
+        }, 250 );
     }
 
     if ( viewport ) {
@@ -127,7 +160,8 @@
                 canvas.dataset.wfwKeyboard = '1';
                 const watch = () => {
                     keyboard = -1;
-                    [ 'focusin', 'focusout' ].forEach( ( type ) => canvas.contentDocument.addEventListener( type, queueKeyboard, true ) );
+                    // Typing and moving the caret can scroll the page under the keyboard too.
+                    [ 'focusin', 'focusout', 'input', 'selectionchange' ].forEach( ( type ) => canvas.contentDocument.addEventListener( type, queueKeyboard, true ) );
                     queueKeyboard();
                 };
                 canvas.addEventListener( 'load', watch );
