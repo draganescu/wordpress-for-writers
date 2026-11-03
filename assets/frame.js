@@ -48,7 +48,13 @@
      * document and in the canvas. Only applied while text is focused, since iOS
      * can leave the visual viewport short after the keyboard closes.
      */
-    const viewport = window.parent.visualViewport;
+    // Chromium cross-origin isolates the editor (Document-Isolation-Policy), which
+    // blocks access to the parent. It resizes for the keyboard on its own anyway
+    // (interactive-widget=resizes-content), so there is nothing to measure there.
+    let viewport = null;
+    try {
+        viewport = window.parent.visualViewport;
+    } catch ( e ) {}
     let keyboard = -1;
     let keyboardFrame = 0;
 
@@ -180,6 +186,15 @@
             post( { type: 'saved', id, status: editor().getCurrentPostAttribute( 'status' ) } );
         }
         wasSaving = saving;
+
+        // Drafts save themselves every few seconds, so "Draft saved." toasts would
+        // pile up over the toolbar. Explicit Update/Publish confirmations still show.
+        if ( isDraft() ) {
+            const notice = select( 'core/notices' ).getNotices().find( ( n ) => n.id === 'editor-save' && n.type === 'snackbar' );
+            if ( notice ) {
+                dispatch( 'core/notices' ).removeNotice( notice.id );
+            }
+        }
 
         // Bear-style: drafts save themselves. Published notes still need an explicit Update.
         clearTimeout( autosaveTimer );
