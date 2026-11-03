@@ -15,6 +15,11 @@ html.wp-toolbar:has( body.wfw-takeover ) {
     padding-top: 0;
 }
 
+/* iOS can show past the layout viewport (keyboard open, toolbars collapsing); match the app there. */
+html:has( body.wfw-takeover ) {
+    background: var( --wfw-editor-bg );
+}
+
 body.wfw-takeover #wpcontent,
 body.wfw-takeover #wpbody-content {
     margin: 0;
@@ -29,6 +34,8 @@ body.wfw-takeover #wpbody-content {
     inset: 0;
     z-index: 1000;
     display: grid;
+    /* Keep clear of the notch, home indicator and Safari's floating bar (viewport-fit=cover). */
+    padding: env( safe-area-inset-top, 0px ) env( safe-area-inset-right, 0px ) env( safe-area-inset-bottom, 0px ) env( safe-area-inset-left, 0px );
     grid-template-columns: var( --wfw-sidebar-w, 220px ) var( --wfw-list-w, 320px ) 1fr;
     font-family: var( --wfw-font );
     color: var( --wfw-list-fg );

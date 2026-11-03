@@ -78,6 +78,11 @@ add_action( 'load-toplevel_page_' . WFW_PAGE, function () {
     add_filter( 'admin_body_class', function ( $classes ) {
         return $classes . ' wfw-takeover';
     } );
+    // Draw edge to edge (the app pads itself with the safe-area insets) and, where
+    // supported (Chromium), shrink the layout when the on-screen keyboard opens.
+    add_filter( 'admin_viewport_meta', function () {
+        return 'width=device-width,initial-scale=1.0,viewport-fit=cover,interactive-widget=resizes-content';
+    } );
 } );
 
 add_action( 'admin_enqueue_scripts', function ( $hook ) {

@@ -236,7 +236,7 @@ html {
 
 @media ( max-width: 600px ) {
     .editor-styles-wrapper {
-        padding: 60px 20px 140px;
+        padding: 60px 20px calc( 140px + var( --wfw-keyboard, 0px ) );
     }
 
     .editor-styles-wrapper .editor-post-title,
