@@ -95,22 +95,25 @@
         }
     }
 
-    // After the keyboard closes, iOS can stop delivering taps to the editor
-    // iframes until something relayouts them (focusing the title "fixed" it).
-    // When the visual viewport grows back, force that relayout with a no-op
-    // transform on both frames for one frame.
+    // Dismissing the iOS keyboard (Done) blurs the text but leaves the block
+    // selected: the toolbar stays up, and tapping that block again doesn't
+    // bring the caret back until another block (or the title) is selected.
+    // When the visual viewport grows back and focus is nowhere, drop the
+    // selection so the next tap starts fresh.
     let viewportHeight = viewport ? viewport.height : 0;
-    function refreshFrames() {
+    function clearStaleSelection() {
         if ( viewport.height > viewportHeight + 80 ) {
-            const frames = [ window.frameElement, document.querySelector( 'iframe[name="editor-canvas"]' ) ].filter( Boolean );
-            frames.forEach( ( frame ) => ( frame.style.transform = 'translateZ(0)' ) );
-            requestAnimationFrame( () => frames.forEach( ( frame ) => ( frame.style.transform = '' ) ) );
+            const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
+            const focused = document.activeElement;
+            if ( ( ! focused || focused === document.body || focused === canvas ) && ! isTyping() ) {
+                dispatch( 'core/block-editor' ).clearSelectedBlock();
+            }
         }
         viewportHeight = viewport.height;
     }
 
     if ( viewport ) {
-        viewport.addEventListener( 'resize', refreshFrames );
+        viewport.addEventListener( 'resize', clearStaleSelection );
         viewport.addEventListener( 'resize', queueKeyboard );
         viewport.addEventListener( 'scroll', queueKeyboard );
         // Focus moves inside the canvas iframe; focusin/out don't cross into this document.
