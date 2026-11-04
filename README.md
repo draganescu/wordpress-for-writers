@@ -22,7 +22,7 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
   - No block inserters or "Type / to choose a block" coaching.
 - **Autosave for drafts:** drafts save themselves as you type. Published posts still need an explicit Update.
 - **Live titles:** the note list updates as you type a title.
-- **Appearance:** 9 themes (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light/Dark, Dracula, Nord), plus font (serif, sans, mono), text size and line width. Choices are saved per user and apply live.
+- **Appearance:** 10 themes (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light/Dark, Dracula, Nord, and WordPress in wp-admin's Modern colours), plus font (serif, sans, mono), text size and line width. Choices are saved per user and apply live.
 - **Responsive:** on tablets the sidebar becomes a drawer, and on phones you see one pane at a time with back navigation.
 - **Focus mode:** hides everything but the editor.
 
