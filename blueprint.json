@@ -23,6 +23,34 @@
             }
         },
         {
+            "step": "installPlugin",
+            "pluginData": {
+                "resource": "git:directory",
+                "url": "https://github.com/draganescu/wordpress-for-writers",
+                "ref": "trunk",
+                "refType": "branch",
+                "path": "plugins/writer-subscribe"
+            },
+            "options": {
+                "activate": true,
+                "targetFolderName": "writer-subscribe"
+            }
+        },
+        {
+            "step": "installPlugin",
+            "pluginData": {
+                "resource": "git:directory",
+                "url": "https://github.com/draganescu/wordpress-for-writers",
+                "ref": "trunk",
+                "refType": "branch",
+                "path": "plugins/writer-members"
+            },
+            "options": {
+                "activate": true,
+                "targetFolderName": "writer-members"
+            }
+        },
+        {
             "step": "runPHP",
             "code": "<?php require '/wordpress/wp-load.php'; require WP_PLUGIN_DIR . '/wordpress-for-writers/playground/demo-content.php';"
         }

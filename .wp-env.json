@@ -1,6 +1,6 @@
 {
     "core": null,
-    "plugins": [ "." ],
+    "plugins": [ ".", "./plugins/writer-subscribe", "./plugins/writer-members" ],
     "port": 8890,
     "testsPort": 8891
 }
