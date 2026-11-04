@@ -643,8 +643,8 @@
         if ( ! settings.featuredImages || ! wp.element?.createRoot || ! wp.components || ! wp.coreData || ! wp.mediaUtils ) {
             return null;
         }
-        const { createElement: el, useState, useRef } = wp.element;
-        const { Button, DropZone, FormFileUpload, Notice, Spinner } = wp.components;
+        const { createElement: el, useState, useRef, useEffect } = wp.element;
+        const { Button, DropZone, FormFileUpload, Notice, SearchControl, Spinner } = wp.components;
         const { useSelect, useDispatch } = wp.data;
         const coreStore = wp.coreData.store;
         const PER_PAGE = 24;
@@ -665,6 +665,9 @@
 
         function Panel( { postId, onBack, onSaved } ) {
             const [ pages, setPages ] = useState( 1 );
+            const [ searchInput, setSearchInput ] = useState( '' );
+            const [ search, setSearch ] = useState( '' );
+            const sentinelRef = useRef( null );
             const [ busy, setBusy ] = useState( '' );
             const [ error, setError ] = useState( '' );
             const uploadedRef = useRef( false );
@@ -679,6 +682,9 @@
                 let totalPages = 1;
                 for ( let page = 1; page <= pages; page++ ) {
                     const query = { media_type: 'image', per_page: PER_PAGE, page };
+                    if ( search ) {
+                        query.search = search;
+                    }
                     const records = core.getEntityRecords( 'postType', 'attachment', query );
                     loading = loading || records === null;
                     items = items.concat( records || [] );
@@ -691,7 +697,34 @@
                     libraryLoading: loading,
                     hasMore: pages < totalPages,
                 };
-            }, [ postId, pages ] );
+            }, [ postId, pages, search ] );
+
+            // Search as you type, a moment after typing stops; each new search starts from page one.
+            useEffect( () => {
+                const value = searchInput.trim();
+                const timer = setTimeout( () => {
+                    if ( value !== search ) {
+                        setSearch( value );
+                        setPages( 1 );
+                    }
+                }, 300 );
+                return () => clearTimeout( timer );
+            }, [ searchInput, search ] );
+
+            // Load the next page when the end of the grid scrolls into view. The panel is the scroller.
+            useEffect( () => {
+                const sentinel = sentinelRef.current;
+                if ( ! sentinel || ! hasMore || libraryLoading ) {
+                    return;
+                }
+                const observer = new window.IntersectionObserver( ( [ entry ] ) => {
+                    if ( entry.isIntersecting ) {
+                        setPages( ( count ) => count + 1 );
+                    }
+                }, { root: sentinel.closest( '.wfw-media' ), rootMargin: '0px 0px 400px 0px' } );
+                observer.observe( sentinel );
+                return () => observer.disconnect();
+            }, [ hasMore, libraryLoading ] );
 
             const lockedBy = post?.wfw_locked_by || '';
             const currentId = post?.featured_media || 0;
@@ -779,8 +812,25 @@
                     !! currentId && el( Button, { variant: 'tertiary', isDestructive: true, onClick: () => setImage( 0 ), disabled, __next40pxDefaultSize: true }, __( 'Remove', 'wordpress-for-writers' ) ),
                     status && el( 'span', { className: 'wfw-media__status', role: 'status' }, el( Spinner ), status )
                 ),
-                library.length > 0 && el( 'h3', { className: 'wfw-media__label' }, __( 'Your images', 'wordpress-for-writers' ) ),
-                library.length > 0 && el( 'div', { className: 'wfw-media__grid', role: 'list' },
+                el( 'div', { className: 'wfw-media__library-head' },
+                    el( 'h3', { className: 'wfw-media__label', id: 'wfw-media-library' }, __( 'Your images', 'wordpress-for-writers' ) ),
+                    el( SearchControl, {
+                        className: 'wfw-media__search',
+                        value: searchInput,
+                        onChange: setSearchInput,
+                        label: __( 'Search images', 'wordpress-for-writers' ),
+                        placeholder: __( 'Search images', 'wordpress-for-writers' ),
+                        size: 'compact',
+                        __nextHasNoMarginBottom: true,
+                    } )
+                ),
+                ! libraryLoading && ! library.length && el( 'p', { className: 'wfw-media__none' },
+                    search
+                        /* translators: %s: the search terms. */
+                        ? sprintf( __( 'No images match “%s”.', 'wordpress-for-writers' ), search )
+                        : __( 'No images yet.', 'wordpress-for-writers' )
+                ),
+                library.length > 0 && el( 'div', { className: 'wfw-media__grid', role: 'list', 'aria-labelledby': 'wfw-media-library', 'aria-busy': libraryLoading },
                     library.map( ( media ) => el( 'div', { key: media.id, role: 'listitem' },
                         el( Button, {
                             className: 'wfw-media__tile',
@@ -793,8 +843,8 @@
                         }, el( 'img', { src: mediaUrl( media, [ 'thumbnail', 'medium' ] ), alt: '', loading: 'lazy' } ) )
                     ) )
                 ),
-                libraryLoading && el( 'div', { className: 'wfw-media__loading' }, el( Spinner ) ),
-                hasMore && ! libraryLoading && el( Button, { variant: 'secondary', className: 'wfw-media__more', onClick: () => setPages( pages + 1 ) }, __( 'Show more', 'wordpress-for-writers' ) )
+                hasMore && el( 'div', { ref: sentinelRef, className: 'wfw-media__sentinel', 'aria-hidden': true } ),
+                libraryLoading && el( 'div', { className: 'wfw-media__loading' }, el( Spinner ) )
             );
         }
 
