@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/theme.json",
+    "version": 3,
+    "title": "Toothpaste",
+    "settings": {
+        "color": {
+            "palette": [
+                { "slug": "base", "name": "Base", "color": "#ffffff" },
+                { "slug": "surface", "name": "Surface", "color": "#eef6f7" },
+                { "slug": "line", "name": "Line", "color": "#dfeaec" },
+                { "slug": "muted", "name": "Muted", "color": "#67777d" },
+                { "slug": "contrast", "name": "Contrast", "color": "#36454b" },
+                { "slug": "accent", "name": "Accent", "color": "#00808f" },
+                { "slug": "accent-contrast", "name": "On accent", "color": "#ffffff" }
+            ]
+        },
+        "custom": {
+            "error": "#b32d2e"
+        }
+    }
+}

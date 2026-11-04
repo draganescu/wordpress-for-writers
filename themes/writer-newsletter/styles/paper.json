@@ -5,19 +5,17 @@
     "settings": {
         "color": {
             "palette": [
-                { "slug": "base", "name": "Base", "color": "#f8f4ec" },
-                { "slug": "surface", "name": "Surface", "color": "#efe9dd" },
-                { "slug": "line", "name": "Line", "color": "#e0d8c8" },
-                { "slug": "muted", "name": "Muted", "color": "#625d55" },
-                { "slug": "contrast", "name": "Contrast", "color": "#24211c" },
-                { "slug": "accent", "name": "Accent", "color": "#9a3d1b" },
+                { "slug": "base", "name": "Base", "color": "#fbf8f2" },
+                { "slug": "surface", "name": "Surface", "color": "#efe8da" },
+                { "slug": "line", "name": "Line", "color": "#e6dfd1" },
+                { "slug": "muted", "name": "Muted", "color": "#7e6e56" },
+                { "slug": "contrast", "name": "Contrast", "color": "#3d3122" },
+                { "slug": "accent", "name": "Accent", "color": "#966731" },
                 { "slug": "accent-contrast", "name": "On accent", "color": "#ffffff" }
             ]
-        }
-    },
-    "styles": {
-        "typography": {
-            "lineHeight": "1.7"
+        },
+        "custom": {
+            "error": "#b32d2e"
         }
     }
 }

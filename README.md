@@ -40,22 +40,22 @@ To reach the classic dashboard, use **Classic dashboard** in the sidebar footer 
 
 Three reading themes for the public side of the site live in `themes/`. Each is a standalone block theme (theme.json v3, no build step) that you can zip and install on its own, and none of them needs the plugin.
 
-| Theme | Feel | Home page | Style variations |
-| --- | --- | --- | --- |
-| [Writer Newsletter](themes/writer-newsletter/readme.txt) | One narrow column, like an email issue | Dated list of posts | Default, Paper, Night (dark) |
-| [Writer Essay](themes/writer-essay/readme.txt) | Elegant long read with a quiet sans-serif interface, drop cap option and author bio | One featured essay, then a list | Default, Linen, Ink (dark) |
-| [Writer Longform](themes/writer-longform/readme.txt) | Magazine feature with a full-bleed hero, chapter headings and wide pull quotes | Lead story cover, then a grid | Default, Newsprint, Midnight (dark) |
+| Theme | Feel | Home page |
+| --- | --- | --- |
+| [Writer Newsletter](themes/writer-newsletter/readme.txt) | One narrow column, like an email issue | Dated list of posts |
+| [Writer Essay](themes/writer-essay/readme.txt) | Elegant long read with a quiet sans-serif interface, drop cap option and author bio | One featured essay, then a list |
+| [Writer Longform](themes/writer-longform/readme.txt) | Magazine feature with a full-bleed hero, chapter headings and wide pull quotes | Lead story cover, then a grid |
 
-Each theme has templates for the home page, posts, pages, archives, search and 404, header and footer parts, its own patterns, a reading-time line, and bundled open-licence fonts (Source Serif 4, Literata, Fraunces and Inter, all under the SIL Open Font License).
+Every theme offers the Writer app's ten colour schemes as style variations (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the public site can match the editor; System follows the reader's light or dark setting. Each theme also has templates for the home page, posts, pages, archives, search and 404, header and footer parts, its own patterns, a reading-time line, and bundled open-licence fonts (Source Serif 4, Literata, Fraunces and Inter, all under the SIL Open Font License).
 
 When the Writer Subscribe plugin is active, the themes add its form after posts and in the footer, plus a Subscribe button in the header. These pieces are patterns that the theme registers only if the `writer-subscribe/form` block exists, so without the plugin they don't render at all. The form picks up the theme's colours through the plugin's `--wsub-*` custom properties.
 
-The Playground demo installs all three and activates Writer Newsletter. Screenshots of each theme in light and dark, at desktop and phone widths, are in `screenshots/themes/`.
+The Playground demo installs all three and activates Writer Newsletter. Screenshots of each theme in light and dark, at desktop and phone widths, plus a sheet of all ten colour schemes per theme (`*-variations.jpg`), are in `screenshots/themes/`.
 
 <p>
 <img src="screenshots/themes/writer-newsletter-single-desktop-light.jpg" alt="Writer Newsletter: a post in the light style" width="32%">
 <img src="screenshots/themes/writer-essay-home-desktop-light.jpg" alt="Writer Essay: the home page in the light style" width="32%">
-<img src="screenshots/themes/writer-longform-home-desktop-dark.jpg" alt="Writer Longform: the home page in the dark style" width="32%">
+<img src="screenshots/themes/writer-longform-home-desktop-dark.jpg" alt="Writer Longform: the home page in Solarized Dark" width="32%">
 </p>
 
 ## Development
