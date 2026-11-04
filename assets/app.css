@@ -96,13 +96,34 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-sidebar__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 18px 16px 10px;
     font-size: 13px;
     font-weight: 600;
     color: var( --wfw-sidebar-muted );
     white-space: nowrap;
+}
+
+.wfw-sidebar__name {
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.wfw-sidebar__icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var( --wfw-border );
+    border-radius: 4px;
+    object-fit: cover;
+    opacity: 0;
+}
+
+/* Set by app.js once the image has loaded. */
+.wfw-sidebar__icon.is-loaded {
+    opacity: 1;
 }
 
 .wfw-sidebar__scroll {

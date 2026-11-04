@@ -97,6 +97,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'adminUrl'    => admin_url(),
             'siteUrl'     => home_url( '/' ),
             'siteName'    => get_bloginfo( 'name' ),
+            'siteIcon'    => get_site_icon_url( 64 ),
             'userName'    => $user->display_name,
             // 48px for the 24px avatar on retina screens; empty when the site hides avatars.
             'avatarUrl'   => get_option( 'show_avatars' ) ? get_avatar_url( $user->ID, array( 'size' => 48 ) ) : '',
