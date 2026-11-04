@@ -75,14 +75,11 @@ body.wfw-takeover #wpbody-content {
     cursor: pointer;
 }
 
+/* @wordpress/icons glyphs are drawn on a 24px grid; at 20px their lines keep the old 16px icons' weight. */
 .wfw svg {
-    width: 16px;
-    height: 16px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
     flex: none;
 }
 
@@ -148,7 +145,7 @@ body.wfw-takeover #wpbody-content {
 .wfw-nav__icon {
     color: var( --wfw-sidebar-muted );
     display: inline-flex;
-    width: 16px;
+    width: 20px;
     justify-content: center;
 }
 
@@ -172,24 +169,120 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-sidebar-muted );
 }
 
+/* Footer: the account menu button, then the site actions as icon buttons. The avatar centres on the nav icons' column. */
 .wfw-sidebar__foot {
+    position: relative;
     border-top: 1px solid var( --wfw-sidebar-border );
-    padding: 8px;
+    padding: 10px 6px 10px 14px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
 }
 
-.wfw-sidebar__foot a {
-    color: var( --wfw-sidebar-muted );
-    text-decoration: none;
+/* Avatar, name and chevron in a capsule that hugs them; it opens the account menu. */
+.wfw-user {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -2px auto -2px -2px;
+    padding: 2px;
+    border-radius: 14px;
     font-size: 13px;
-    padding: 5px 8px;
-    border-radius: 6px;
+    font-weight: 500;
+    text-align: left;
+    color: var( --wfw-sidebar-fg );
 }
 
-.wfw-sidebar__foot a:hover {
-    color: var( --wfw-sidebar-fg );
+.wfw-user:hover,
+.wfw-user[aria-expanded="true"] {
     background: var( --wfw-sidebar-active );
+}
+
+.wfw-user > svg {
+    margin-left: -6px;
+    color: var( --wfw-sidebar-muted );
+}
+
+/* Hover like the sidebar's nav items, which holds even when the sidebar's tones differ from the list's. */
+.wfw-sidebar__foot .wfw-icon-btn:hover {
+    color: var( --wfw-sidebar-fg ) !important;
+    background: var( --wfw-sidebar-active ) !important;
+}
+
+.wfw-user__avatar {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var( --wfw-sidebar-active );
+    color: var( --wfw-sidebar-muted );
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.wfw-user__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The account menu opens upward over the nav list, inside the sidebar (which clips overflow). */
+.wfw-menu {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc( 100% + 4px );
+    z-index: 2;
+    padding: 4px;
+    /* The note list's colors, so the highlighted item reads like a selected note in every palette. */
+    background: var( --wfw-list-bg );
+    border: 1px solid var( --wfw-border );
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
+}
+
+/* The .wfw prefix outranks wp-admin's a:hover / a:focus colors and focus ring. */
+.wfw .wfw-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 6px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    text-decoration: none;
+    color: var( --wfw-list-fg );
+}
+
+.wfw .wfw-menu__item:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.wfw .wfw-menu__item:hover,
+.wfw .wfw-menu__item:focus-visible {
+    color: var( --wfw-list-fg );
+    background: var( --wfw-list-active );
+}
+
+.wfw-menu__item svg {
+    color: var( --wfw-list-muted );
+}
+
+.wfw-menu__item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wfw-menu__separator {
+    height: 1px;
+    margin: 4px 6px;
+    background: var( --wfw-border );
 }
 
 /* Note list */
@@ -335,27 +428,42 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-list-muted );
 }
 
-.wfw-badge {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 1px 5px;
-    border-radius: 4px;
-    border: 1px solid currentColor;
+/* Featured image: a fixed square, so the row keeps its height while the image loads. */
+.wfw-note__thumb {
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 8px;
+    object-fit: cover;
+    border: 1px solid var( --wfw-border );
+    border-radius: 6px;
+    background: var( --wfw-code-bg );
 }
 
-.wfw-badge--publish {
-    color: #3a8a5c;
+/* Status icon at the end of the meta row, below the hover actions, at the app's icon size. Private keeps the muted color. */
+.wfw-note__status {
+    display: inline-flex;
+    margin-left: auto;
+    color: var( --wfw-list-muted );
 }
 
-.wfw-badge--future {
-    color: #3b74c4;
+.wfw-note__status--publish {
+    color: var( --wfw-status-publish );
 }
 
+.wfw-note__status--future {
+    color: var( --wfw-status-future );
+}
+
+.wfw-note__status--draft,
+.wfw-note__status--pending {
+    color: var( --wfw-status-draft );
+}
+
+/* Centered on the title line, so in rows without an excerpt they stay clear of the status icon. */
 .wfw-note__actions {
     position: absolute;
-    top: 10px;
+    top: 7px;
     right: 10px;
     display: none;
     gap: 2px;
@@ -473,7 +581,6 @@ body.wfw-takeover #wpbody-content {
 .wfw-editor__placeholder svg {
     width: 40px;
     height: 40px;
-    stroke-width: 1.2;
     opacity: 0.5;
 }
 
@@ -547,6 +654,11 @@ body.wfw-takeover #wpbody-content {
     .wfw.is-sidebar-open .wfw-sidebar {
         transform: none;
         box-shadow: 0 0 40px rgba( 0, 0, 0, 0.2 );
+    }
+
+    /* The drawer is fixed to the whole viewport, so keep its footer above the home indicator. */
+    .wfw-sidebar__foot {
+        padding-bottom: calc( 10px + env( safe-area-inset-bottom, 0px ) );
     }
 
     .wfw.is-sidebar-open .wfw-scrim {
@@ -736,17 +848,4 @@ body.wfw-takeover #wpbody-content {
     background: var( --wfw-editor-bg ) !important;
     color: var( --wfw-text ) !important;
     box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.12 );
-}
-
-.wfw-sidebar__foot button {
-    color: var( --wfw-sidebar-muted );
-    font-size: 13px;
-    padding: 5px 8px;
-    border-radius: 6px;
-    text-align: left;
-}
-
-.wfw-sidebar__foot button:hover {
-    color: var( --wfw-sidebar-fg );
-    background: var( --wfw-sidebar-active );
 }

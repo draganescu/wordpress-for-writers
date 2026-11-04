@@ -168,6 +168,16 @@ add_action( 'init', function () {
 } );
 
 /**
+ * Colors of the note list's status icons: one set for light palettes and one for
+ * dark, each at least 3:1 against every palette's list and selected-row backgrounds.
+ */
+function wfw_status_colors( $dark ) {
+    return $dark
+        ? array( 'publish' => '#5cc98a', 'future' => '#6aa8f0', 'draft' => '#e6c04a' )
+        : array( 'publish' => '#1e8a3e', 'future' => '#2a6fc0', 'draft' => '#a67c00' );
+}
+
+/**
  * CSS for every theme, font, size and width, keyed off root data attributes.
  */
 function wfw_appearance_css() {
@@ -209,6 +219,9 @@ function wfw_appearance_css() {
         $css = 'color-scheme:' . ( $theme['dark'] ? 'dark' : 'light' ) . ';';
         foreach ( $theme['colors'] + $fallbacks as $key => $color ) {
             $css .= '--wfw-' . $map[ $key ] . ':' . $color . ';';
+        }
+        foreach ( wfw_status_colors( $theme['dark'] ) as $status => $color ) {
+            $css .= '--wfw-status-' . $status . ':' . $color . ';';
         }
         // The sidebar's own scheme, so its scrollbar suits a sidebar darker than the list.
         $css .= '--wfw-sidebar-scheme:' . ( ( $theme['sidebarDark'] ?? $theme['dark'] ) ? 'dark' : 'light' ) . ';';
