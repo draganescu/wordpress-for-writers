@@ -11,6 +11,13 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Theme palettes. "system" follows the OS light/dark setting.
+ *
+ * A sidebar that doesn't share the list's tones (a dark sidebar beside a white
+ * list) can set its own: `sidebarDark` next to `dark`, and in `colors`
+ * `sidebarBorder`, `sidebarCurrent`, `sidebarCurrentFg` and `sidebarCurrentIcon`
+ * (the current item's background, text and icon) and `listHover` (the search field
+ * and the list's buttons). Left out, they follow `dark`, `border`, `hover`, `text`,
+ * `accent` and `hover`.
  */
 function wfw_themes() {
     return array(
@@ -86,6 +93,18 @@ function wfw_themes() {
                 'text' => '#e5e9f0', 'muted' => '#8f9bb3', 'accent' => '#88c0d0', 'code' => '#3b4252', 'mark' => '#5e5537',
             ),
         ),
+        // wp-admin's Modern scheme: a dark sidebar beside a white list and editor.
+        'wordpress'       => array(
+            'label'       => __( 'WordPress', 'wordpress-for-writers' ),
+            'dark'        => false,
+            'sidebarDark' => true,
+            'colors'      => array(
+                'sidebar' => '#1e1e1e', 'sidebarFg' => '#ffffff', 'sidebarMuted' => 'rgba(255,255,255,.7)', 'hover' => '#2f2f2f',
+                'list' => '#ffffff', 'active' => '#f0f0f0', 'border' => '#e0e0e0', 'bg' => '#ffffff',
+                'text' => '#1e1e1e', 'muted' => '#757575', 'accent' => '#3858e9', 'code' => '#f0f0f0', 'mark' => '#fbe7a1',
+                'sidebarBorder' => '#2f2f2f', 'sidebarCurrent' => '#3858e9', 'sidebarCurrentFg' => '#ffffff', 'sidebarCurrentIcon' => '#ffffff', 'listHover' => '#f0f0f0',
+            ),
+        ),
     );
 }
 
@@ -149,6 +168,16 @@ add_action( 'init', function () {
 } );
 
 /**
+ * Colors of the note list's status icons: one set for light palettes and one for
+ * dark, each at least 3:1 against every palette's list and selected-row backgrounds.
+ */
+function wfw_status_colors( $dark ) {
+    return $dark
+        ? array( 'publish' => '#5cc98a', 'future' => '#6aa8f0', 'draft' => '#e6c04a' )
+        : array( 'publish' => '#1e8a3e', 'future' => '#2a6fc0', 'draft' => '#a67c00' );
+}
+
+/**
  * CSS for every theme, font, size and width, keyed off root data attributes.
  */
 function wfw_appearance_css() {
@@ -168,11 +197,34 @@ function wfw_appearance_css() {
         'mark'         => 'mark',
     );
 
-    $declarations = function ( $theme ) use ( $map ) {
+    // Optional keys (see wfw_themes()) fall back to the shared token they split from,
+    // so palettes without them render as before.
+    $map += array(
+        'sidebarBorder'      => 'sidebar-border',
+        'sidebarCurrent'     => 'sidebar-current',
+        'sidebarCurrentFg'   => 'sidebar-current-fg',
+        'sidebarCurrentIcon' => 'sidebar-current-icon',
+        'listHover'          => 'list-hover',
+    );
+
+    $fallbacks = array(
+        'sidebarBorder'      => 'var(--wfw-border)',
+        'sidebarCurrent'     => 'var(--wfw-sidebar-active)',
+        'sidebarCurrentFg'   => 'var(--wfw-list-fg)',
+        'sidebarCurrentIcon' => 'var(--wfw-accent)',
+        'listHover'          => 'var(--wfw-sidebar-active)',
+    );
+
+    $declarations = function ( $theme ) use ( $map, $fallbacks ) {
         $css = 'color-scheme:' . ( $theme['dark'] ? 'dark' : 'light' ) . ';';
-        foreach ( $theme['colors'] as $key => $color ) {
+        foreach ( $theme['colors'] + $fallbacks as $key => $color ) {
             $css .= '--wfw-' . $map[ $key ] . ':' . $color . ';';
         }
+        foreach ( wfw_status_colors( $theme['dark'] ) as $status => $color ) {
+            $css .= '--wfw-status-' . $status . ':' . $color . ';';
+        }
+        // The sidebar's own scheme, so its scrollbar suits a sidebar darker than the list.
+        $css .= '--wfw-sidebar-scheme:' . ( ( $theme['sidebarDark'] ?? $theme['dark'] ) ? 'dark' : 'light' ) . ';';
         return $css . '--wfw-list-fg:var(--wfw-text);--wfw-list-muted:var(--wfw-muted);';
     };
 

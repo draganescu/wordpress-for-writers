@@ -75,14 +75,11 @@ body.wfw-takeover #wpbody-content {
     cursor: pointer;
 }
 
+/* @wordpress/icons glyphs are drawn on a 24px grid; at 20px their lines keep the old 16px icons' weight. */
 .wfw svg {
-    width: 16px;
-    height: 16px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
     flex: none;
 }
 
@@ -90,7 +87,8 @@ body.wfw-takeover #wpbody-content {
 .wfw-sidebar {
     background: var( --wfw-sidebar-bg );
     color: var( --wfw-sidebar-fg );
-    border-right: 1px solid var( --wfw-border );
+    border-right: 1px solid var( --wfw-sidebar-border );
+    color-scheme: var( --wfw-sidebar-scheme );
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -98,13 +96,34 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-sidebar__head {
-    padding: 18px 16px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 18px 16px;
     font-size: 13px;
     font-weight: 600;
     color: var( --wfw-sidebar-muted );
     white-space: nowrap;
+}
+
+.wfw-sidebar__name {
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.wfw-sidebar__icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var( --wfw-border );
+    border-radius: 4px;
+    object-fit: cover;
+    opacity: 0;
+}
+
+/* Set by app.js once the image has loaded. */
+.wfw-sidebar__icon.is-loaded {
+    opacity: 1;
 }
 
 .wfw-sidebar__scroll {
@@ -113,13 +132,28 @@ body.wfw-takeover #wpbody-content {
     padding: 0 8px 16px;
 }
 
+/* Categories and Tags headings: nav items (.wfw-nav) that fold the list below them. */
 .wfw-sidebar__section {
-    margin: 18px 8px 6px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var( --wfw-sidebar-muted );
+    margin-top: 12px;
+}
+
+/* ICONS.back points left: turned to point right while folded, down while open. */
+.wfw-sidebar__chevron {
+    transform: rotate( 180deg );
+    transition: transform 0.15s ease;
+}
+
+.wfw-sidebar__section[aria-expanded="true"] .wfw-sidebar__chevron {
+    transform: rotate( 270deg );
+}
+
+.wfw-sidebar__section[aria-expanded="false"] + .wfw-sidebar__items {
+    display: none;
+}
+
+/* Items under a heading start where its label does: row padding + icon slot + gap. */
+.wfw-sidebar__items .wfw-nav {
+    padding-left: calc( 8px + 20px + 9px );
 }
 
 .wfw-nav {
@@ -139,20 +173,21 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-nav.is-active {
-    background: var( --wfw-sidebar-active );
-    color: var( --wfw-list-fg );
+    background: var( --wfw-sidebar-current );
+    color: var( --wfw-sidebar-current-fg );
     font-weight: 600;
 }
 
+/* min-width, not width: nested categories put their indent in here too. */
 .wfw-nav__icon {
     color: var( --wfw-sidebar-muted );
     display: inline-flex;
-    width: 16px;
+    min-width: 20px;
     justify-content: center;
 }
 
 .wfw-nav.is-active .wfw-nav__icon {
-    color: var( --wfw-accent );
+    color: var( --wfw-sidebar-current-icon );
 }
 
 .wfw-nav__hash {
@@ -171,24 +206,120 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-sidebar-muted );
 }
 
+/* Footer: the account menu button, then the site actions as icon buttons. The avatar centres on the nav icons' column. */
 .wfw-sidebar__foot {
-    border-top: 1px solid var( --wfw-border );
-    padding: 8px;
+    position: relative;
+    border-top: 1px solid var( --wfw-sidebar-border );
+    padding: 10px 6px 10px 14px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
 }
 
-.wfw-sidebar__foot a {
-    color: var( --wfw-sidebar-muted );
-    text-decoration: none;
+/* Avatar, name and chevron in a capsule that hugs them; it opens the account menu. */
+.wfw-user {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -2px auto -2px -2px;
+    padding: 2px;
+    border-radius: 14px;
     font-size: 13px;
-    padding: 5px 8px;
-    border-radius: 6px;
+    font-weight: 500;
+    text-align: left;
+    color: var( --wfw-sidebar-fg );
 }
 
-.wfw-sidebar__foot a:hover {
-    color: var( --wfw-sidebar-fg );
+.wfw-user:hover,
+.wfw-user[aria-expanded="true"] {
     background: var( --wfw-sidebar-active );
+}
+
+.wfw-user > svg {
+    margin-left: -6px;
+    color: var( --wfw-sidebar-muted );
+}
+
+/* Hover like the sidebar's nav items, which holds even when the sidebar's tones differ from the list's. */
+.wfw-sidebar__foot .wfw-icon-btn:hover {
+    color: var( --wfw-sidebar-fg ) !important;
+    background: var( --wfw-sidebar-active ) !important;
+}
+
+.wfw-user__avatar {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var( --wfw-sidebar-active );
+    color: var( --wfw-sidebar-muted );
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.wfw-user__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The account menu opens upward over the nav list, inside the sidebar (which clips overflow). */
+.wfw-menu {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc( 100% + 4px );
+    z-index: 2;
+    padding: 4px;
+    /* The note list's colors, so the highlighted item reads like a selected note in every palette. */
+    background: var( --wfw-list-bg );
+    border: 1px solid var( --wfw-border );
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
+}
+
+/* The .wfw prefix outranks wp-admin's a:hover / a:focus colors and focus ring. */
+.wfw .wfw-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 6px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    text-decoration: none;
+    color: var( --wfw-list-fg );
+}
+
+.wfw .wfw-menu__item:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.wfw .wfw-menu__item:hover,
+.wfw .wfw-menu__item:focus-visible {
+    color: var( --wfw-list-fg );
+    background: var( --wfw-list-active );
+}
+
+.wfw-menu__item svg {
+    color: var( --wfw-list-muted );
+}
+
+.wfw-menu__item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wfw-menu__separator {
+    height: 1px;
+    margin: 4px 6px;
+    background: var( --wfw-border );
 }
 
 /* Note list */
@@ -220,7 +351,7 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-icon-btn:hover {
-    background: var( --wfw-sidebar-active ) !important;
+    background: var( --wfw-list-hover ) !important;
     color: var( --wfw-list-fg ) !important;
 }
 
@@ -236,7 +367,7 @@ body.wfw-takeover #wpbody-content {
     padding: 0 8px;
     height: 28px;
     border-radius: 7px;
-    background: var( --wfw-sidebar-active );
+    background: var( --wfw-list-hover );
     color: var( --wfw-list-muted );
 }
 
@@ -258,11 +389,104 @@ body.wfw-takeover #wpbody-content {
     box-shadow: none;
 }
 
+.wfw-list__head {
+    position: relative;
+    z-index: 5;
+    padding: 6px 10px 0;
+}
+
+/* The list's name opens its options (sorting, preview style), like Bear's list title. */
 .wfw-list__title {
-    padding: 10px 16px 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    max-width: 100%;
+    padding: 4px 4px 4px 6px;
+    border-radius: 6px;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: var( --wfw-list-muted ) !important;
+}
+
+.wfw-list__title:hover,
+.wfw-list__title[aria-expanded="true"] {
+    background: var( --wfw-list-hover );
+    color: var( --wfw-list-fg ) !important;
+}
+
+.wfw-list__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wfw-list__title svg {
+    width: 16px;
+    height: 16px;
+}
+
+.wfw-list-menu {
+    position: absolute;
+    top: calc( 100% + 4px );
+    left: 10px;
+    width: 220px;
+    max-width: calc( 100% - 20px );
+    max-height: calc( 100vh - 140px );
+    overflow-y: auto;
+    padding: 6px;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border: 1px solid var( --wfw-border );
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba( 0, 0, 0, 0.18 );
+    font-size: 13px;
+}
+
+.wfw-list-menu__count {
+    padding: 4px 10px 6px;
     font-size: 12px;
+    color: var( --wfw-muted );
+}
+
+.wfw-list-menu__label {
+    padding: 6px 10px 2px;
+    font-size: 11px;
     font-weight: 600;
-    color: var( --wfw-list-muted );
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var( --wfw-muted );
+}
+
+.wfw-list-menu__sep {
+    margin: 5px 4px;
+    border-top: 1px solid var( --wfw-border );
+}
+
+.wfw-list-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 10px 5px 6px !important;
+    border-radius: 6px;
+    text-align: left;
+    outline: none;
+}
+
+.wfw-list-menu__item:hover,
+.wfw-list-menu__item:focus-visible {
+    background: var( --wfw-list-hover ) !important;
+}
+
+.wfw-list-menu__item svg {
+    width: 18px;
+    height: 18px;
+    color: var( --wfw-accent );
+}
+
+.wfw-list-menu__spacer {
+    width: 18px;
+    flex: none;
 }
 
 .wfw-list__items {
@@ -320,7 +544,7 @@ body.wfw-takeover #wpbody-content {
     line-height: 1.45;
     color: var( --wfw-list-muted );
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: var( --wfw-preview-lines, 2 );
     -webkit-box-orient: vertical;
     overflow: hidden;
     margin-bottom: 8px;
@@ -334,27 +558,42 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-list-muted );
 }
 
-.wfw-badge {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 1px 5px;
-    border-radius: 4px;
-    border: 1px solid currentColor;
+/* Featured image: a fixed square, so the row keeps its height while the image loads. */
+.wfw-note__thumb {
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 8px;
+    object-fit: cover;
+    border: 1px solid var( --wfw-border );
+    border-radius: 6px;
+    background: var( --wfw-code-bg );
 }
 
-.wfw-badge--publish {
-    color: #3a8a5c;
+/* Status icon at the end of the meta row, below the hover actions, at the app's icon size. Private keeps the muted color. */
+.wfw-note__status {
+    display: inline-flex;
+    margin-left: auto;
+    color: var( --wfw-list-muted );
 }
 
-.wfw-badge--future {
-    color: #3b74c4;
+.wfw-note__status--publish {
+    color: var( --wfw-status-publish );
 }
 
+.wfw-note__status--future {
+    color: var( --wfw-status-future );
+}
+
+.wfw-note__status--draft,
+.wfw-note__status--pending {
+    color: var( --wfw-status-draft );
+}
+
+/* Centered on the title line, so in rows without an excerpt they stay clear of the status icon. */
 .wfw-note__actions {
     position: absolute;
-    top: 10px;
+    top: 7px;
     right: 10px;
     display: none;
     gap: 2px;
@@ -472,7 +711,6 @@ body.wfw-takeover #wpbody-content {
 .wfw-editor__placeholder svg {
     width: 40px;
     height: 40px;
-    stroke-width: 1.2;
     opacity: 0.5;
 }
 
@@ -546,6 +784,11 @@ body.wfw-takeover #wpbody-content {
     .wfw.is-sidebar-open .wfw-sidebar {
         transform: none;
         box-shadow: 0 0 40px rgba( 0, 0, 0, 0.2 );
+    }
+
+    /* The drawer is fixed to the whole viewport, so keep its footer above the home indicator. */
+    .wfw-sidebar__foot {
+        padding-bottom: calc( 10px + env( safe-area-inset-bottom, 0px ) );
     }
 
     .wfw.is-sidebar-open .wfw-scrim {
@@ -805,15 +1048,302 @@ body.wfw-takeover #wpbody-content {
     box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.12 );
 }
 
-.wfw-sidebar__foot button {
-    color: var( --wfw-sidebar-muted );
-    font-size: 13px;
-    padding: 5px 8px;
+/*
+ * Featured image panel: replaces the editor while a note's image is being
+ * chosen. Built from @wordpress/components, themed with the app's tokens the
+ * same way frame.css themes the editor's own components.
+ */
+.wfw-note__thumb-btn {
+    display: block;
+    margin-bottom: 8px;
     border-radius: 6px;
-    text-align: left;
 }
 
-.wfw-sidebar__foot button:hover {
-    color: var( --wfw-sidebar-fg );
-    background: var( --wfw-sidebar-active );
+.wfw-note__thumb-btn .wfw-note__thumb {
+    margin-bottom: 0;
+    transition: opacity 0.15s ease;
+}
+
+.wfw-note__thumb-btn:hover .wfw-note__thumb {
+    opacity: 0.85;
+}
+
+.wfw-note__thumb-btn:focus-visible {
+    outline: 2px solid var( --wfw-accent );
+    outline-offset: 2px;
+}
+
+.wfw-media {
+    /*
+     * WPDS tokens, which @wordpress/components read since WordPress 7.0, set
+     * from the app's theme. The admin theme color still drives some
+     * components (and older WordPress), so it follows the accent too.
+     */
+    --wpds-color-foreground-interactive-brand: var( --wfw-accent );
+    --wpds-color-foreground-interactive-brand-active: color-mix( in srgb, var( --wfw-accent ) 80%, var( --wfw-text ) );
+    --wpds-color-foreground-interactive-brand-strong: #ffffff;
+    --wpds-color-foreground-interactive-neutral: var( --wfw-text );
+    --wpds-color-foreground-interactive-neutral-active: var( --wfw-text );
+    --wpds-color-foreground-interactive-neutral-disabled: var( --wfw-muted );
+    --wpds-color-foreground-content-neutral: var( --wfw-text );
+    --wpds-color-foreground-content-neutral-weak: var( --wfw-muted );
+    --wpds-color-foreground-content-error: var( --wfw-text );
+    --wpds-color-foreground-content-warning: var( --wfw-text );
+    --wpds-color-background-surface-neutral: var( --wfw-editor-bg );
+    --wpds-color-background-surface-neutral-strong: var( --wfw-editor-bg );
+    --wpds-color-background-interactive-neutral-weak-active: var( --wfw-code-bg );
+    --wpds-color-background-surface-error-weak: color-mix( in srgb, #d63638 14%, var( --wfw-editor-bg ) );
+    --wpds-color-background-surface-warning-weak: color-mix( in srgb, #dba617 14%, var( --wfw-editor-bg ) );
+    --wpds-color-stroke-surface-neutral: var( --wfw-border );
+    --wpds-color-stroke-surface-error: color-mix( in srgb, #d63638 45%, var( --wfw-editor-bg ) );
+    --wpds-color-stroke-surface-warning: color-mix( in srgb, #dba617 45%, var( --wfw-editor-bg ) );
+    --wpds-color-stroke-interactive-neutral: var( --wfw-muted );
+    --wpds-color-stroke-interactive-neutral-strong: var( --wfw-text );
+    --wpds-color-stroke-interactive-neutral-disabled: var( --wfw-border );
+    --wpds-color-stroke-focus: var( --wfw-accent );
+    --wp-admin-theme-color: var( --wfw-accent );
+    --wp-admin-theme-color-darker-10: color-mix( in srgb, var( --wfw-accent ) 90%, #000 );
+    --wp-admin-theme-color-darker-20: color-mix( in srgb, var( --wfw-accent ) 80%, #000 );
+    --wp-components-color-accent: var( --wfw-accent );
+    --wp-components-color-accent-darker-10: color-mix( in srgb, var( --wfw-accent ) 90%, #000 );
+    --wp-components-color-accent-darker-20: color-mix( in srgb, var( --wfw-accent ) 80%, #000 );
+    --wp-components-color-accent-inverted: #ffffff;
+    --wp-components-color-background: var( --wfw-editor-bg );
+    --wp-components-color-foreground: var( --wfw-text );
+    --wp-components-color-gray-100: var( --wfw-code-bg );
+    --wp-components-color-gray-200: var( --wfw-border );
+    --wp-components-color-gray-300: var( --wfw-border );
+    --wp-components-color-gray-400: var( --wfw-muted );
+    --wp-components-color-gray-600: var( --wfw-muted );
+    --wp-components-color-gray-700: var( --wfw-muted );
+    --wp-components-color-gray-800: var( --wfw-text );
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    padding: 56px 24px 48px;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    font-family: var( --wfw-font-ui );
+}
+
+/* The app sizes its own icons at 20px; components size theirs. */
+.wfw .components-spinner {
+    width: 16px;
+    height: 16px;
+}
+
+.wfw-media__column {
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+.wfw-media__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.wfw-media__heading {
+    min-width: 0;
+}
+
+.wfw-media__eyebrow,
+.wfw-media .wfw-media__label {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var( --wfw-muted );
+}
+
+.wfw-media .wfw-media__title {
+    margin: 4px 0 0;
+    padding: 0;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var( --wfw-text );
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wfw-media .wfw-media__title.is-empty {
+    color: var( --wfw-muted );
+}
+
+.wfw-media .components-button svg {
+    width: 20px;
+    height: 20px;
+}
+
+.wfw-media__notice.components-notice {
+    margin: 0 0 var( --wpds-dimension-padding-lg, 16px );
+}
+
+.wfw-media__current {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    max-height: 420px;
+    overflow: hidden;
+    border: 1px solid var( --wfw-border );
+    border-radius: var( --wpds-border-radius-lg, 8px );
+    background: var( --wfw-code-bg );
+}
+
+.wfw-media__current img {
+    display: block;
+    width: 100%;
+    max-height: 420px;
+    object-fit: contain;
+}
+
+.wfw-media__current.is-empty {
+    border-style: dashed;
+}
+
+.wfw-media__current .components-drop-zone {
+    border-radius: var( --wpds-border-radius-lg, 8px );
+}
+
+.wfw-media__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    max-width: 280px;
+    padding: 24px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var( --wfw-muted );
+}
+
+.wfw .wfw-media__empty svg {
+    width: 32px;
+    height: 32px;
+    opacity: 0.6;
+}
+
+.wfw-media__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var( --wpds-dimension-gap-sm, 8px );
+    margin: 14px 0 32px;
+}
+
+.wfw-media__status {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    color: var( --wfw-muted );
+}
+
+.wfw-media__status .components-spinner {
+    margin: 0 6px 0 0;
+}
+
+.wfw-media__library-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var( --wpds-dimension-gap-md, 12px );
+    margin-bottom: var( --wpds-dimension-gap-md, 12px );
+}
+
+.wfw-media__search {
+    flex: 0 1 240px;
+    min-width: 0;
+}
+
+.wfw-media__none {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: var( --wfw-muted );
+}
+
+.wfw-media__sentinel {
+    height: 1px;
+}
+
+.wfw-media__grid {
+    display: grid;
+    grid-template-columns: repeat( auto-fill, minmax( 96px, 1fr ) );
+    gap: var( --wpds-dimension-gap-md, 12px );
+}
+
+.wfw-media .wfw-media__tile.components-button {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    padding: 0;
+    overflow: hidden;
+    border-radius: var( --wpds-border-radius-lg, 8px );
+    background: var( --wfw-code-bg );
+    box-shadow: inset 0 0 0 1px var( --wfw-border );
+}
+
+.wfw-media__tile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.15s ease;
+}
+
+.wfw-media .wfw-media__tile.components-button:hover:not( [aria-disabled="true"] ) img {
+    transform: scale( 1.03 );
+}
+
+/* Selected: a ring in the accent color, instead of the components' filled pressed state. */
+.wfw-media .wfw-media__tile.components-button.is-pressed,
+.wfw-media .wfw-media__tile.components-button.is-pressed:hover {
+    background: var( --wfw-code-bg );
+    box-shadow: 0 0 0 2px var( --wfw-editor-bg ), 0 0 0 4px var( --wfw-accent );
+}
+
+.wfw-media .wfw-media__tile.components-button[aria-disabled="true"]:not( .is-pressed ) {
+    opacity: 0.6;
+}
+
+.wfw-media__loading {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+}
+
+@media ( max-width: 700px ) {
+    .wfw-media {
+        padding: 56px 16px 32px;
+    }
+
+    .wfw-media__head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wfw-media__head .components-button {
+        align-self: flex-start;
+    }
+
+    .wfw-media__library-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wfw-media__search {
+        flex-basis: auto;
+    }
+
+    .wfw-media__grid {
+        grid-template-columns: repeat( auto-fill, minmax( 76px, 1fr ) );
+    }
 }
