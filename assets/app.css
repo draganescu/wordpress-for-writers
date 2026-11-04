@@ -75,14 +75,11 @@ body.wfw-takeover #wpbody-content {
     cursor: pointer;
 }
 
+/* @wordpress/icons glyphs are drawn on a 24px grid; at 20px their lines keep the old 16px icons' weight. */
 .wfw svg {
-    width: 16px;
-    height: 16px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
     flex: none;
 }
 
@@ -147,7 +144,7 @@ body.wfw-takeover #wpbody-content {
 .wfw-nav__icon {
     color: var( --wfw-sidebar-muted );
     display: inline-flex;
-    width: 16px;
+    width: 20px;
     justify-content: center;
 }
 
@@ -171,24 +168,46 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-sidebar-muted );
 }
 
+/* Footer: who is signed in, then the account and site actions as icon buttons. The avatar centres on the nav icons' column. */
 .wfw-sidebar__foot {
     border-top: 1px solid var( --wfw-border );
-    padding: 8px;
+    padding: 10px 6px 10px 14px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
 }
 
-.wfw-sidebar__foot a {
-    color: var( --wfw-sidebar-muted );
-    text-decoration: none;
+.wfw-user {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 4px;
     font-size: 13px;
-    padding: 5px 8px;
-    border-radius: 6px;
+    font-weight: 500;
+    color: var( --wfw-sidebar-fg );
 }
 
-.wfw-sidebar__foot a:hover {
-    color: var( --wfw-sidebar-fg );
+.wfw-user__avatar {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
     background: var( --wfw-sidebar-active );
+    color: var( --wfw-sidebar-muted );
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.wfw-user__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Note list */
@@ -472,7 +491,6 @@ body.wfw-takeover #wpbody-content {
 .wfw-editor__placeholder svg {
     width: 40px;
     height: 40px;
-    stroke-width: 1.2;
     opacity: 0.5;
 }
 
@@ -546,6 +564,11 @@ body.wfw-takeover #wpbody-content {
     .wfw.is-sidebar-open .wfw-sidebar {
         transform: none;
         box-shadow: 0 0 40px rgba( 0, 0, 0, 0.2 );
+    }
+
+    /* The drawer is fixed to the whole viewport, so keep its footer above the home indicator. */
+    .wfw-sidebar__foot {
+        padding-bottom: calc( 10px + env( safe-area-inset-bottom, 0px ) );
     }
 
     .wfw.is-sidebar-open .wfw-scrim {
@@ -735,17 +758,4 @@ body.wfw-takeover #wpbody-content {
     background: var( --wfw-editor-bg ) !important;
     color: var( --wfw-text ) !important;
     box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.12 );
-}
-
-.wfw-sidebar__foot button {
-    color: var( --wfw-sidebar-muted );
-    font-size: 13px;
-    padding: 5px 8px;
-    border-radius: 6px;
-    text-align: left;
-}
-
-.wfw-sidebar__foot button:hover {
-    color: var( --wfw-sidebar-fg );
-    background: var( --wfw-sidebar-active );
 }
