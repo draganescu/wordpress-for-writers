@@ -132,6 +132,11 @@ body.wfw-takeover #wpbody-content {
     padding: 0 8px 16px;
 }
 
+/* Categories and tags pinned to the main menu, set apart from the built-in views above them. */
+.wfw-sidebar__pins {
+    margin-top: 12px;
+}
+
 /* Categories and Tags headings: nav items (.wfw-nav) that fold the list below them. */
 .wfw-sidebar__section {
     margin-top: 12px;
@@ -166,6 +171,9 @@ body.wfw-takeover #wpbody-content {
     font-size: 14px;
     text-align: left;
     white-space: nowrap;
+    /* A long press opens a category's or tag's context menu on touch screens, rather than selecting its name. */
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .wfw-nav:hover {
@@ -288,14 +296,16 @@ body.wfw-takeover #wpbody-content {
     box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
 }
 
-/* The .wfw prefix outranks wp-admin's a:hover / a:focus colors and focus ring. */
+/* The .wfw prefix outranks wp-admin's a:hover / a:focus colors and focus ring. Items are links or (in context menus) buttons. */
 .wfw .wfw-menu__item {
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
     padding: 4px 8px 4px 6px;
     border-radius: 6px;
     font-size: 13px;
+    text-align: left;
     white-space: nowrap;
     text-decoration: none;
     color: var( --wfw-list-fg );
@@ -346,6 +356,50 @@ body.wfw-takeover #wpbody-content {
     height: 1px;
     margin: 4px 6px;
     background: var( --wfw-border );
+}
+
+/*
+ * Context menus: the same card, at the pointer (app.js keeps it inside the
+ * window). Above the tablet drawer and its scrim, below the Appearance sheet.
+ */
+.wfw .wfw-menu--context {
+    position: fixed;
+    right: auto;
+    bottom: auto;
+    z-index: 1060;
+    min-width: 200px;
+    max-width: calc( 100vw - 16px );
+    overflow-y: auto;
+    outline: none;
+}
+
+/* The note or sidebar item a context menu is open for. */
+.wfw-note.has-menu,
+.wfw-nav.has-menu {
+    box-shadow: inset 0 0 0 2px var( --wfw-accent );
+}
+
+/* A short confirmation, such as "Link copied", at the foot of the window. */
+.wfw-toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc( 24px + env( safe-area-inset-bottom, 0px ) );
+    z-index: 1200;
+    max-width: calc( 100vw - 32px );
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var( --wfw-text );
+    color: var( --wfw-editor-bg );
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
+    transform: translateX( -50% );
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.wfw-toast.is-visible {
+    opacity: 1;
 }
 
 /* Note list */
