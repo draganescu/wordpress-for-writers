@@ -6,37 +6,16 @@
 
 defined( 'ABSPATH' ) || exit;
 
-function demo_p( $text ) {
-    return "<!-- wp:paragraph -->\n<p>$text</p>\n<!-- /wp:paragraph -->\n\n";
-}
-function demo_h( $text, $level = 2 ) {
-    $attrs = 2 === $level ? '' : ' {"level":' . $level . '}';
-    return "<!-- wp:heading$attrs -->\n<h$level class=\"wp-block-heading\">$text</h$level>\n<!-- /wp:heading -->\n\n";
-}
-function demo_quote( $text, $cite = '' ) {
-    $cite = $cite ? "<cite>$cite</cite>" : '';
-    return "<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\"><!-- wp:paragraph -->\n<p>$text</p>\n<!-- /wp:paragraph -->$cite</blockquote>\n<!-- /wp:quote -->\n\n";
-}
-function demo_list( $items, $ordered = false ) {
-    $tag   = $ordered ? 'ol' : 'ul';
-    $attrs = $ordered ? ' {"ordered":true}' : '';
-    $li    = '';
-    foreach ( $items as $item ) {
-        $li .= "<!-- wp:list-item -->\n<li>$item</li>\n<!-- /wp:list-item -->\n";
-    }
-    return "<!-- wp:list$attrs -->\n<$tag class=\"wp-block-list\">$li</$tag>\n<!-- /wp:list -->\n\n";
-}
-function demo_hr() {
-    return "<!-- wp:separator -->\n<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>\n<!-- /wp:separator -->\n\n";
-}
+require_once __DIR__ . '/demo-helpers.php';
 
 // Site identity.
 update_option( 'blogname', 'The Slow Margin' );
 update_option( 'blogdescription', 'Essays on writing, reading and paying attention' );
 wp_update_user( array( 'ID' => 1, 'display_name' => 'Ilinca Marin', 'first_name' => 'Ilinca', 'last_name' => 'Marin', 'description' => 'Ilinca Marin writes about the craft of writing, slow reading and the habits that make room for both. She lives in Bucharest and walks a lot.' ) );
 
-// Drop the default "Hello world!" post.
+// Drop the default "Hello world!" post and "Sample Page" (the themes list pages in their header).
 wp_delete_post( 1, true );
+wp_delete_post( 2, true );
 
 // Categories: rename the default one instead of leaving "Uncategorized".
 wp_update_term( 1, 'category', array( 'name' => 'Notes', 'slug' => 'notes' ) );
