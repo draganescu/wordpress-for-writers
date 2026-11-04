@@ -35,7 +35,7 @@ add_action( 'admin_menu', function () {
  */
 function wmem_counts() {
     global $wpdb;
-    $rows   = $wpdb->get_results( $wpdb->prepare( "SELECT meta_value AS tier, COUNT(*) AS n FROM {$wpdb->usermeta} WHERE meta_key = %s GROUP BY meta_value", 'wmem_tier' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+    $rows   = $wpdb->get_results( $wpdb->prepare( "SELECT meta_value AS tier, COUNT(*) AS n FROM {$wpdb->usermeta} WHERE meta_key = %s GROUP BY meta_value", wmem_meta_key( 'wmem_tier' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
     $counts = array( 'all' => 0 );
     foreach ( $rows as $row ) {
         $counts[ $row->tier ] = (int) $row->n;
@@ -67,8 +67,39 @@ add_filter( 'wfw_visibility_options', function ( $options ) {
 
 add_filter( 'plugin_action_links_' . plugin_basename( WMEM_FILE ), function ( $links ) {
     array_unshift( $links, '<a href="' . esc_url( wmem_admin_url( array( 'tab' => 'settings' ) ) ) . '">' . esc_html__( 'Settings', 'writer-members' ) . '</a>' );
+
+    // The gate lives in this plugin: once it's off, gated posts are public in full. Say so first.
+    $gated = isset( $links['deactivate'] ) ? wmem_gated_post_count() : 0;
+    if ( $gated ) {
+        $message = sprintf(
+            /* translators: %s: number of posts */
+            _n(
+                'Deactivating Writer Members makes %s members-only post public in full, to everyone, until you activate it again. Deactivate anyway?',
+                'Deactivating Writer Members makes %s members-only posts public in full, to everyone, until you activate it again. Deactivate anyway?',
+                $gated,
+                'writer-members'
+            ),
+            number_format_i18n( $gated )
+        );
+        $links['deactivate'] = str_replace(
+            '<a ',
+            '<a onclick="return window.confirm(' . esc_attr( wp_json_encode( $message ) ) . ');" ',
+            $links['deactivate']
+        );
+    }
     return $links;
 } );
+
+/**
+ * Published posts (of the gated post types) that require a tier.
+ */
+function wmem_gated_post_count() {
+    global $wpdb;
+    $types        = array_map( 'sanitize_key', wmem_post_types() );
+    $placeholders = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQLPlaceholders
+    return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID WHERE m.meta_key = 'wmem_tier' AND m.meta_value <> '' AND p.post_status IN ( 'publish', 'private', 'future' ) AND p.post_type IN ( {$placeholders} )", $types ) );
+}
 
 /* ------------------------------------------------------------------------
  * Actions
@@ -170,7 +201,8 @@ function wmem_render_members() {
     $per    = 50;
     $counts = wmem_counts();
     $args   = array(
-        'meta_key'    => 'wmem_tier',
+        'blog_id'     => 0, // Match wmem_counts(): the tier key is already per site.
+        'meta_key'    => wmem_meta_key( 'wmem_tier' ),
         'number'      => $per,
         'paged'       => $paged,
         'orderby'     => 'registered',
@@ -258,7 +290,7 @@ function wmem_render_members() {
                         <button class="button button-small"><?php esc_html_e( 'Change', 'writer-members' ); ?></button>
                     </form>
                 </td>
-                <td><code><?php echo esc_html( get_user_meta( $user->ID, 'wmem_stripe_customer', true ) ); ?></code></td>
+                <td><code><?php echo esc_html( wmem_get_member_data( $user->ID, 'wmem_stripe_customer' ) ); ?></code></td>
                 <td><?php echo esc_html( mysql2date( get_option( 'date_format' ), $user->user_registered ) ); ?></td>
             </tr>
         <?php endforeach; ?>
@@ -395,8 +427,28 @@ function wmem_render_settings() {
             <tr>
                 <th scope="row"><label for="wmem-secret"><?php esc_html_e( 'Signing secret', 'writer-members' ); ?></label></th>
                 <td>
-                    <input id="wmem-secret" class="regular-text" type="password" autocomplete="off" name="wmem_settings[webhook_secret]" value="<?php echo esc_attr( $s['webhook_secret'] ); ?>" placeholder="whsec_…">
-                    <p class="description"><?php esc_html_e( 'From the endpoint’s page in Stripe. Events without a valid signature are rejected.', 'writer-members' ); ?></p>
+                    <?php if ( wmem_webhook_secret_from_constant() ) : ?>
+                        <p><strong><?php esc_html_e( 'Set in wp-config.php', 'writer-members' ); ?></strong> (<code>WMEM_STRIPE_WEBHOOK_SECRET</code>)</p>
+                        <p class="description"><?php esc_html_e( 'The constant takes precedence over a secret saved here.', 'writer-members' ); ?></p>
+                    <?php else : ?>
+                        <?php $has_secret = '' !== (string) $s['webhook_secret']; ?>
+                        <?php // The saved secret is never printed back into the page. ?>
+                        <input id="wmem-secret" class="regular-text" type="password" autocomplete="new-password" name="wmem_settings[webhook_secret]" value="" placeholder="<?php echo esc_attr( $has_secret ? __( 'Saved. Leave blank to keep it.', 'writer-members' ) : 'whsec_…' ); ?>">
+                        <?php if ( $has_secret ) : ?>
+                            <p><label><input type="checkbox" name="wmem_settings[webhook_secret_clear]" value="1"> <?php esc_html_e( 'Remove the saved secret', 'writer-members' ); ?></label></p>
+                        <?php endif; ?>
+                        <p class="description"><?php esc_html_e( 'From the endpoint’s page in Stripe. Events without a valid signature are rejected. You can also define WMEM_STRIPE_WEBHOOK_SECRET in wp-config.php instead.', 'writer-members' ); ?></p>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        </table>
+        <h2><?php esc_html_e( 'Uninstall', 'writer-members' ); ?></h2>
+        <table class="form-table" role="presentation">
+            <tr>
+                <th scope="row"><?php esc_html_e( 'Member data', 'writer-members' ); ?></th>
+                <td>
+                    <label><input type="checkbox" name="wmem_settings[delete_data]" value="1" <?php checked( ! empty( $s['delete_data'] ) ); ?>> <?php esc_html_e( 'Delete tiers, member tiers, Stripe IDs and post settings when the plugin is deleted', 'writer-members' ); ?></label>
+                    <p class="description"><?php esc_html_e( 'Settings and the signing secret are always deleted. Without this, the rest is kept so reinstalling picks up where you left off.', 'writer-members' ); ?></p>
                 </td>
             </tr>
         </table>
