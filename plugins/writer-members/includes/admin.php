@@ -300,7 +300,8 @@ function wmem_render_tiers() {
                     <th scope="col" style="width:2.5em"></th>
                     <th scope="col"><?php esc_html_e( 'Name', 'writer-members' ); ?></th>
                     <th scope="col"><?php esc_html_e( 'Slug', 'writer-members' ); ?></th>
-                    <th scope="col" style="width:40%"><?php esc_html_e( 'Stripe Payment Link', 'writer-members' ); ?></th>
+                    <th scope="col" style="width:32%"><?php esc_html_e( 'Stripe Payment Link', 'writer-members' ); ?></th>
+                    <th scope="col"><?php esc_html_e( 'Payment Link ID', 'writer-members' ); ?></th>
                     <th scope="col"><?php esc_html_e( 'Remove', 'writer-members' ); ?></th>
                 </tr>
             </thead>
@@ -321,11 +322,13 @@ function wmem_render_tiers() {
                         <?php endif; ?>
                     </td>
                     <td><input type="url" style="width:100%" name="wmem_tiers[<?php echo (int) $i; ?>][link]" value="<?php echo esc_attr( $tier['link'] ); ?>" placeholder="https://buy.stripe.com/…" aria-label="<?php esc_attr_e( 'Stripe Payment Link', 'writer-members' ); ?>"></td>
+                    <td><input type="text" style="width:100%" name="wmem_tiers[<?php echo (int) $i; ?>][plink]" value="<?php echo esc_attr( $tier['plink'] ?? '' ); ?>" placeholder="plink_…" aria-label="<?php esc_attr_e( 'Payment Link ID', 'writer-members' ); ?>"></td>
                     <td><?php if ( $tier['slug'] ) : ?><input type="checkbox" name="wmem_tiers[<?php echo (int) $i; ?>][remove]" value="1" aria-label="<?php esc_attr_e( 'Remove', 'writer-members' ); ?>"><?php endif; ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
+        <p class="description"><?php esc_html_e( 'The Payment Link ID (plink_…, on the link’s page in Stripe) is how a payment is matched to its tier: without it, payments for that tier are ignored.', 'writer-members' ); ?></p>
         <p class="description"><?php esc_html_e( 'Slugs are fixed once saved, because posts and members refer to them. Posts set to a removed tier stay closed to everyone but their editors.', 'writer-members' ); ?></p>
         <?php submit_button( __( 'Save tiers', 'writer-members' ) ); ?>
     </form>
@@ -381,7 +384,12 @@ function wmem_render_settings() {
                 <th scope="row"><?php esc_html_e( 'Webhook endpoint', 'writer-members' ); ?></th>
                 <td>
                     <code><?php echo esc_html( wmem_webhook_url() ); ?></code>
-                    <p class="description"><?php esc_html_e( 'In Stripe, add this endpoint and send it checkout.session.completed and customer.subscription.deleted.', 'writer-members' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'In Stripe, add this endpoint and send it these events:', 'writer-members' ); ?></p>
+                    <ul style="margin:.5em 0 0 1.5em;list-style:disc">
+                        <?php foreach ( wmem_stripe_events() as $event_name ) : ?>
+                            <li><code><?php echo esc_html( $event_name ); ?></code></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </td>
             </tr>
             <tr>
