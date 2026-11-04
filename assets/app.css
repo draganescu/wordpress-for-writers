@@ -87,7 +87,8 @@ body.wfw-takeover #wpbody-content {
 .wfw-sidebar {
     background: var( --wfw-sidebar-bg );
     color: var( --wfw-sidebar-fg );
-    border-right: 1px solid var( --wfw-border );
+    border-right: 1px solid var( --wfw-sidebar-border );
+    color-scheme: var( --wfw-sidebar-scheme );
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -151,8 +152,8 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-nav.is-active {
-    background: var( --wfw-sidebar-active );
-    color: var( --wfw-list-fg );
+    background: var( --wfw-sidebar-current );
+    color: var( --wfw-sidebar-current-fg );
     font-weight: 600;
 }
 
@@ -165,7 +166,7 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-nav.is-active .wfw-nav__icon {
-    color: var( --wfw-accent );
+    color: var( --wfw-sidebar-current-icon );
 }
 
 .wfw-nav__hash {
@@ -187,7 +188,7 @@ body.wfw-takeover #wpbody-content {
 /* Footer: the account menu button, then the site actions as icon buttons. The avatar centres on the nav icons' column. */
 .wfw-sidebar__foot {
     position: relative;
-    border-top: 1px solid var( --wfw-border );
+    border-top: 1px solid var( --wfw-sidebar-border );
     padding: 10px 6px 10px 14px;
     display: flex;
     align-items: center;
@@ -329,7 +330,7 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-icon-btn:hover {
-    background: var( --wfw-sidebar-active ) !important;
+    background: var( --wfw-list-hover ) !important;
     color: var( --wfw-list-fg ) !important;
 }
 
@@ -345,7 +346,7 @@ body.wfw-takeover #wpbody-content {
     padding: 0 8px;
     height: 28px;
     border-radius: 7px;
-    background: var( --wfw-sidebar-active );
+    background: var( --wfw-list-hover );
     color: var( --wfw-list-muted );
 }
 
