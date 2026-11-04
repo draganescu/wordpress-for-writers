@@ -365,6 +365,7 @@
                 <div class="wfw-menu" id="wfw-user-menu" role="menu" aria-labelledby="wfw-user"${ userMenuOpen ? '' : ' hidden' }>
                     ${ menuItem( settings.adminUrl + 'index.php?wfw_classic=1', 'dashboard', __( 'Go to admin', 'wordpress-for-writers' ) ) }
                     ${ menuItem( settings.adminUrl + 'profile.php', 'profile', __( 'Edit profile', 'wordpress-for-writers' ) ) }
+                    ${ ( settings.links || [] ).map( ( l ) => menuItem( l.url, ICONS[ l.icon ] ? l.icon : 'dashboard', l.label ) ).join( '' ) }
                     <div class="wfw-menu__separator" role="separator"></div>
                     ${ menuItem( settings.logoutUrl, 'logout', sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }
                 </div>
