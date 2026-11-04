@@ -346,16 +346,11 @@ body.wfw-takeover #wpbody-content {
     background: var( --wfw-code-bg );
 }
 
-/* Status icon at the end of the meta row, below the hover actions. Private keeps the muted color. */
+/* Status icon at the end of the meta row, below the hover actions, at the app's icon size. Private keeps the muted color. */
 .wfw-note__status {
     display: inline-flex;
     margin-left: auto;
     color: var( --wfw-list-muted );
-}
-
-.wfw-note__status svg {
-    width: 14px;
-    height: 14px;
 }
 
 .wfw-note__status--publish {
