@@ -321,6 +321,27 @@ body.wfw-takeover #wpbody-content {
     text-overflow: ellipsis;
 }
 
+/* Pending updates: a dot on the account button and a count in its menu, in the theme's accent. */
+.wfw-user__dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    margin-left: -4px;
+    border-radius: 50%;
+    background: var( --wfw-accent );
+}
+
+.wfw-menu__badge {
+    margin-left: auto;
+    padding: 0 6px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+    color: #fff;
+    background: var( --wfw-accent );
+}
+
 .wfw-menu__separator {
     height: 1px;
     margin: 4px 6px;

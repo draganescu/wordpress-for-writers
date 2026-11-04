@@ -72,6 +72,7 @@ add_filter( 'login_redirect', function ( $redirect_to, $requested, $user ) {
 
 /**
  * The app page owns the whole viewport: no notices, full-screen body class.
+ * Pending updates still surface, in the account menu (see `updatesCount`).
  */
 add_action( 'load-toplevel_page_' . WFW_PAGE, function () {
     remove_all_actions( 'admin_notices' );
@@ -110,6 +111,11 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'maxUploadFileSize' => wp_max_upload_size(),
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),
+            // Core's update notices are hidden on the app page, so the account menu shows the
+            // pending count instead, to the same people core shows it to (zero for everyone else).
+            'updatesCount'      => current_user_can( 'update_core' ) || current_user_can( 'update_plugins' ) || current_user_can( 'update_themes' )
+                ? (int) wp_get_update_data()['counts']['total']
+                : 0,
             'appearance'        => wfw_appearance_client_data(),
             /**
              * Extra links for the sidebar's user menu, so companion plugins can
