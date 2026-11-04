@@ -505,8 +505,7 @@
         const actions = isTrash && settings.canDelete
             ? `<span class="wfw-icon-btn" role="button" data-action="restore" data-id="${ note.id }" title="${ esc( __( 'Restore', 'wordpress-for-writers' ) ) }">${ icon( 'restore' ) }</span>
                <span class="wfw-icon-btn" role="button" data-action="delete" data-id="${ note.id }" title="${ esc( __( 'Delete permanently', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</span>`
-            : isTrash ? '' : `${ FEATURED ? `<span class="wfw-icon-btn" role="button" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Featured image', 'wordpress-for-writers' ) ) }">${ icon( 'image' ) }</span>` : '' }
-               ${ settings.canDelete ? `<span class="wfw-icon-btn" role="button" data-action="trash" data-id="${ note.id }" title="${ esc( __( 'Move to trash', 'wordpress-for-writers' ) ) }">${ icon( 'trash' ) }</span>` : '' }`;
+            : isTrash || ! settings.canDelete ? '' : `<span class="wfw-icon-btn" role="button" data-action="trash" data-id="${ note.id }" title="${ esc( __( 'Move to trash', 'wordpress-for-writers' ) ) }">${ icon( 'trash' ) }</span>`;
 
         return `
             <div class="wfw-note${ note.id === state.activeId ? ' is-active' : '' }" role="listitem" tabindex="0" data-action="open" data-id="${ note.id }">
@@ -676,6 +675,12 @@
                 window.history.replaceState( null, '', '#note=' + data.id );
                 loadNotes();
                 loadCounts();
+                break;
+            }
+            case 'featured-image': {
+                if ( FEATURED && data.id ) {
+                    openFeatured( data.id );
+                }
                 break;
             }
             case 'escape': {
