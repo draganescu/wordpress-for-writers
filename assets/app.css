@@ -132,6 +132,11 @@ body.wfw-takeover #wpbody-content {
     display: none;
 }
 
+/* Items under a heading start where its label does: row padding + icon slot + gap. */
+.wfw-sidebar__items .wfw-nav {
+    padding-left: calc( 8px + 16px + 9px );
+}
+
 .wfw-nav {
     display: flex;
     align-items: center;
