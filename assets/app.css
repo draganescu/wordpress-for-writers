@@ -353,27 +353,47 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-list-muted );
 }
 
-.wfw-badge {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 1px 5px;
-    border-radius: 4px;
-    border: 1px solid currentColor;
+/* Featured image: a fixed square, so the row keeps its height while the image loads. */
+.wfw-note__thumb {
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 8px;
+    object-fit: cover;
+    border: 1px solid var( --wfw-border );
+    border-radius: 6px;
+    background: var( --wfw-code-bg );
 }
 
-.wfw-badge--publish {
-    color: #3a8a5c;
+/* Status icon at the end of the meta row, below the hover actions. Private keeps the muted color. */
+.wfw-note__status {
+    display: inline-flex;
+    margin-left: auto;
+    color: var( --wfw-list-muted );
 }
 
-.wfw-badge--future {
-    color: #3b74c4;
+.wfw-note__status svg {
+    width: 14px;
+    height: 14px;
 }
 
+.wfw-note__status--publish {
+    color: var( --wfw-status-publish );
+}
+
+.wfw-note__status--future {
+    color: var( --wfw-status-future );
+}
+
+.wfw-note__status--draft,
+.wfw-note__status--pending {
+    color: var( --wfw-status-draft );
+}
+
+/* Centered on the title line, so in rows without an excerpt they stay clear of the status icon. */
 .wfw-note__actions {
     position: absolute;
-    top: 10px;
+    top: 7px;
     right: 10px;
     display: none;
     gap: 2px;

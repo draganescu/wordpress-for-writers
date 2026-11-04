@@ -35,6 +35,15 @@
         { type: 'trash', label: __( 'Trash', 'wordpress-for-writers' ), icon: 'trash', status: 'trash' },
     ];
 
+    // Status icon and tooltip for each note in mixed lists. Pending reads as a draft; private stays muted.
+    const NOTE_STATUSES = {
+        publish: { icon: 'publish', label: __( 'Published', 'wordpress-for-writers' ) },
+        future: { icon: 'future', label: __( 'Scheduled', 'wordpress-for-writers' ) },
+        draft: { icon: 'draft', label: __( 'Draft', 'wordpress-for-writers' ) },
+        pending: { icon: 'draft', label: __( 'Pending review', 'wordpress-for-writers' ) },
+        private: { icon: 'publish', label: __( 'Private', 'wordpress-for-writers' ) },
+    };
+
     const state = {
         view: loadPref( 'view', { type: 'all' } ),
         search: '',
@@ -180,7 +189,9 @@
             per_page: 30,
             page,
             context: 'edit',
-            _fields: 'id,title,excerpt,modified_gmt,status,sticky',
+            // Embed featured images; _fields keeps only the link the embed needs, so the response stays small.
+            _fields: 'id,title,excerpt,modified_gmt,status,sticky,_links.wp:featuredmedia',
+            _embed: 'wp:featuredmedia',
         };
         if ( state.view.type === 'category' ) {
             params.categories = state.view.id;
@@ -318,9 +329,16 @@
         const title = note.title.raw || htmlToText( note.title.rendered );
         const excerpt = htmlToText( note.excerpt.rendered );
         const isTrash = note.status === 'trash';
-        const badge = [ 'publish', 'future', 'private', 'pending' ].includes( note.status )
-            ? `<span class="wfw-badge wfw-badge--${ note.status }">${ esc( { publish: __( 'Published', 'wordpress-for-writers' ), future: __( 'Scheduled', 'wordpress-for-writers' ), private: __( 'Private', 'wordpress-for-writers' ), pending: __( 'Pending', 'wordpress-for-writers' ) }[ note.status ] ) }</span>`
+        // Drafts, Published, Scheduled and Trash already say the status; mixed lists show it per note.
+        const filtered = state.view.type !== 'all' && STATUS_VIEWS.some( ( v ) => v.type === state.view.type );
+        const status = filtered ? null : NOTE_STATUSES[ note.status ];
+        const statusIcon = status
+            ? `<span class="wfw-note__status wfw-note__status--${ esc( note.status ) }" role="img" title="${ esc( status.label ) }" aria-label="${ esc( status.label ) }">${ icon( status.icon ) }</span>`
             : '';
+        // Prefer the square crop WordPress makes for thumbnails; the fixed box crops anything else.
+        const media = note._embedded?.[ 'wp:featuredmedia' ]?.[ 0 ];
+        const sizes = media?.media_details?.sizes || {};
+        const thumb = media?.media_type === 'image' ? ( sizes.thumbnail || sizes.medium || media ).source_url : '';
         const actions = isTrash
             ? `<span class="wfw-icon-btn" role="button" data-action="restore" data-id="${ note.id }" title="${ esc( __( 'Restore', 'wordpress-for-writers' ) ) }">${ icon( 'restore' ) }</span>
                <span class="wfw-icon-btn" role="button" data-action="delete" data-id="${ note.id }" title="${ esc( __( 'Delete permanently', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</span>`
@@ -330,7 +348,8 @@
             <div class="wfw-note${ note.id === state.activeId ? ' is-active' : '' }" role="listitem" tabindex="0" data-action="open" data-id="${ note.id }">
                 <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || __( 'Untitled', 'wordpress-for-writers' ) ) }</div>
                 ${ excerpt ? `<div class="wfw-note__excerpt">${ esc( excerpt ) }</div>` : '' }
-                <div class="wfw-note__meta"><span>${ esc( formatDate( note.modified_gmt ) ) }</span>${ badge }</div>
+                ${ thumb ? `<img class="wfw-note__thumb" src="${ esc( thumb ) }" alt="" width="64" height="64" loading="lazy" />` : '' }
+                <div class="wfw-note__meta"><span>${ esc( formatDate( note.modified_gmt ) ) }</span>${ statusIcon }</div>
                 ${ settings.canDelete ? `<div class="wfw-note__actions">${ actions }</div>` : '' }
             </div>`;
     }
