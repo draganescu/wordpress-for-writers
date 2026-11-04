@@ -168,24 +168,44 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-sidebar-muted );
 }
 
-/* Footer: who is signed in, then the account and site actions as icon buttons. The avatar centres on the nav icons' column. */
+/* Footer: the account menu button, then the site actions as icon buttons. The avatar centres on the nav icons' column. */
 .wfw-sidebar__foot {
+    position: relative;
     border-top: 1px solid var( --wfw-border );
     padding: 10px 6px 10px 14px;
     display: flex;
     align-items: center;
 }
 
+/* Avatar, name and chevron in a capsule that hugs them; it opens the account menu. */
 .wfw-user {
-    flex: 1;
     min-width: 0;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-right: 4px;
+    margin: -2px auto -2px -2px;
+    padding: 2px;
+    border-radius: 14px;
     font-size: 13px;
     font-weight: 500;
+    text-align: left;
     color: var( --wfw-sidebar-fg );
+}
+
+.wfw-user:hover,
+.wfw-user[aria-expanded="true"] {
+    background: var( --wfw-sidebar-active );
+}
+
+.wfw-user > svg {
+    margin-left: -6px;
+    color: var( --wfw-sidebar-muted );
+}
+
+/* Hover like the sidebar's nav items, which holds even when the sidebar's tones differ from the list's. */
+.wfw-sidebar__foot .wfw-icon-btn:hover {
+    color: var( --wfw-sidebar-fg ) !important;
+    background: var( --wfw-sidebar-active ) !important;
 }
 
 .wfw-user__avatar {
@@ -208,6 +228,60 @@ body.wfw-takeover #wpbody-content {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* The account menu opens upward over the nav list, inside the sidebar (which clips overflow). */
+.wfw-menu {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc( 100% + 4px );
+    z-index: 2;
+    padding: 4px;
+    /* The note list's colors, so the highlighted item reads like a selected note in every palette. */
+    background: var( --wfw-list-bg );
+    border: 1px solid var( --wfw-border );
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
+}
+
+/* The .wfw prefix outranks wp-admin's a:hover / a:focus colors and focus ring. */
+.wfw .wfw-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 6px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    text-decoration: none;
+    color: var( --wfw-list-fg );
+}
+
+.wfw .wfw-menu__item:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.wfw .wfw-menu__item:hover,
+.wfw .wfw-menu__item:focus-visible {
+    color: var( --wfw-list-fg );
+    background: var( --wfw-list-active );
+}
+
+.wfw-menu__item svg {
+    color: var( --wfw-list-muted );
+}
+
+.wfw-menu__item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wfw-menu__separator {
+    height: 1px;
+    margin: 4px 6px;
+    background: var( --wfw-border );
 }
 
 /* Note list */
