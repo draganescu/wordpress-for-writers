@@ -36,6 +36,28 @@ Copy or clone this folder into `wp-content/plugins/` and activate **WordPress fo
 
 To reach the classic dashboard, use **Classic dashboard** in the sidebar footer (`/wp-admin/index.php?wfw_classic=1`). The settings sidebar (categories, tags, status, excerpt) opens with **Cmd/Ctrl + Shift + ,**.
 
+## Themes
+
+Three reading themes for the public side of the site live in `themes/`. Each is a standalone block theme (theme.json v3, no build step) that you can zip and install on its own, and none of them needs the plugin.
+
+| Theme | Feel | Home page | Style variations |
+| --- | --- | --- | --- |
+| [Writer Newsletter](themes/writer-newsletter/readme.txt) | One narrow column, like an email issue | Dated list of posts | Default, Paper, Night (dark) |
+| [Writer Essay](themes/writer-essay/readme.txt) | Elegant long read with a quiet sans-serif interface, drop cap option and author bio | One featured essay, then a list | Default, Linen, Ink (dark) |
+| [Writer Longform](themes/writer-longform/readme.txt) | Magazine feature with a full-bleed hero, chapter headings and wide pull quotes | Lead story cover, then a grid | Default, Newsprint, Midnight (dark) |
+
+Each theme has templates for the home page, posts, pages, archives, search and 404, header and footer parts, its own patterns, a reading-time line, and bundled open-licence fonts (Source Serif 4, Literata, Fraunces and Inter, all under the SIL Open Font License).
+
+When the Writer Subscribe plugin is active, the themes add its form after posts and in the footer, plus a Subscribe button in the header. These pieces are patterns that the theme registers only if the `writer-subscribe/form` block exists, so without the plugin they don't render at all. The form picks up the theme's colours through the plugin's `--wsub-*` custom properties.
+
+The Playground demo installs all three and activates Writer Newsletter. Screenshots of each theme in light and dark, at desktop and phone widths, are in `screenshots/themes/`.
+
+<p>
+<img src="screenshots/themes/writer-newsletter-single-desktop-light.jpg" alt="Writer Newsletter: a post in the light style" width="32%">
+<img src="screenshots/themes/writer-essay-home-desktop-light.jpg" alt="Writer Essay: the home page in the light style" width="32%">
+<img src="screenshots/themes/writer-longform-home-desktop-dark.jpg" alt="Writer Longform: the home page in the dark style" width="32%">
+</p>
+
 ## Development
 
 There is no build step. Plain PHP, CSS and JavaScript use the `wp.*` globals.
@@ -54,6 +76,7 @@ npx wp-env stop
 - `assets/frame.js`, `assets/frame.css`: run inside the embedded block editor. They handle messaging with the app, draft autosave, the fixed bottom toolbar, and theming of the editor UI.
 - `assets/editor-content.css`: the default writing surface inside the editor canvas.
 - `blueprint.json`, `playground/demo-content.php`: the Playground demo.
+- `themes/`: the three reading themes. wp-env mounts them, so `npx wp-env run cli wp theme activate writer-essay` switches between them.
 
 ## License
 
