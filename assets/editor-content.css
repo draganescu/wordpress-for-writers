@@ -52,7 +52,7 @@ html {
 .editor-styles-wrapper .wp-block-post-title {
     font-family: var( --wfw-font-body );
     font-size: 1.75em;
-    font-weight: 700;
+    font-weight: var( --wfw-heading-weight );
     line-height: 1.25;
     letter-spacing: -0.01em;
     color: var( --wfw-text );
@@ -135,7 +135,7 @@ html {
 .editor-styles-wrapper h5,
 .editor-styles-wrapper h6 {
     font-family: var( --wfw-font-body );
-    font-weight: 700;
+    font-weight: var( --wfw-heading-weight );
     line-height: 1.3;
     color: var( --wfw-text );
     letter-spacing: -0.005em;
@@ -151,6 +151,13 @@ html {
 .editor-styles-wrapper h4,
 .editor-styles-wrapper h5,
 .editor-styles-wrapper h6 { font-size: 1em; }
+
+/* Body-size headings stay bold in every font: at regular weight they would pass for paragraphs. */
+.editor-styles-wrapper h4,
+.editor-styles-wrapper h5,
+.editor-styles-wrapper h6 {
+    font-weight: 700;
+}
 
 .editor-styles-wrapper a {
     color: var( --wfw-accent );
@@ -184,6 +191,11 @@ html {
     color: var( --wfw-accent );
 }
 
+/*
+ * Quotes and code set their own weight: a theme's global styles can still reach
+ * the canvas (Twenty Twenty-Five sets both at 300), and the variable fonts would
+ * render that light.
+ */
 .editor-styles-wrapper blockquote,
 .editor-styles-wrapper .wp-block-quote,
 .editor-styles-wrapper .wp-block-pullquote {
@@ -193,6 +205,7 @@ html {
     margin-right: 0;
     padding: 0.1em 0 0.1em 1em;
     font-style: normal;
+    font-weight: 400;
     font-size: 1em;
     text-align: left;
     color: var( --wfw-muted );
@@ -207,7 +220,7 @@ html {
 
 .editor-styles-wrapper code,
 .editor-styles-wrapper kbd {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: "Roboto Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 0.85em;
     background: var( --wfw-code-bg );
     color: var( --wfw-accent );
@@ -218,8 +231,9 @@ html {
 .editor-styles-wrapper pre,
 .editor-styles-wrapper .wp-block-code,
 .editor-styles-wrapper .wp-block-preformatted {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: "Roboto Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 0.8em;
+    font-weight: 400;
     line-height: 1.55;
     background: var( --wfw-code-bg );
     color: var( --wfw-text );

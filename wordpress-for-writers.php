@@ -115,9 +115,17 @@ add_action( 'load-toplevel_page_' . WFW_PAGE, function () {
     } );
 } );
 
+/**
+ * The writing fonts' @font-face rules, a dependency of every stylesheet that
+ * sets text in --wfw-font-body: the app (its loading skeleton) and the canvas.
+ */
+add_action( 'init', function () {
+    wp_register_style( 'wfw-fonts', WFW_URL . 'assets/fonts.css', array(), wfw_asset_version( 'assets/fonts.css' ) );
+} );
+
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( 'toplevel_page_' . WFW_PAGE === $hook ) {
-        wp_enqueue_style( 'wfw-app', WFW_URL . 'assets/app.css', array( 'wp-components' ), wfw_asset_version( 'assets/app.css' ) );
+        wp_enqueue_style( 'wfw-app', WFW_URL . 'assets/app.css', array( 'wp-components', 'wfw-fonts' ), wfw_asset_version( 'assets/app.css' ) );
         wp_add_inline_style( 'wfw-app', wfw_appearance_css() );
         wp_enqueue_script( 'wfw-app', WFW_URL . 'assets/app.js', array( 'wp-api-fetch', 'wp-i18n', 'wp-element', 'wp-components', 'wp-data', 'wp-core-data', 'wp-media-utils' ), wfw_asset_version( 'assets/app.js' ), true );
         $user = wp_get_current_user();
@@ -215,7 +223,7 @@ add_action( 'enqueue_block_assets', function () {
         }
     }
 
-    wp_enqueue_style( 'wfw-canvas', WFW_URL . 'assets/editor-content.css', array(), wfw_asset_version( 'assets/editor-content.css' ) );
+    wp_enqueue_style( 'wfw-canvas', WFW_URL . 'assets/editor-content.css', array( 'wfw-fonts' ), wfw_asset_version( 'assets/editor-content.css' ) );
     wp_add_inline_style( 'wfw-canvas', wfw_appearance_css() );
 }, 99 );
 

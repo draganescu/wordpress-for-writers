@@ -95,6 +95,7 @@ npx wp-env stop
 - `assets/app.js`, `assets/app.css`: the three-pane app.
 - `assets/frame.js`, `assets/frame.css`: run inside the embedded block editor. They handle messaging with the app, draft autosave, the fixed bottom toolbar, and theming of the editor UI.
 - `assets/editor-content.css`: the default writing surface inside the editor canvas.
+- `assets/fonts.css`, `assets/fonts/`: the writing fonts (Geist Serif, Geist Sans, Roboto Mono), self-hosted and loaded into both the app and the editor canvas.
 - `blueprint.json`, `playground/demo-content.php`: the Playground demo.
 - `themes/`: the three reading themes. wp-env mounts them, so `npx wp-env run cli wp theme activate writer-essay` switches between them.
 
@@ -119,3 +120,5 @@ Dev files (`node_modules`, `package.json`, `.wp-env.json` and so on) are left ou
 ## License
 
 GPL-2.0-or-later
+
+The bundled fonts are under the SIL Open Font License 1.1, with the licence next to the files: Geist Sans and Geist Serif in `assets/fonts/geist/OFL.txt`, Roboto Mono in `assets/fonts/roboto-mono/OFL.txt`.

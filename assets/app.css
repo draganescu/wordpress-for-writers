@@ -729,7 +729,7 @@ body.wfw-takeover #wpbody-content {
 
 .wfw-editor__skeleton-title {
     font-size: 1.75em;
-    font-weight: 700;
+    font-weight: var( --wfw-heading-weight );
     line-height: 1.25;
     letter-spacing: -0.01em;
     margin: 0 0 0.9em;
