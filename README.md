@@ -92,6 +92,24 @@ npx wp-env stop
 - `blueprint.json`, `playground/demo-content.php`: the Playground demo.
 - `themes/`: the three reading themes. wp-env mounts them, so `npx wp-env run cli wp theme activate writer-essay` switches between them.
 
+## Releases
+
+The Writer plugin, each plugin in `plugins/` and each theme in `themes/` ships as its own zip. Each zip unpacks to a folder named after the package, so it installs from **Plugins → Add New → Upload** or **Themes → Add New → Upload** like any other.
+
+```bash
+bin/build-zips.sh --list             # packages and their versions
+bin/build-zips.sh                    # every zip, into build/
+bin/build-zips.sh writer-subscribe   # just one
+```
+
+To publish, bump the `Version:` header, then push a tag. The `Release zips` workflow builds the zips and attaches them to a GitHub release.
+
+- `writer-subscribe-v0.2.0` releases one package. The workflow fails if the tag doesn't match the package's `Version:` header.
+- `v0.2.0` releases a bundle with every package.
+- Running the workflow by hand builds every zip as an artifact, without publishing a release.
+
+Dev files (`node_modules`, `package.json`, `.wp-env.json` and so on) are left out. The Writer plugin's zip also leaves out the `plugins/`, `themes/`, Playground and screenshot folders. To leave out more from one package, add a `.distignore` file to its folder with rsync patterns, one per line.
+
 ## License
 
 GPL-2.0-or-later
