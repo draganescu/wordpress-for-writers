@@ -155,10 +155,11 @@ body.wfw-takeover #wpbody-content {
     font-weight: 600;
 }
 
+/* min-width, not width: nested categories put their indent in here too. */
 .wfw-nav__icon {
     color: var( --wfw-sidebar-muted );
     display: inline-flex;
-    width: 16px;
+    min-width: 16px;
     justify-content: center;
 }
 
