@@ -23,6 +23,20 @@
             }
         },
         {
+            "step": "installPlugin",
+            "pluginData": {
+                "resource": "git:directory",
+                "url": "https://github.com/draganescu/wordpress-for-writers",
+                "ref": "trunk",
+                "refType": "branch",
+                "path": "plugins/writer-subscribe"
+            },
+            "options": {
+                "activate": true,
+                "targetFolderName": "writer-subscribe"
+            }
+        },
+        {
             "step": "installTheme",
             "themeData": {
                 "resource": "git:directory",

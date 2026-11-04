@@ -17,6 +17,7 @@ define( 'WFW_URL', plugin_dir_url( __FILE__ ) );
 define( 'WFW_PAGE', 'wfw' );
 
 require_once __DIR__ . '/includes/appearance.php';
+require_once __DIR__ . '/includes/thumbnails.php';
 require_once __DIR__ . '/includes/site-scheme.php';
 
 /**
@@ -111,6 +112,16 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),
             'appearance'        => wfw_appearance_client_data(),
+            /**
+             * Extra links for the sidebar's user menu, so companion plugins can
+             * surface their screens. Each item: array( 'label' => '', 'url' => '', 'icon' => '' ).
+             */
+            'links'             => array_values( array_filter(
+                (array) apply_filters( 'wfw_sidebar_links', array() ),
+                function ( $link ) {
+                    return is_array( $link ) && ! empty( $link['label'] ) && ! empty( $link['url'] );
+                }
+            ) ),
         ) );
         return;
     }
