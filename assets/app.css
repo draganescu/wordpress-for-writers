@@ -240,6 +240,11 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-sidebar-muted );
 }
 
+/* At rest the list's muted color, unless the palette gives the sidebar's buttons their own. */
+.wfw-sidebar__foot .wfw-icon-btn {
+    color: var( --wfw-sidebar-button ) !important;
+}
+
 /* Hover like the sidebar's nav items, which holds even when the sidebar's tones differ from the list's. */
 .wfw-sidebar__foot .wfw-icon-btn:hover {
     color: var( --wfw-sidebar-fg ) !important;
