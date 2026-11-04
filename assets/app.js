@@ -279,7 +279,6 @@
     }
 
     // Categories and Tags fold away under a heading that works like a nav item.
-    // Folded, a section still shows the active view, so you never lose your place.
     function sidebarSection( key, label, items ) {
         const open = ! state.collapsed[ key ];
         return `
@@ -727,6 +726,14 @@
     }
 
     // ---- Boot --------------------------------------------------------------
+
+    // Reopen a folded section that holds the restored category or tag view, so
+    // the active item is in sight. Folding it later in the session is left alone.
+    const activeSection = { category: 'categories', tag: 'tags' }[ state.view.type ];
+    if ( activeSection && state.collapsed[ activeSection ] ) {
+        state.collapsed[ activeSection ] = false;
+        savePref( 'collapsed', state.collapsed );
+    }
 
     renderShell();
     renderSidebar();

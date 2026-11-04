@@ -128,8 +128,7 @@ body.wfw-takeover #wpbody-content {
     transform: rotate( 270deg );
 }
 
-/* Folded, a section still shows the active view. */
-.wfw-sidebar__section[aria-expanded="false"] + .wfw-sidebar__items > :not( .is-active ) {
+.wfw-sidebar__section[aria-expanded="false"] + .wfw-sidebar__items {
     display: none;
 }
 
