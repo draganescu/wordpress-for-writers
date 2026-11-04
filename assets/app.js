@@ -168,9 +168,14 @@
         if ( view ) {
             return view.label;
         }
-        const list = state.view.type === 'category' ? state.categories : state.tags;
+        const isCategory = state.view.type === 'category';
+        const list = isCategory ? state.categories : state.tags;
         const term = list.find( ( t ) => t.id === state.view.id );
-        return term ? '#' + term.name : '';
+        if ( ! term ) {
+            return '';
+        }
+        // Match the sidebar: tags are marked with a #, categories with a folder icon.
+        return isCategory ? term.name : '# ' + term.name;
     }
 
     // ---- Data --------------------------------------------------------------
@@ -267,7 +272,7 @@
                 <div class="wfw-list__bar">
                     <button class="wfw-icon-btn" data-action="toggle-sidebar" title="${ esc( __( 'Toggle sidebar', 'wordpress-for-writers' ) ) }">${ icon( 'sidebar' ) }</button>
                     <label class="wfw-search">${ icon( 'search' ) }<input type="search" placeholder="${ esc( __( 'Search', 'wordpress-for-writers' ) ) }" /></label>
-                    <button class="wfw-icon-btn wfw-icon-btn--accent" data-action="new" title="${ esc( __( 'New note', 'wordpress-for-writers' ) ) }">${ icon( 'compose' ) }</button>
+                    <button class="wfw-icon-btn" data-action="new" title="${ esc( __( 'New note', 'wordpress-for-writers' ) ) }">${ icon( 'compose' ) }</button>
                 </div>
                 <div class="wfw-list__head">
                     <button class="wfw-list__title" data-action="list-menu" aria-haspopup="menu" aria-expanded="false"><span class="wfw-list__label"></span>${ icon( 'dropdown' ) }</button>
