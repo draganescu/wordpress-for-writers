@@ -49,3 +49,7 @@ Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
 License: SIL Open Font License, Version 1.1 (assets/fonts/OFL-Inter.txt)
 
 The fonts are the Latin subsets of the variable fonts.
+
+Screenshot (screenshot.png)
+Created by the theme author from the WordPress for Writers demo content. It contains only text, no third-party images.
+License: CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/)

@@ -32,11 +32,20 @@ add_action( 'wp_enqueue_scripts', 'writer_newsletter_styles' );
  * @return string
  */
 function writer_newsletter_reading_time( $post_id ) {
+    // A protected post only shows its password form, so there's nothing to time.
+    if ( post_password_required( $post_id ) ) {
+        return '';
+    }
     $content = get_post_field( 'post_content', $post_id );
     if ( ! is_string( $content ) || '' === $content ) {
         return '';
     }
-    $words   = count( preg_split( '/\s+/u', trim( wp_strip_all_tags( strip_shortcodes( $content ) ) ), -1, PREG_SPLIT_NO_EMPTY ) );
+    // preg_split() returns false on invalid UTF-8.
+    $parts = preg_split( '/\s+/u', trim( wp_strip_all_tags( strip_shortcodes( $content ) ) ), -1, PREG_SPLIT_NO_EMPTY );
+    $words = is_array( $parts ) ? count( $parts ) : 0;
+    if ( 0 === $words ) {
+        return '';
+    }
     $minutes = max( 1, (int) round( $words / 230 ) );
 
     /* translators: %d: minutes needed to read the post. */
@@ -81,6 +90,10 @@ function writer_newsletter_subscribe_patterns() {
             'inserter' => false,
         ),
         'subscribe-box'    => array(
+            'title'    => __( 'Subscribe box after the post', 'writer-newsletter' ),
+            'inserter' => false,
+        ),
+        'subscribe-inline' => array(
             'title'    => __( 'Subscribe box', 'writer-newsletter' ),
             'inserter' => true,
         ),
