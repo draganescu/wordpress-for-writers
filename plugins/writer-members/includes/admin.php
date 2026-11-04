@@ -52,6 +52,7 @@ add_filter( 'wfw_sidebar_links', function ( $links ) {
             /* translators: %s: number of members */
             'label' => sprintf( __( 'Members (%s)', 'writer-members' ), number_format_i18n( $counts['all'] ) ),
             'url'   => wmem_admin_url(),
+            'icon'  => 'plugin',
         );
     }
     return $links;

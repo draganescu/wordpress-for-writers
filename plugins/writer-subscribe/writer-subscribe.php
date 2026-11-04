@@ -13,7 +13,7 @@
 defined( 'ABSPATH' ) || exit;
 
 define( 'WSUB_VERSION', '0.1.0' );
-define( 'WSUB_DB_VERSION', '1' );
+define( 'WSUB_DB_VERSION', '3' );
 define( 'WSUB_FILE', __FILE__ );
 define( 'WSUB_URL', plugin_dir_url( __FILE__ ) );
 
@@ -23,7 +23,8 @@ require_once __DIR__ . '/includes/public.php';
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/privacy.php';
 
-register_activation_hook( __FILE__, 'wsub_install' );
+register_activation_hook( __FILE__, 'wsub_activate' );
+register_deactivation_hook( __FILE__, 'wsub_deactivate' );
 add_action( 'plugins_loaded', 'wsub_maybe_upgrade' );
 
 /**

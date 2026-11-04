@@ -56,7 +56,7 @@
             body: JSON.stringify( {
                 email: data.get( 'email' ) || '',
                 source: data.get( 'source' ) || '',
-                website: data.get( 'website' ) || '',
+                wsub_hp: data.get( 'wsub_hp' ) || '',
                 consent: consent ? consent.checked : false,
             } ),
         } )
@@ -108,7 +108,7 @@
 
     var params = new window.URLSearchParams( window.location.search );
     var notice = params.get( 'wsub_notice' );
-    if ( notice && config.notices && config.notices[ notice ] ) {
+    if ( notice && config.notices && Object.prototype.hasOwnProperty.call( config.notices, notice ) ) {
         if ( 'confirmed' === notice || 'signup' === notice ) {
             var s = readState();
             s.subscribed = true;

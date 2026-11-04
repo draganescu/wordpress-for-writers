@@ -10,16 +10,43 @@ defined( 'ABSPATH' ) || exit;
  * --------------------------------------------------------------------- */
 
 /**
- * Too many attempts from this address recently?
+ * The visitor's address for rate limiting. Hosts behind a proxy that does not
+ * restore the client IP can supply it with the `wsub_client_ip` filter. IPv6
+ * addresses are bucketed by /64, since one client usually has a whole /64.
+ */
+function wsub_client_ip() {
+    $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+    $ip = (string) apply_filters( 'wsub_client_ip', $ip );
+    if ( false !== strpos( $ip, ':' ) ) {
+        $bin = @inet_pton( $ip ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+        if ( false !== $bin && 16 === strlen( $bin ) ) {
+            $ip = inet_ntop( substr( $bin, 0, 8 ) . str_repeat( "\0", 8 ) ) . '/64';
+        }
+    }
+    return $ip;
+}
+
+/**
+ * Too many signups recently, from this address or site-wide?
+ *
+ * Counted only after the request has passed validation, so junk doesn't eat
+ * into a real visitor's allowance. The site-wide cap is the backstop for
+ * attackers with many addresses.
  */
 function wsub_rate_limited() {
-    $ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-    $key = 'wsub_rl_' . md5( $ip . wp_salt( 'nonce' ) );
-    $n   = (int) get_transient( $key );
-    if ( $n >= (int) apply_filters( 'wsub_rate_limit', 10 ) ) {
+    $per_ip  = max( 1, (int) apply_filters( 'wsub_rate_limit', 10 ) );
+    $per_min = max( 1, (int) apply_filters( 'wsub_global_rate_limit', 60 ) );
+
+    $ip_key  = 'wsub_rl_' . md5( wsub_client_ip() . wp_salt( 'nonce' ) );
+    $all_key = 'wsub_rl_all';
+
+    $n = (int) get_transient( $ip_key );
+    $g = (int) get_transient( $all_key );
+    if ( $n >= $per_ip || $g >= $per_min ) {
         return true;
     }
-    set_transient( $key, $n + 1, HOUR_IN_SECONDS );
+    set_transient( $ip_key, $n + 1, HOUR_IN_SECONDS );
+    set_transient( $all_key, $g + 1, MINUTE_IN_SECONDS );
     return false;
 }
 
@@ -34,16 +61,14 @@ function wsub_handle_signup( $email, $source, $honeypot, $consented ) {
         ? __( 'Almost done. Check your inbox to confirm.', 'writer-subscribe' )
         : __( 'You’re subscribed. Thank you!', 'writer-subscribe' );
 
+    $email = trim( (string) $email );
+
     // Bots fill the hidden field; tell them it worked and do nothing.
     if ( '' !== trim( (string) $honeypot ) ) {
         return array( 'ok' => true, 'code' => 'ok', 'message' => $check );
     }
 
-    if ( wsub_rate_limited() ) {
-        return array( 'ok' => false, 'code' => 'rate_limited', 'message' => __( 'Too many attempts. Please try again later.', 'writer-subscribe' ) );
-    }
-
-    if ( ! is_email( trim( (string) $email ) ) ) {
+    if ( ! is_email( $email ) || strlen( $email ) > 190 ) {
         return array( 'ok' => false, 'code' => 'invalid_email', 'message' => __( 'Please enter a valid email address.', 'writer-subscribe' ) );
     }
 
@@ -51,14 +76,35 @@ function wsub_handle_signup( $email, $source, $honeypot, $consented ) {
         return array( 'ok' => false, 'code' => 'consent_required', 'message' => __( 'Please tick the box to agree.', 'writer-subscribe' ) );
     }
 
-    $result = wsub_add( $email, sanitize_text_field( (string) $source ), $double );
+    /**
+     * Last chance to block a signup, e.g. after checking a CAPTCHA or
+     * Turnstile token that a site added to the form.
+     */
+    if ( ! apply_filters( 'wsub_signup_allowed', true, $email, $source ) ) {
+        return array( 'ok' => false, 'code' => 'blocked', 'message' => __( 'Something went wrong. Please try again.', 'writer-subscribe' ) );
+    }
 
-    if ( 'error' === $result['status'] ) {
+    if ( wsub_rate_limited() ) {
+        return array( 'ok' => false, 'code' => 'rate_limited', 'message' => __( 'Too many attempts. Please try again later.', 'writer-subscribe' ) );
+    }
+
+    // Proof of consent: the exact wording the person agreed to, and when.
+    $consent_text = $consented ? (string) wsub_setting( 'consent' ) : '';
+
+    $result = wsub_add( $email, sanitize_text_field( (string) $source ), $double, true, $consent_text );
+
+    if ( 'error' === $result['status'] || ! $result['row'] ) {
         return array( 'ok' => false, 'code' => 'error', 'message' => __( 'Something went wrong. Please try again.', 'writer-subscribe' ) );
     }
 
     if ( 'pending' === $result['status'] ) {
         wsub_send_confirmation( $result['row'] );
+    }
+
+    // A visitor who unsubscribed is always asked to confirm again, even with
+    // double opt-in off, so tell them to check their inbox.
+    if ( in_array( $result['status'], array( 'pending', 'cooldown' ), true ) ) {
+        $check = __( 'Almost done. Check your inbox to confirm.', 'writer-subscribe' );
     }
 
     // 'already' gets the same answer as a fresh signup, so the form can't be
@@ -92,11 +138,11 @@ add_action( 'rest_api_init', function () {
             'args'                => array(
                 'email'   => array( 'type' => 'string', 'required' => true ),
                 'source'  => array( 'type' => 'string', 'default' => '' ),
-                'website' => array( 'type' => 'string', 'default' => '' ),
+                'wsub_hp' => array( 'type' => 'string', 'default' => '' ),
                 'consent' => array( 'type' => 'boolean', 'default' => false ),
             ),
             'callback'            => function ( WP_REST_Request $req ) {
-                $r = wsub_handle_signup( $req['email'], $req['source'], $req['website'], $req['consent'] );
+                $r = wsub_handle_signup( $req['email'], $req['source'], $req['wsub_hp'], $req['consent'] );
                 $status = $r['ok'] ? 200 : ( 'rate_limited' === $r['code'] ? 429 : 400 );
                 return new WP_REST_Response( $r, $status );
             },
@@ -112,7 +158,7 @@ function wsub_admin_post_signup() {
     $r = wsub_handle_signup(
         isset( $_POST['email'] ) ? sanitize_text_field( wp_unslash( $_POST['email'] ) ) : '',
         isset( $_POST['source'] ) ? sanitize_text_field( wp_unslash( $_POST['source'] ) ) : '',
-        isset( $_POST['website'] ) ? sanitize_text_field( wp_unslash( $_POST['website'] ) ) : '',
+        isset( $_POST['wsub_hp'] ) ? sanitize_text_field( wp_unslash( $_POST['wsub_hp'] ) ) : '',
         ! empty( $_POST['consent'] )
     );
     // phpcs:enable
@@ -133,14 +179,15 @@ add_action( 'admin_post_wsub_subscribe', 'wsub_admin_post_signup' );
 
 add_action( 'template_redirect', function () {
     // phpcs:disable WordPress.Security.NonceVerification -- the token is the credential.
+    $post    = 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' );
+    $input   = $post ? $_POST : $_GET;
     $actions = array( 'wsub_confirm', 'wsub_unsubscribe' );
     foreach ( $actions as $action ) {
-        if ( ! isset( $_REQUEST[ $action ] ) ) {
+        if ( ! isset( $input[ $action ] ) || ! is_string( $input[ $action ] ) ) {
             continue;
         }
-        $token = preg_replace( '/[^A-Za-z0-9]/', '', (string) wp_unslash( $_REQUEST[ $action ] ) );
+        $token = preg_replace( '/[^A-Za-z0-9]/', '', wp_unslash( $input[ $action ] ) );
         $row   = wsub_get_by_token( $token );
-        $post  = 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' );
 
         nocache_headers();
 
@@ -196,6 +243,7 @@ function wsub_message_page( $html, $action = '', $token = '', $button = '' ) {
         esc_html( get_bloginfo( 'name' ) ),
         array( 'response' => 200, 'back_link' => false, 'link_url' => home_url( '/' ), 'link_text' => __( 'Go to the site', 'writer-subscribe' ) )
     );
+    exit; // In case a custom wp_die handler returns.
 }
 
 /* ------------------------------------------------------------------------
@@ -206,6 +254,7 @@ function wsub_message_page( $html, $action = '', $token = '', $button = '' ) {
  * Markup for a signup form. Works without JavaScript; app.js upgrades it.
  */
 function wsub_form( $args = array() ) {
+    wsub_enqueue_assets();
     $s    = wsub_settings();
     $args = wp_parse_args(
         $args,
@@ -225,7 +274,7 @@ function wsub_form( $args = array() ) {
         <input type="hidden" name="action" value="wsub_subscribe">
         <input type="hidden" name="source" value="<?php echo esc_attr( $args['source'] ); ?>">
         <div class="wsub-hp" aria-hidden="true">
-            <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+            <label>Leave this empty <input type="text" name="wsub_hp" tabindex="-1" autocomplete="off"></label>
         </div>
         <div class="wsub-row">
             <label class="wsub-sr" for="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Email address', 'writer-subscribe' ); ?></label>
@@ -255,22 +304,11 @@ add_action( 'init', function () {
         true
     );
     wp_register_style( 'wsub', WSUB_URL . 'assets/subscribe.css', array(), wsub_asset_version( 'assets/subscribe.css' ) );
+    wp_register_script( 'wsub', WSUB_URL . 'assets/subscribe.js', array(), wsub_asset_version( 'assets/subscribe.js' ), array( 'strategy' => 'defer', 'in_footer' => true ) );
 
     register_block_type(
-        'writer-subscribe/form',
+        dirname( WSUB_FILE ) . '/block',
         array(
-            'api_version'     => 3,
-            'title'           => __( 'Subscribe form', 'writer-subscribe' ),
-            'category'        => 'widgets',
-            'icon'            => 'email',
-            'editor_script'   => 'wsub-block',
-            'style'           => 'wsub',
-            'attributes'      => array(
-                'heading' => array( 'type' => 'string' ),
-                'text'    => array( 'type' => 'string' ),
-                'button'  => array( 'type' => 'string' ),
-            ),
-            'supports'        => array( 'align' => array( 'wide', 'full' ), 'html' => false ),
             'render_callback' => function ( $attrs ) {
                 $args = array_filter(
                     array(
@@ -299,9 +337,20 @@ function wsub_popup_enabled() {
     return (bool) apply_filters( 'wsub_show_popup', $show );
 }
 
-add_action( 'wp_enqueue_scripts', function () {
+/**
+ * Enqueue the front-end CSS and JS, and pass the script its settings. Called
+ * when a form renders and from wp_enqueue_scripts when the page needs them;
+ * safe to call more than once.
+ */
+function wsub_enqueue_assets() {
+    static $done = false;
+    if ( $done || is_admin() ) {
+        return;
+    }
+    $done = true;
+
     wp_enqueue_style( 'wsub' );
-    wp_enqueue_script( 'wsub', WSUB_URL . 'assets/subscribe.js', array(), wsub_asset_version( 'assets/subscribe.js' ), array( 'strategy' => 'defer', 'in_footer' => true ) );
+    wp_enqueue_script( 'wsub' );
 
     $notices = array(
         'signup'           => wsub_setting( 'double_opt_in' ) ? __( 'Almost done. Check your inbox to confirm.', 'writer-subscribe' ) : __( 'You’re subscribed. Thank you!', 'writer-subscribe' ),
@@ -313,9 +362,14 @@ add_action( 'wp_enqueue_scripts', function () {
         'error'            => __( 'Something went wrong. Please try again.', 'writer-subscribe' ),
     );
 
+    $popup = '';
+    if ( did_action( 'wp' ) && wsub_popup_enabled() ) {
+        $popup = wsub_form( array( 'source' => 'popup:' . get_queried_object_id(), 'class' => 'wsub-form--popup' ) );
+    }
+
     $config = array(
         'endpoint'   => esc_url_raw( rest_url( 'writer-subscribe/v1/subscribe' ) ),
-        'popup'      => wsub_popup_enabled() ? wsub_form( array( 'source' => 'popup:' . get_the_ID(), 'class' => 'wsub-form--popup' ) ) : '',
+        'popup'      => $popup,
         'scroll'     => (int) wsub_setting( 'scroll' ),
         'snoozeDays' => (int) wsub_setting( 'snooze_days' ),
         'notices'    => $notices,
@@ -325,4 +379,28 @@ add_action( 'wp_enqueue_scripts', function () {
     );
 
     wp_add_inline_script( 'wsub', 'window.wsubConfig = ' . wp_json_encode( $config ) . ';', 'before' );
+}
+
+/**
+ * Does this page need the assets before its content renders? True when the
+ * popup shows, a notice from a signup or confirm redirect is waiting, or the
+ * queried post holds the block or shortcode. Forms elsewhere (widgets,
+ * templates) enqueue the assets themselves as they render.
+ */
+function wsub_page_needs_assets() {
+    // phpcs:ignore WordPress.Security.NonceVerification -- read-only display flag.
+    if ( wsub_popup_enabled() || isset( $_GET['wsub_notice'] ) ) {
+        return true;
+    }
+    $post = is_singular() ? get_queried_object() : null;
+    if ( $post instanceof WP_Post ) {
+        return has_block( 'writer-subscribe/form', $post ) || has_shortcode( $post->post_content, 'writer_subscribe' );
+    }
+    return false;
+}
+
+add_action( 'wp_enqueue_scripts', function () {
+    if ( wsub_page_needs_assets() ) {
+        wsub_enqueue_assets();
+    }
 } );

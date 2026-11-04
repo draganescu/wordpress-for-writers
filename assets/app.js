@@ -219,12 +219,9 @@
             per_page: 30,
             page,
             context: 'edit',
-            // Embed featured images; _fields keeps only the link the embed needs, so the response stays small.
-            _fields: 'id,title,excerpt,date_gmt,modified_gmt,status,sticky' + ( state.list.images ? ',_links.wp:featuredmedia' : '' ),
+            // Each note's image, featured or from its content, is one small field, worked out only while images show.
+            _fields: 'id,title,excerpt,date_gmt,modified_gmt,status,sticky' + ( state.list.images ? ',wfw_thumbnail' : '' ),
         };
-        if ( state.list.images ) {
-            params._embed = 'wp:featuredmedia';
-        }
         if ( state.view.type === 'category' ) {
             params.categories = state.view.id;
         } else if ( state.view.type === 'tag' ) {
@@ -369,7 +366,7 @@
                 <div class="wfw-menu" id="wfw-user-menu" role="menu" aria-labelledby="wfw-user"${ userMenuOpen ? '' : ' hidden' }>
                     ${ menuItem( settings.adminUrl + 'index.php?wfw_classic=1', 'dashboard', __( 'Go to admin', 'wordpress-for-writers' ) ) }
                     ${ menuItem( settings.adminUrl + 'profile.php', 'profile', __( 'Edit profile', 'wordpress-for-writers' ) ) }
-                    ${ ( settings.links || [] ).map( ( l ) => menuItem( l.url, 'plugin', l.label ) ).join( '' ) }
+                    ${ ( settings.links || [] ).map( ( l ) => menuItem( l.url, ICONS[ l.icon ] ? l.icon : 'dashboard', l.label ) ).join( '' ) }
                     <div class="wfw-menu__separator" role="separator"></div>
                     ${ menuItem( settings.logoutUrl, 'logout', sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }
                 </div>
@@ -503,12 +500,11 @@
         const statusIcon = status
             ? `<span class="wfw-note__status wfw-note__status--${ esc( note.status ) }" role="img" title="${ esc( status.label ) }" aria-label="${ esc( status.label ) }">${ icon( status.icon ) }</span>`
             : '';
-        // Prefer the square crop WordPress makes for thumbnails; the fixed box crops anything else.
-        const media = note._embedded?.[ 'wp:featuredmedia' ]?.[ 0 ];
-        const sizes = media?.media_details?.sizes || {};
-        const thumb = state.list.images && media?.media_type === 'image' ? ( sizes.thumbnail || sizes.medium || media ).source_url : '';
+        // The featured image, else an image from the note's content (includes/thumbnails.php); the fixed box crops it square.
+        // Only a featured image opens the featured image panel. One from the content is part of the row, which opens the note.
+        const thumb = state.list.images ? note.wfw_thumbnail : null;
         const date = state.list.orderby === 'date' ? note.date_gmt : note.modified_gmt;
-        const thumbImg = `<img class="wfw-note__thumb" src="${ esc( thumb ) }" alt="" width="64" height="64" loading="lazy" />`;
+        const thumbImg = thumb ? `<img class="wfw-note__thumb" src="${ esc( thumb.url ) }" alt="" width="64" height="64" loading="lazy" />` : '';
         const actions = isTrash && settings.canDelete
             ? `<span class="wfw-icon-btn" role="button" data-action="restore" data-id="${ note.id }" title="${ esc( __( 'Restore', 'wordpress-for-writers' ) ) }">${ icon( 'restore' ) }</span>
                <span class="wfw-icon-btn" role="button" data-action="delete" data-id="${ note.id }" title="${ esc( __( 'Delete permanently', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</span>`
@@ -518,7 +514,7 @@
             <div class="wfw-note${ note.id === state.activeId ? ' is-active' : '' }" role="listitem" tabindex="0" data-action="open" data-id="${ note.id }">
                 <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || __( 'Untitled', 'wordpress-for-writers' ) ) }</div>
                 ${ excerpt ? `<div class="wfw-note__excerpt">${ esc( excerpt ) }</div>` : '' }
-                ${ thumb ? ( FEATURED ? `<button class="wfw-note__thumb-btn" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Change featured image', 'wordpress-for-writers' ) ) }">${ thumbImg }</button>` : thumbImg ) : '' }
+                ${ FEATURED && thumb?.source === 'featured' ? `<button class="wfw-note__thumb-btn" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Change featured image', 'wordpress-for-writers' ) ) }">${ thumbImg }</button>` : thumbImg }
                 <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ statusIcon }</div>
                 <div class="wfw-note__actions">${ actions }</div>
             </div>`;
@@ -535,6 +531,10 @@
             return;
         }
         container.innerHTML = state.notes.map( noteHtml ).join( '' );
+        // A thumbnail that fails to load, like a content image from another site that is gone, is dropped rather than shown broken.
+        container.querySelectorAll( '.wfw-note__thumb' ).forEach( ( img ) => {
+            img.addEventListener( 'error', () => ( img.closest( '.wfw-note__thumb-btn' ) || img ).remove() );
+        } );
     }
 
     function markActive() {
