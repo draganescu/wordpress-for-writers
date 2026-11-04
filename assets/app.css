@@ -739,7 +739,8 @@ body.wfw-takeover #wpbody-content {
  *
  * Switch: set --wfw-corner-shape to round (here and at the end of frame.css) and
  * none of this applies. Browsers without corner-shape keep the plain arcs as well.
- * Circles and capsules stay round: a squircle can't be as round as a half circle.
+ * Circles stay circles. Capsules keep their radius, already half their height, and
+ * only take the squircle's flatter ends.
  *
  * Some selectors style elements that only exist on unmerged branches: the site
  * icon, the footer's icon row, note thumbnails, the folding section headings.
@@ -788,6 +789,11 @@ body.wfw-takeover #wpbody-content {
         /* Was 14px. */
         .wfw-sheet__card {
             border-radius: 24px;
+            corner-shape: squircle;
+        }
+
+        /* Capsule: the back button on phones. */
+        .wfw-back {
             corner-shape: squircle;
         }
     }

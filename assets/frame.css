@@ -572,7 +572,7 @@ body.wfw-frame .editor-header__settings .interface-pinned-items {
 /*
  * Squircle corners (experiment), as in app.css: smooth superellipse corners with
  * radii about 1.7x the ones they override. Set --wfw-corner-shape to round (here
- * and in app.css) to compare. The Save / Publish capsules stay round.
+ * and in app.css) to compare.
  */
 :root {
     --wfw-corner-shape: squircle;
@@ -598,6 +598,16 @@ body.wfw-frame .editor-header__settings .interface-pinned-items {
         body.wfw-frame .components-menu-item__button,
         body.wfw-frame .components-menu-items-choice {
             border-radius: 10px;
+            corner-shape: squircle;
+        }
+
+        /*
+         * Capsules: Save / Publish and the publish panel's Cancel / Publish. Their
+         * radius is already half their height, so only the ends change.
+         */
+        body.wfw-frame .editor-header__settings .editor-post-publish-button,
+        body.wfw-frame .editor-header__settings .editor-post-publish-panel__toggle,
+        body.wfw-frame .editor-post-publish-panel__header .components-button {
             corner-shape: squircle;
         }
     }
