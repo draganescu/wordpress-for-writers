@@ -97,6 +97,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'adminUrl'    => admin_url(),
             'siteUrl'     => home_url( '/' ),
             'siteName'    => get_bloginfo( 'name' ),
+            'siteIcon'    => get_site_icon_url( 64 ),
             'userName'    => $user->display_name,
             'canManage'   => current_user_can( 'manage_options' ),
             'canDelete'   => current_user_can( 'delete_posts' ),
