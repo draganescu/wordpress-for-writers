@@ -101,7 +101,7 @@ body.wfw-takeover #wpbody-content {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 18px 16px 10px;
+    padding: 18px 16px;
     font-size: 13px;
     font-weight: 600;
     color: var( --wfw-sidebar-muted );
