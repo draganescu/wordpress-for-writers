@@ -36,6 +36,14 @@ Copy or clone this folder into `wp-content/plugins/` and activate **WordPress fo
 
 To reach the classic dashboard, use **Classic dashboard** in the sidebar footer (`/wp-admin/index.php?wfw_classic=1`). The settings sidebar (categories, tags, status, excerpt) opens with **Cmd/Ctrl + Shift + ,**.
 
+## Companion plugins
+
+These live in `plugins/` and are separate plugins. Install each by copying its folder into `wp-content/plugins/`.
+
+- [Writer Subscribe](plugins/writer-subscribe/README.md): a scroll-triggered subscribe popup, an inline form block, double opt-in and a streamed CSV export that handles very large lists.
+
+Companion plugins can add links to the Writer sidebar footer with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '' )`.
+
 ## Development
 
 There is no build step. Plain PHP, CSS and JavaScript use the `wp.*` globals.

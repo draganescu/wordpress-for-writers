@@ -294,6 +294,7 @@
             <div class="wfw-sidebar__foot">
                 <button data-action="appearance">${ esc( __( 'Appearance', 'wordpress-for-writers' ) ) }</button>
                 <a href="${ esc( settings.siteUrl ) }" target="_blank" rel="noopener">${ esc( __( 'View site', 'wordpress-for-writers' ) ) } ↗</a>
+                ${ ( settings.links || [] ).map( ( l ) => `<a href="${ esc( l.url ) }">${ esc( l.label ) }</a>` ).join( '' ) }
                 <a href="${ esc( settings.adminUrl + 'index.php?wfw_classic=1' ) }">${ esc( __( 'Classic dashboard', 'wordpress-for-writers' ) ) }</a>
                 <a href="${ esc( settings.logoutUrl ) }">${ esc( sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }</a>
             </div>
