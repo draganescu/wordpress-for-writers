@@ -1,0 +1,26 @@
+<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+<!-- wp:group {"tagName":"main","className":"wes-main","layout":{"type":"constrained"}} -->
+<main class="wp-block-group wes-main">
+    <!-- wp:pattern {"slug":"writer-essay/featured-post"} /-->
+
+    <!-- wp:heading {"className":"wes-section-title"} -->
+    <h2 class="wp-block-heading wes-section-title">More essays</h2>
+    <!-- /wp:heading -->
+
+    <!-- wp:query {"queryId":3,"query":{"perPage":8,"pages":0,"offset":1,"postType":"post","order":"desc","orderBy":"date","author":"","search":"","exclude":[],"sticky":"","inherit":false},"className":"wes-post-list"} -->
+    <div class="wp-block-query wes-post-list">
+        <!-- wp:post-template -->
+            <!-- wp:pattern {"slug":"writer-essay/post-row"} /-->
+        <!-- /wp:post-template -->
+
+        <!-- wp:query-pagination {"paginationArrow":"arrow","layout":{"type":"flex","justifyContent":"space-between"}} -->
+            <!-- wp:query-pagination-previous {"label":"Newer"} /-->
+            <!-- wp:query-pagination-next {"label":"Older"} /-->
+        <!-- /wp:query-pagination -->
+    </div>
+    <!-- /wp:query -->
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

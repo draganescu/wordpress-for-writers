@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/theme.json",
+    "version": 3,
+    "title": "Paper",
+    "settings": {
+        "color": {
+            "palette": [
+                { "slug": "base", "name": "Base", "color": "#fbf8f2" },
+                { "slug": "surface", "name": "Surface", "color": "#efe8da" },
+                { "slug": "line", "name": "Line", "color": "#e6dfd1" },
+                { "slug": "muted", "name": "Muted", "color": "#7e6e56" },
+                { "slug": "contrast", "name": "Contrast", "color": "#3d3122" },
+                { "slug": "accent", "name": "Accent", "color": "#966731" },
+                { "slug": "accent-contrast", "name": "On accent", "color": "#ffffff" }
+            ]
+        },
+        "custom": {
+            "error": "#b32d2e"
+        }
+    }
+}

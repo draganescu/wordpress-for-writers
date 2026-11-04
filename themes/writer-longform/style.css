@@ -1,0 +1,16 @@
+/*
+Theme Name: Writer Longform
+Theme URI: https://github.com/draganescu/wordpress-for-writers
+Author: WordPress for Writers
+Description: A magazine-style block theme for long reads: a full-bleed hero image with the title set over it (or below it), chapter-style headings, wide pull quotes, wide and full-width media, and a grid of stories on the home page. Pairs with the Writer Subscribe plugin when it is active and works on its own when it isn't.
+Requires at least: 6.6
+Tested up to: 7.1
+Requires PHP: 7.4
+Version: 0.1.0
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: writer-longform
+Tags: blog, news, grid-layout, one-column, block-patterns, block-styles, custom-colors, editor-style, featured-images, full-site-editing, style-variations, translation-ready, wide-blocks
+*/
+
+/* Styles live in theme.json and assets/theme.css. */

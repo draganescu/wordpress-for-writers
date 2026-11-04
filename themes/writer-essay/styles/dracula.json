@@ -1,0 +1,28 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/theme.json",
+    "version": 3,
+    "title": "Dracula",
+    "settings": {
+        "color": {
+            "palette": [
+                { "slug": "base", "name": "Base", "color": "#282a36" },
+                { "slug": "surface", "name": "Surface", "color": "#343746" },
+                { "slug": "line", "name": "Line", "color": "#343746" },
+                { "slug": "muted", "name": "Muted", "color": "#8c93b8" },
+                { "slug": "contrast", "name": "Contrast", "color": "#f8f8f2" },
+                { "slug": "accent", "name": "Accent", "color": "#ff79c6" },
+                { "slug": "accent-contrast", "name": "On accent", "color": "#111111" }
+            ]
+        },
+        "custom": {
+            "error": "#ff8f86",
+            "hero": {
+                "background": "#21222c",
+                "text": "#ffffff"
+            }
+        }
+    },
+    "styles": {
+        "css": ":root{color-scheme:dark}"
+    }
+}
