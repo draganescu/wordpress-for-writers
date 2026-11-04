@@ -731,6 +731,68 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-muted ) !important;
 }
 
+/*
+ * Squircle corners (experiment): the smooth superellipse corner iOS uses, in place
+ * of a circular arc, on the app's rounded rectangles. A squircle hugs its corner
+ * more tightly than an arc of the same radius, so each radius below is about 1.7x
+ * the one it overrides, which keeps every shape about as round as before.
+ *
+ * Switch: set --wfw-corner-shape to round (here and at the end of frame.css) and
+ * none of this applies. Browsers without corner-shape keep the plain arcs as well.
+ * Circles and capsules stay round: a squircle can't be as round as a half circle.
+ *
+ * Some selectors style elements that only exist on unmerged branches: the site
+ * icon, the footer's icon row, note thumbnails, the folding section headings.
+ */
+:root {
+    --wfw-corner-shape: squircle;
+}
+
+@supports ( corner-shape: squircle ) {
+    @container style( --wfw-corner-shape: squircle ) {
+        /* Was 4px: status badges, the site icon. */
+        .wfw-badge,
+        .wfw-sidebar__icon {
+            border-radius: 7px;
+            corner-shape: squircle;
+        }
+
+        /*
+         * Was 6px. .wfw-nav includes the folding Categories and Tags headings, and
+         * .wfw-icon-btn the footer's icon row. The .wfw prefix outranks the footer
+         * button rule below this block.
+         */
+        .wfw-nav,
+        .wfw .wfw-sidebar__foot :is( a, button ),
+        .wfw-icon-btn,
+        .wfw-segmented button,
+        .wfw-note__thumb {
+            border-radius: 10px;
+            corner-shape: squircle;
+        }
+
+        /* Was 7px. */
+        .wfw-search {
+            border-radius: 12px;
+            corner-shape: squircle;
+        }
+
+        /* Was 8px. */
+        .wfw-note,
+        .wfw-theme__preview,
+        .wfw-segmented {
+            border-radius: 14px;
+            corner-shape: squircle;
+        }
+
+        /* Was 14px. */
+        .wfw-sheet__card {
+            border-radius: 24px;
+            corner-shape: squircle;
+        }
+    }
+}
+
 .wfw-segmented button.is-active {
     background: var( --wfw-editor-bg ) !important;
     color: var( --wfw-text ) !important;
