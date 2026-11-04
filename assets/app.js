@@ -283,9 +283,10 @@
         const tags = state.tags
             .map( ( t ) => navButton( { type: 'tag', id: t.id }, t.name, '<span class="wfw-nav__hash">#</span>' ) )
             .join( '' );
+        const siteIcon = settings.siteIcon ? `<img class="wfw-sidebar__icon" src="${ esc( settings.siteIcon ) }" alt="" />` : '';
 
         sidebar.innerHTML = `
-            <div class="wfw-sidebar__head">${ esc( settings.siteName ) }</div>
+            <div class="wfw-sidebar__head">${ siteIcon }<span class="wfw-sidebar__name">${ esc( settings.siteName ) }</span></div>
             <div class="wfw-sidebar__scroll">
                 ${ statusNav }
                 ${ state.categories.length ? `<div class="wfw-sidebar__section">${ esc( __( 'Categories', 'wordpress-for-writers' ) ) }</div>${ categoryTree( 0, 0 ) }` : '' }
@@ -298,6 +299,28 @@
                 <a href="${ esc( settings.logoutUrl ) }">${ esc( sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }</a>
             </div>
         `;
+        revealSiteIcon( sidebar.querySelector( '.wfw-sidebar__icon' ) );
+    }
+
+    // The site icon stays invisible until it has loaded, and is dropped if it fails, so an empty box never shows.
+    function revealSiteIcon( img ) {
+        if ( ! img ) {
+            return;
+        }
+        const settle = () => {
+            if ( img.naturalWidth ) {
+                img.classList.add( 'is-loaded' );
+            } else {
+                settings.siteIcon = ''; // Leave it out of later renders too.
+                img.remove();
+            }
+        };
+        if ( img.complete ) {
+            settle();
+        } else {
+            img.addEventListener( 'load', settle );
+            img.addEventListener( 'error', settle );
+        }
     }
 
     function renderListHeader() {
