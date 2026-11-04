@@ -23,6 +23,7 @@
         back: '<path d="M14.6 7l-1.2-1L8 12l5.4 6 1.2-1-4.6-5z"/>', // chevron-left
         external: '<path d="M19.5 4.5h-7V6h4.44l-5.97 5.97 1.06 1.06L18 7.06v4.44h1.5v-7Zm-13 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3H17v3a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h3V5.5h-3Z"/>', // external
         appearance: '<path fill-rule="evenodd" clip-rule="evenodd" d="M10.289 4.836A1 1 0 0111.275 4h1.306a1 1 0 01.987.836l.244 1.466c.787.26 1.503.679 2.108 1.218l1.393-.522a1 1 0 011.216.437l.653 1.13a1 1 0 01-.23 1.273l-1.148.944a6.025 6.025 0 010 2.435l1.149.946a1 1 0 01.23 1.272l-.653 1.13a1 1 0 01-1.216.437l-1.394-.522c-.605.54-1.32.958-2.108 1.218l-.244 1.466a1 1 0 01-.987.836h-1.306a1 1 0 01-.986-.836l-.244-1.466a5.995 5.995 0 01-2.108-1.218l-1.394.522a1 1 0 01-1.217-.436l-.653-1.131a1 1 0 01.23-1.272l1.149-.946a6.026 6.026 0 010-2.435l-1.148-.944a1 1 0 01-.23-1.272l.653-1.131a1 1 0 011.217-.437l1.393.522a5.994 5.994 0 012.108-1.218l.244-1.466zM14.929 12a3 3 0 11-6 0 3 3 0 016 0z"/>', // cog
+        updates: '<path d="m11.3 17.2-5-5c-.1-.1-.1-.3 0-.4l2.3-2.3-1.1-1-2.3 2.3c-.7.7-.7 1.8 0 2.5l5 5H7.5v1.5h5.3v-5.2h-1.5v2.6zm7.5-6.4-5-5h2.7V4.2h-5.2v5.2h1.5V6.8l5 5c.1.1.1.3 0 .4l-2.3 2.3 1.1 1.1 2.3-2.3c.6-.7.6-1.9-.1-2.5z"/>', // update
         dashboard: '<path d="M12 5a8 8 0 0 1 3.842.984L14.726 7.1a6.502 6.502 0 0 0-7.323 1.303 6.5 6.5 0 0 0 0 9.194l-1.06 1.06A8 8 0 0 1 12 5Zm7.021 4.168a8 8 0 0 1-1.364 9.49l-1.06-1.061a6.5 6.5 0 0 0 1.307-7.312l1.117-1.117ZM17.47 6.47a.75.75 0 1 1 1.06 1.06l-5.083 5.082a1.5 1.5 0 1 1-1.06-1.06L17.47 6.47Z"/>', // dashboard
         logout: '<path d="M16.8 5h-7c-1.1 0-2 .9-2 2v1.5h1.5V7c0-.3.2-.5.5-.5h7c.3 0 .5.2.5.5v10c0 .3-.2.5-.5.5h-7c-.3 0-.5-.2-.5-.5v-1.5H7.8V17c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2z" transform="matrix(-1 0 0 1 22.8 0)"/><path d="M11 14.5l1.1 1.1 3-3 .5-.5-.6-.6-3-3-1 1 1.7 1.7H5v1.5h7.7L11 14.5z" transform="translate(4.4 0)"/>', // login, flipped
         profile: '<path fill-rule="evenodd" clip-rule="evenodd" d="M7.25 16.437a6.5 6.5 0 1 1 9.5 0V16A2.75 2.75 0 0 0 14 13.25h-4A2.75 2.75 0 0 0 7.25 16v.437Zm1.5 1.193a6.47 6.47 0 0 0 3.25.87 6.47 6.47 0 0 0 3.25-.87V16c0-.69-.56-1.25-1.25-1.25h-4c-.69 0-1.25.56-1.25 1.25v1.63ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm10-2a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/>', // comment-author-avatar
@@ -345,7 +346,12 @@
             ? `<img class="wfw-user__avatar" src="${ esc( settings.avatarUrl ) }" alt="" />`
             : `<span class="wfw-user__avatar">${ esc( Array.from( settings.userName.trim() )[ 0 ] ) }</span>`;
         const label = ( text ) => `title="${ esc( text ) }" aria-label="${ esc( text ) }"`;
-        const menuItem = ( href, iconName, text ) => `<a class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="menu-item" href="${ esc( href ) }">${ icon( iconName ) }<span>${ esc( text ) }</span></a>`;
+        const menuItem = ( href, iconName, text, extra = '' ) => `<a class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="menu-item" href="${ esc( href ) }">${ icon( iconName ) }<span>${ esc( text ) }</span>${ extra }</a>`;
+        // Core's update notices are hidden here, so pending updates show as a dot on the
+        // account button and the first item in its menu (only for people who can update).
+        const updates = Number( settings.updatesCount ) || 0;
+        const updatesText = sprintf( _n( '%d update available', '%d updates available', updates, 'wordpress-for-writers' ), updates );
+        const updatesDot = updates ? `<span class="wfw-user__dot" title="${ esc( updatesText ) }"></span>` : '';
         // Drafts' autosaves re-render the sidebar every few seconds: keep focus on
         // the same footer control (the open menu itself survives via userMenuOpen).
         const footControls = () => [ ...sidebar.querySelectorAll( '.wfw-sidebar__foot :is( a, button )' ) ];
@@ -364,8 +370,9 @@
                 ${ state.tags.length ? sidebarSection( 'tags', __( 'Tags', 'wordpress-for-writers' ), tags ) : '' }
             </div>
             <div class="wfw-sidebar__foot">
-                <button class="wfw-user" id="wfw-user" data-action="user-menu" aria-haspopup="menu" aria-expanded="${ userMenuOpen ? 'true' : 'false' }" aria-controls="wfw-user-menu">${ avatar }<span class="wfw-user__name" title="${ esc( settings.userName ) }">${ esc( settings.userName ) }</span>${ icon( 'dropdown' ) }</button>
+                <button class="wfw-user" id="wfw-user" data-action="user-menu" aria-haspopup="menu" aria-expanded="${ userMenuOpen ? 'true' : 'false' }" aria-controls="wfw-user-menu"${ updates ? ` aria-description="${ esc( updatesText ) }"` : '' }>${ avatar }<span class="wfw-user__name" title="${ esc( settings.userName ) }">${ esc( settings.userName ) }</span>${ updatesDot }${ icon( 'dropdown' ) }</button>
                 <div class="wfw-menu" id="wfw-user-menu" role="menu" aria-labelledby="wfw-user"${ userMenuOpen ? '' : ' hidden' }>
+                    ${ updates ? menuItem( settings.adminUrl + 'update-core.php', 'updates', __( 'Updates', 'wordpress-for-writers' ), `<span class="wfw-menu__badge" aria-hidden="true">${ updates }</span><span class="screen-reader-text">${ esc( updatesText ) }</span>` ) + '<div class="wfw-menu__separator" role="separator"></div>' : '' }
                     ${ menuItem( settings.adminUrl + 'index.php?wfw_classic=1', 'dashboard', __( 'Go to admin', 'wordpress-for-writers' ) ) }
                     ${ menuItem( settings.adminUrl + 'profile.php', 'profile', __( 'Edit profile', 'wordpress-for-writers' ) ) }
                     <div class="wfw-menu__separator" role="separator"></div>
