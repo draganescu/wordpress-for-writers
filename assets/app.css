@@ -115,7 +115,7 @@ body.wfw-takeover #wpbody-content {
     flex: none;
     width: 20px;
     height: 20px;
-    border: 1px solid var( --wfw-border );
+    border: 1px solid var( --wfw-sidebar-border );
     border-radius: 4px;
     object-fit: cover;
     opacity: 0;
@@ -238,6 +238,11 @@ body.wfw-takeover #wpbody-content {
 .wfw-user > svg {
     margin-left: -6px;
     color: var( --wfw-sidebar-muted );
+}
+
+/* At rest the list's muted color, unless the palette gives the sidebar's buttons their own. */
+.wfw-sidebar__foot .wfw-icon-btn {
+    color: var( --wfw-sidebar-button ) !important;
 }
 
 /* Hover like the sidebar's nav items, which holds even when the sidebar's tones differ from the list's. */
