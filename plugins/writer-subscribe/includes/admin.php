@@ -68,7 +68,7 @@ add_action( 'admin_post_wsub_add', function () {
     }
     check_admin_referer( 'wsub_add' );
     $email  = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
-    $result = wsub_add( $email, 'admin', false );
+    $result = wsub_add( $email, 'admin', false, false );
     $msg    = 'error' === $result['status'] ? 'add_error' : 'added';
     if ( 'already' === $result['status'] ) {
         $msg = 'already';
@@ -104,7 +104,7 @@ add_action( 'admin_post_wsub_export', function () {
     $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
     $where  = wsub_where( $status, $search );
     $table  = wsub_table();
-    $batch  = (int) apply_filters( 'wsub_export_batch_size', 5000 );
+    $batch  = max( 1, (int) apply_filters( 'wsub_export_batch_size', 5000 ) );
 
     if ( function_exists( 'set_time_limit' ) ) {
         @set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors

@@ -23,6 +23,7 @@ function wsub_install() {
         email varchar(190) NOT NULL,
         status varchar(20) NOT NULL DEFAULT 'pending',
         token char(32) NOT NULL,
+        token_at datetime NULL DEFAULT NULL,
         source varchar(100) NOT NULL DEFAULT '',
         created_at datetime NOT NULL,
         confirmed_at datetime NULL DEFAULT NULL,
@@ -55,66 +56,112 @@ function wsub_get_by_email( $email ) {
     return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . wsub_table() . ' WHERE email = %s', $email ) );
 }
 
+/**
+ * Seconds since the row's current token was issued, or null when unknown.
+ */
+function wsub_token_age( $row ) {
+    if ( empty( $row->token_at ) ) {
+        return null;
+    }
+    $issued = strtotime( $row->token_at . ' UTC' );
+    return $issued ? max( 0, time() - $issued ) : null;
+}
+
+/**
+ * How long an unconfirmed signup link stays valid.
+ */
+function wsub_confirm_ttl() {
+    return (int) apply_filters( 'wsub_confirm_ttl', 7 * DAY_IN_SECONDS );
+}
+
+/**
+ * Look a row up by token. A pending row's token stops working once its
+ * confirmation window has passed; an active row's token keeps serving its
+ * unsubscribe link.
+ */
 function wsub_get_by_token( $token ) {
     global $wpdb;
     if ( ! is_string( $token ) || 32 !== strlen( $token ) ) {
         return null;
     }
-    return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . wsub_table() . ' WHERE token = %s', $token ) );
+    $row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . wsub_table() . ' WHERE token = %s', $token ) );
+    if ( $row && 'pending' === $row->status ) {
+        $age = wsub_token_age( $row );
+        if ( null !== $age && $age > wsub_confirm_ttl() ) {
+            return null;
+        }
+    }
+    return $row;
 }
 
 /**
  * Add or re-activate a subscriber.
  *
+ * @param bool $public True when the request comes from a visitor rather than
+ *                     an admin. Public requests can never re-activate someone
+ *                     who unsubscribed without a fresh confirmation, whatever
+ *                     the double-opt-in setting says.
+ *
  * @return array{ status: string, row: object|null } status is one of
- *               'pending', 'active', 'already', 'error'.
+ *               'pending' (confirmation needed, send the email),
+ *               'cooldown' (confirmation already sent recently, don't resend),
+ *               'active', 'already', 'error'.
  */
-function wsub_add( $email, $source = '', $double_opt_in = true ) {
+function wsub_add( $email, $source = '', $double_opt_in = true, $public = true ) {
     global $wpdb;
 
     $email = strtolower( trim( $email ) );
-    if ( ! is_email( $email ) ) {
+    if ( ! is_email( $email ) || strlen( $email ) > 190 ) {
         return array( 'status' => 'error', 'row' => null );
     }
 
     $existing = wsub_get_by_email( $email );
-    $status   = $double_opt_in ? 'pending' : 'active';
 
     if ( $existing && 'active' === $existing->status ) {
         return array( 'status' => 'already', 'row' => $existing );
     }
 
+    if ( $public && $existing && 'unsubscribed' === $existing->status ) {
+        $double_opt_in = true;
+    }
+
+    // Don't resend (and don't invalidate the link already in their inbox)
+    // while a recent confirmation is still outstanding. This is also what
+    // stops a stranger from using the form to flood someone with email.
+    if ( $existing && 'pending' === $existing->status && $double_opt_in ) {
+        $age = wsub_token_age( $existing );
+        if ( null !== $age && $age < (int) apply_filters( 'wsub_resend_cooldown', 10 * MINUTE_IN_SECONDS ) ) {
+            return array( 'status' => 'cooldown', 'row' => $existing );
+        }
+    }
+
+    $status = $double_opt_in ? 'pending' : 'active';
+    $fields = array(
+        'status'          => $status,
+        'token'           => wsub_new_token(),
+        'token_at'        => wsub_now(),
+        'source'          => substr( (string) $source, 0, 100 ),
+        'confirmed_at'    => $double_opt_in ? null : wsub_now(),
+        'unsubscribed_at' => null,
+    );
+
     if ( $existing ) {
-        // Pending or unsubscribed: start over with a fresh token.
-        $wpdb->update(
-            wsub_table(),
-            array(
-                'status'          => $status,
-                'token'           => wsub_new_token(),
-                'source'          => '' !== (string) $source ? substr( (string) $source, 0, 100 ) : $existing->source,
-                'confirmed_at'    => $double_opt_in ? null : wsub_now(),
-                'unsubscribed_at' => null,
-            ),
-            array( 'id' => $existing->id )
-        );
+        if ( '' === $fields['source'] ) {
+            $fields['source'] = $existing->source;
+        }
+        $wpdb->update( wsub_table(), $fields, array( 'id' => $existing->id ) );
     } else {
-        $inserted = $wpdb->insert(
-            wsub_table(),
-            array(
-                'email'        => $email,
-                'status'       => $status,
-                'token'        => wsub_new_token(),
-                'source'       => substr( (string) $source, 0, 100 ),
-                'created_at'   => wsub_now(),
-                'confirmed_at' => $double_opt_in ? null : wsub_now(),
-            )
-        );
-        if ( ! $inserted ) {
+        $fields['email']      = $email;
+        $fields['created_at'] = wsub_now();
+        if ( ! $wpdb->insert( wsub_table(), $fields ) ) {
             return array( 'status' => 'error', 'row' => null );
         }
     }
 
     $row = wsub_get_by_email( $email );
+    if ( ! $row ) {
+        return array( 'status' => 'error', 'row' => null );
+    }
 
     if ( 'active' === $status ) {
         do_action( 'wsub_subscribed', $row );
@@ -123,6 +170,10 @@ function wsub_add( $email, $source = '', $double_opt_in = true ) {
     return array( 'status' => $status, 'row' => $row );
 }
 
+/**
+ * Confirm a pending row. The confirmation token is single-use: a new one
+ * is issued for the unsubscribe link.
+ */
 function wsub_confirm( $row ) {
     global $wpdb;
     if ( 'active' === $row->status ) {
@@ -130,7 +181,13 @@ function wsub_confirm( $row ) {
     }
     $wpdb->update(
         wsub_table(),
-        array( 'status' => 'active', 'confirmed_at' => wsub_now(), 'unsubscribed_at' => null ),
+        array(
+            'status'          => 'active',
+            'token'           => wsub_new_token(),
+            'token_at'        => wsub_now(),
+            'confirmed_at'    => wsub_now(),
+            'unsubscribed_at' => null,
+        ),
         array( 'id' => $row->id )
     );
     do_action( 'wsub_subscribed', wsub_get_by_email( $row->email ) );
@@ -140,7 +197,12 @@ function wsub_unsubscribe( $row ) {
     global $wpdb;
     $wpdb->update(
         wsub_table(),
-        array( 'status' => 'unsubscribed', 'unsubscribed_at' => wsub_now() ),
+        array(
+            'status'          => 'unsubscribed',
+            'token'           => wsub_new_token(),
+            'token_at'        => wsub_now(),
+            'unsubscribed_at' => wsub_now(),
+        ),
         array( 'id' => $row->id )
     );
     do_action( 'wsub_unsubscribed', $row );

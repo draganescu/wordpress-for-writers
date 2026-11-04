@@ -13,7 +13,7 @@
 defined( 'ABSPATH' ) || exit;
 
 define( 'WSUB_VERSION', '0.1.0' );
-define( 'WSUB_DB_VERSION', '1' );
+define( 'WSUB_DB_VERSION', '2' );
 define( 'WSUB_FILE', __FILE__ );
 define( 'WSUB_URL', plugin_dir_url( __FILE__ ) );
 

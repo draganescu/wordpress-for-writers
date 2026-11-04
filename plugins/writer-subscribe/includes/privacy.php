@@ -19,6 +19,7 @@ add_filter( 'wp_privacy_personal_data_exporters', function ( $exporters ) {
                     'data'        => array(
                         array( 'name' => __( 'Email', 'writer-subscribe' ), 'value' => $row->email ),
                         array( 'name' => __( 'Status', 'writer-subscribe' ), 'value' => $row->status ),
+                        array( 'name' => __( 'Signed up via', 'writer-subscribe' ), 'value' => wsub_source_label( $row->source ) ),
                         array( 'name' => __( 'Subscribed', 'writer-subscribe' ), 'value' => $row->created_at ),
                         array( 'name' => __( 'Confirmed', 'writer-subscribe' ), 'value' => (string) $row->confirmed_at ),
                     ),
