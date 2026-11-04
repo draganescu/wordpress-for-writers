@@ -22,7 +22,7 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
   - No block inserters or "Type / to choose a block" coaching.
 - **Autosave for drafts:** drafts save themselves as you type. Published posts still need an explicit Update.
 - **Live titles:** the note list updates as you type a title.
-- **Appearance:** 9 themes (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light/Dark, Dracula, Nord), plus font (serif, sans, mono), text size and line width. Choices are saved per user and apply live.
+- **Appearance:** 10 themes (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light/Dark, Dracula, Nord, and WordPress in wp-admin's Modern colours), plus font (serif, sans, mono), text size and line width. Choices are saved per user and apply live.
 - **Responsive:** on tablets the sidebar becomes a drawer, and on phones you see one pane at a time with back navigation.
 - **Focus mode:** hides everything but the editor.
 
@@ -43,7 +43,7 @@ These live in `plugins/` and are separate plugins. Install each by copying its f
 - [Writer Subscribe](plugins/writer-subscribe/README.md): a scroll-triggered subscribe popup, an inline form block, double opt-in and a streamed CSV export that handles very large lists.
 - [Writer Members](plugins/writer-members/README.md): membership tiers, a Paywall block and per-post gating (also in feeds and the REST API), with a minimal Stripe webhook for Payment Links.
 
-Companion plugins can add links to the Writer sidebar footer with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '' )`.
+Companion plugins can add links to the user menu (your name at the bottom of the Writer sidebar) with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '' )`.
 
 They can also add a **Visibility** picker to the note's settings with the `wfw_visibility_options` filter (items are `array( 'value' => '', 'label' => '' )`). The choice is saved to the post meta named by `wfw_visibility_meta_key` (default `wmem_tier`), which must be registered with `show_in_rest`. With no options, there is no picker.
 

@@ -227,6 +227,88 @@
         } ).observe( document.body, { childList: true, subtree: true } );
     }
 
+    /*
+     * Featured image: a quiet link above the title, like the cover image prompt
+     * in Ghost or Medium. It shows while the pointer is over the title or the
+     * title has focus (always, faintly, on touch screens), and asks the app to
+     * open its featured image panel in place of the editor. It sits in the
+     * canvas, absolutely positioned, so the title doesn't move. The editor
+     * re-renders the title wrapper, so the link is put back when it drops out.
+     */
+    function mountFeaturedImageLink() {
+        if ( ! window.wfwFrame || ! window.wfwFrame.featuredImages ) {
+            return;
+        }
+        const { __ } = wp.i18n;
+        const ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"/></svg>';
+        let link = null;
+        let hasImage = null;
+
+        function label() {
+            const now = !! editor().getEditedPostAttribute( 'featured_media' );
+            if ( link && now !== hasImage ) {
+                hasImage = now;
+                link.querySelector( 'span' ).textContent = now
+                    ? __( 'Change featured image', 'wordpress-for-writers' )
+                    : __( 'Add featured image', 'wordpress-for-writers' );
+            }
+        }
+
+        const watched = new WeakSet();
+
+        // The canvas iframe loads after this script runs and can be re-created, so
+        // each new canvas document is watched for the title wrapper (re)appearing.
+        function watch( doc ) {
+            if ( doc && doc.body && ! watched.has( doc ) ) {
+                watched.add( doc );
+                new MutationObserver( attach ).observe( doc.body, { childList: true, subtree: true } );
+            }
+        }
+
+        function attach() {
+            const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
+            if ( ! canvas ) {
+                return;
+            }
+            if ( ! canvas.dataset.wfwFeaturedLink ) {
+                canvas.dataset.wfwFeaturedLink = '1';
+                canvas.addEventListener( 'load', attach );
+            }
+            const doc = canvas.contentDocument;
+            watch( doc );
+            const wrapper = doc && doc.querySelector( '.editor-visual-editor__post-title-wrapper' );
+            if ( ! wrapper || ( link && link.parentNode === wrapper ) ) {
+                return;
+            }
+            if ( ! link || link.ownerDocument !== doc ) {
+                link = doc.createElement( 'button' );
+                link.type = 'button';
+                link.className = 'wfw-featured-link';
+                link.contentEditable = 'false';
+                link.innerHTML = ICON + '<span></span>';
+                link.addEventListener( 'click', () => {
+                    const id = editor().getCurrentPostId();
+                    if ( id ) {
+                        post( { type: 'featured-image', id } );
+                    }
+                } );
+                hasImage = null;
+            }
+            wrapper.prepend( link );
+            label();
+        }
+
+        new MutationObserver( attach ).observe( document.body, { childList: true, subtree: true } );
+        // Store updates also come as the editor first renders the title.
+        subscribe( () => {
+            attach();
+            label();
+        } );
+        attach();
+    }
+
+    mountFeaturedImageLink();
+
     function post( message ) {
         window.parent.postMessage( { source: 'wfw-frame', ...message }, window.location.origin );
     }
