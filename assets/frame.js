@@ -217,9 +217,28 @@
             }
         }
 
+        const watched = new WeakSet();
+
+        // The canvas iframe loads after this script runs and can be re-created, so
+        // each new canvas document is watched for the title wrapper (re)appearing.
+        function watch( doc ) {
+            if ( doc && doc.body && ! watched.has( doc ) ) {
+                watched.add( doc );
+                new MutationObserver( attach ).observe( doc.body, { childList: true, subtree: true } );
+            }
+        }
+
         function attach() {
             const canvas = document.querySelector( 'iframe[name="editor-canvas"]' );
-            const doc = canvas && canvas.contentDocument;
+            if ( ! canvas ) {
+                return;
+            }
+            if ( ! canvas.dataset.wfwFeaturedLink ) {
+                canvas.dataset.wfwFeaturedLink = '1';
+                canvas.addEventListener( 'load', attach );
+            }
+            const doc = canvas.contentDocument;
+            watch( doc );
             const wrapper = doc && doc.querySelector( '.editor-visual-editor__post-title-wrapper' );
             if ( ! wrapper || ( link && link.parentNode === wrapper ) ) {
                 return;
@@ -237,14 +256,17 @@
                     }
                 } );
                 hasImage = null;
-                new MutationObserver( attach ).observe( doc.body, { childList: true, subtree: true } );
             }
             wrapper.prepend( link );
             label();
         }
 
         new MutationObserver( attach ).observe( document.body, { childList: true, subtree: true } );
-        subscribe( label );
+        // Store updates also come as the editor first renders the title.
+        subscribe( () => {
+            attach();
+            label();
+        } );
         attach();
     }
 
