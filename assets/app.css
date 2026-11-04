@@ -1,6 +1,8 @@
 /* Takeover: hide wp-admin chrome on the app page. */
 body.wfw-takeover {
     overflow: hidden;
+    /* Shows below the app while it is sized to the space above the iOS keyboard. */
+    background: var( --wfw-editor-bg );
 }
 
 body.wfw-takeover #wpadminbar,
