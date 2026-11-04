@@ -200,9 +200,10 @@ body.wfw-frame .block-editor-block-contextual-toolbar .block-editor-block-parent
     display: none !important;
 }
 
+/* Most of the way to the text color so icons read clearly; hover goes the rest of the way. */
 body.wfw-frame .editor-header .components-button:not( .is-primary ),
 body.wfw-frame .block-editor-block-contextual-toolbar .components-button {
-    color: var( --wfw-muted );
+    color: color-mix( in srgb, var( --wfw-muted ), var( --wfw-text ) 75% );
 }
 
 body.wfw-frame .editor-header .components-button:not( .is-primary ):hover,
