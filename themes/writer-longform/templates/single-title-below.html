@@ -1,0 +1,38 @@
+<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+<!-- wp:group {"tagName":"main","className":"wlf-main wlf-main--story","layout":{"type":"constrained"}} -->
+<main class="wp-block-group wlf-main wlf-main--story">
+    <!-- wp:post-featured-image {"align":"full","height":"78vh","className":"wlf-hero-image"} /-->
+
+    <!-- wp:group {"className":"wlf-headline","layout":{"type":"constrained","contentSize":"900px"}} -->
+    <div class="wp-block-group wlf-headline">
+        <!-- wp:post-terms {"term":"category","textAlign":"center","className":"wlf-kicker"} /-->
+        <!-- wp:post-title {"level":1,"textAlign":"center","className":"wlf-headline-title"} /-->
+        <!-- wp:pattern {"slug":"writer-longform/byline"} /-->
+    </div>
+    <!-- /wp:group -->
+
+    <!-- wp:group {"tagName":"article","align":"full","className":"wlf-article","layout":{"type":"constrained"}} -->
+    <article class="wp-block-group alignfull wlf-article">
+        <!-- wp:post-content {"align":"full","className":"wlf-story","layout":{"type":"constrained"}} /-->
+        <!-- wp:pattern {"slug":"writer-longform/author-box"} /-->
+        <!-- wp:pattern {"slug":"writer-longform/subscribe-box"} /-->
+        <!-- wp:pattern {"slug":"writer-longform/comments"} /-->
+    </article>
+    <!-- /wp:group -->
+
+    <!-- wp:heading {"align":"wide","className":"wlf-section-title is-style-plain"} -->
+    <h2 class="wp-block-heading alignwide wlf-section-title is-style-plain">More stories</h2>
+    <!-- /wp:heading -->
+
+    <!-- wp:query {"queryId":4,"query":{"perPage":3,"pages":0,"offset":0,"postType":"post","order":"desc","orderBy":"date","author":"","search":"","exclude":[],"sticky":"","inherit":false},"align":"wide","className":"wlf-grid"} -->
+    <div class="wp-block-query alignwide wlf-grid">
+        <!-- wp:post-template {"style":{"spacing":{"blockGap":"var:preset|spacing|50"}},"layout":{"type":"grid","columnCount":3,"minimumColumnWidth":"17rem"}} -->
+            <!-- wp:pattern {"slug":"writer-longform/story-card"} /-->
+        <!-- /wp:post-template -->
+    </div>
+    <!-- /wp:query -->
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer-minimal","tagName":"footer"} /-->

@@ -1,6 +1,11 @@
 {
     "core": null,
-    "plugins": [ "." ],
+    "plugins": [ ".", "./plugins/writer-subscribe", "./plugins/writer-members" ],
+    "themes": [
+        "./themes/writer-newsletter",
+        "./themes/writer-essay",
+        "./themes/writer-longform"
+    ],
     "port": 8890,
     "testsPort": 8891
 }

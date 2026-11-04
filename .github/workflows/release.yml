@@ -1,0 +1,80 @@
+# Build installable zips for the Writer plugin, every plugin in plugins/ and
+# every theme in themes/.
+#
+# - Tag <slug>-v<version> (e.g. writer-subscribe-v0.2.0) to release one
+#   package. The tag version must match the package's Version: header.
+# - Tag v<version> (e.g. v0.3.0) to release a bundle with every package.
+# - Run the workflow by hand to get every zip as a build artifact, without
+#   publishing a release.
+
+name: Release zips
+
+on:
+    push:
+        tags:
+            - 'v*'
+            - '*-v*'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    zips:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Work out what to build
+              id: plan
+              run: |
+                  ref="${GITHUB_REF_NAME}"
+                  if [ "${GITHUB_REF_TYPE}" != tag ]; then
+                      echo "packages=" >> "$GITHUB_OUTPUT"
+                      echo "release=" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+
+                  if [[ "$ref" =~ ^v[0-9] ]]; then
+                      # Bundle release: every package.
+                      echo "packages=" >> "$GITHUB_OUTPUT"
+                      echo "release=$ref" >> "$GITHUB_OUTPUT"
+                      echo "title=WordPress for Writers ${ref}" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+
+                  slug="${ref%-v*}"
+                  version="${ref##*-v}"
+                  actual="$( bin/build-zips.sh --list "$slug" 2>/dev/null | awk '{ print $2 }' || true )"
+                  if [ -z "$actual" ]; then
+                      echo "::error::Tag $ref names no package. Packages: $( bin/build-zips.sh --list | awk '{ print $1 }' | xargs )"
+                      exit 1
+                  fi
+                  if [ "$actual" != "$version" ]; then
+                      echo "::error::Tag $ref says $version but $slug's Version: header says $actual. Bump the header or fix the tag."
+                      exit 1
+                  fi
+                  echo "packages=$slug" >> "$GITHUB_OUTPUT"
+                  echo "release=$ref" >> "$GITHUB_OUTPUT"
+                  echo "title=$slug $version" >> "$GITHUB_OUTPUT"
+
+            - name: Build zips
+              run: |
+                  bin/build-zips.sh --list ${{ steps.plan.outputs.packages }}
+                  bin/build-zips.sh ${{ steps.plan.outputs.packages }}
+
+            - name: Upload artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: zips
+                  path: build/*.zip
+
+            - name: Publish release
+              if: steps.plan.outputs.release != ''
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "${{ steps.plan.outputs.release }}" build/*.zip \
+                      --title "${{ steps.plan.outputs.title }}" \
+                      --generate-notes \
+                      --verify-tag

@@ -1,0 +1,28 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/theme.json",
+    "version": 3,
+    "title": "Solarized Dark",
+    "settings": {
+        "color": {
+            "palette": [
+                { "slug": "base", "name": "Base", "color": "#002b36" },
+                { "slug": "surface", "name": "Surface", "color": "#073642" },
+                { "slug": "line", "name": "Line", "color": "#0a3c48" },
+                { "slug": "muted", "name": "Muted", "color": "#809297" },
+                { "slug": "contrast", "name": "Contrast", "color": "#a9b4b4" },
+                { "slug": "accent", "name": "Accent", "color": "#d7744c" },
+                { "slug": "accent-contrast", "name": "On accent", "color": "#111111" }
+            ]
+        },
+        "custom": {
+            "error": "#ff8f86",
+            "hero": {
+                "background": "#00212b",
+                "text": "#ffffff"
+            }
+        }
+    },
+    "styles": {
+        "css": ":root{color-scheme:dark}"
+    }
+}
