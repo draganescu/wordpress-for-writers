@@ -32,7 +32,11 @@
         open: '<path d="m19 7-3-3-8.5 8.5-1 4 4-1L19 7Zm-7 11.5H5V20h7v-1.5Z"/>', // pencil
         view: '<path d="M3.99961 13C4.67043 13.3354 4.6703 13.3357 4.67017 13.3359L4.67298 13.3305C4.67621 13.3242 4.68184 13.3135 4.68988 13.2985C4.70595 13.2686 4.7316 13.2218 4.76695 13.1608C4.8377 13.0385 4.94692 12.8592 5.09541 12.6419C5.39312 12.2062 5.84436 11.624 6.45435 11.0431C7.67308 9.88241 9.49719 8.75 11.9996 8.75C14.502 8.75 16.3261 9.88241 17.5449 11.0431C18.1549 11.624 18.6061 12.2062 18.9038 12.6419C19.0523 12.8592 19.1615 13.0385 19.2323 13.1608C19.2676 13.2218 19.2933 13.2686 19.3093 13.2985C19.3174 13.3135 19.323 13.3242 19.3262 13.3305L19.3291 13.3359C19.3289 13.3357 19.3288 13.3354 19.9996 13C20.6704 12.6646 20.6703 12.6643 20.6701 12.664L20.6697 12.6632L20.6688 12.6614L20.6662 12.6563L20.6583 12.6408C20.6517 12.6282 20.6427 12.6108 20.631 12.5892C20.6078 12.5459 20.5744 12.4852 20.5306 12.4096C20.4432 12.2584 20.3141 12.0471 20.1423 11.7956C19.7994 11.2938 19.2819 10.626 18.5794 9.9569C17.1731 8.61759 14.9972 7.25 11.9996 7.25C9.00203 7.25 6.82614 8.61759 5.41987 9.9569C4.71736 10.626 4.19984 11.2938 3.85694 11.7956C3.68511 12.0471 3.55605 12.2584 3.4686 12.4096C3.42484 12.4852 3.39142 12.5459 3.36818 12.5892C3.35656 12.6108 3.34748 12.6282 3.34092 12.6408L3.33297 12.6563L3.33041 12.6614L3.32948 12.6632L3.32911 12.664C3.32894 12.6643 3.32879 12.6646 3.99961 13ZM11.9996 16C13.9326 16 15.4996 14.433 15.4996 12.5C15.4996 10.567 13.9326 9 11.9996 9C10.0666 9 8.49961 10.567 8.49961 12.5C8.49961 14.433 10.0666 16 11.9996 16Z"/>', // seen
         link: '<path d="M10 17.389H8.444A5.194 5.194 0 1 1 8.444 7H10v1.5H8.444a3.694 3.694 0 0 0 0 7.389H10v1.5ZM14 7h1.556a5.194 5.194 0 0 1 0 10.39H14v-1.5h1.556a3.694 3.694 0 0 0 0-7.39H14V7Zm-4.5 6h5v-1.5h-5V13Z"/>', // link
+        pin: '<path d="m21.5 9.1-6.6-6.6-4.2 5.6c-1.2-.1-2.4.1-3.6.7-.1 0-.1.1-.2.1-.5.3-.9.6-1.2.9l3.7 3.7-5.7 5.7v1.1h1.1l5.7-5.7 3.7 3.7c.4-.4.7-.8.9-1.2.1-.1.1-.2.2-.3.6-1.1.8-2.4.6-3.6l5.6-4.1zm-7.3 3.5.1.9c.1.9 0 1.8-.4 2.6l-6-6c.8-.4 1.7-.5 2.6-.4l.9.1L15 4.9 19.1 9l-4.9 3.6z"/>', // pin
     };
+
+    // A tag's icon in the sidebar, like the # its list title starts with.
+    const TAG_ICON = '<span class="wfw-nav__hash">#</span>';
 
     const STATUS_VIEWS = [
         { type: 'all', label: __( 'Notes', 'wordpress-for-writers' ), icon: 'notes', status: 'publish,future,draft,pending,private' },
@@ -84,6 +88,8 @@
         listMenu: false,
         // Featured image panel shown in the editor pane: { id, title, current, library, page, totalPages, busy, error }.
         featured: null,
+        // Categories and tags pinned to the main menu, in pin order: { taxonomy, id, name, link }.
+        pins: settings.pinnedTerms || [],
     };
 
     const APPEARANCE_CHOICES = {
@@ -172,13 +178,12 @@
             return view.label;
         }
         const isCategory = state.view.type === 'category';
-        const list = isCategory ? state.categories : state.tags;
-        const term = list.find( ( t ) => t.id === state.view.id );
-        if ( ! term ) {
+        const { name } = termFor( state.view );
+        if ( ! name ) {
             return '';
         }
         // Match the sidebar: tags are marked with a #, categories with a folder icon.
-        return isCategory ? term.name : '# ' + term.name;
+        return isCategory ? name : '# ' + name;
     }
 
     // ---- Data --------------------------------------------------------------
@@ -352,13 +357,24 @@
             : `<span class="wfw-user__avatar">${ esc( Array.from( settings.userName.trim() )[ 0 ] ) }</span>`;
         const label = ( text ) => `title="${ esc( text ) }" aria-label="${ esc( text ) }"`;
         const menuItem = ( href, iconName, text ) => `<a class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="menu-item" href="${ esc( href ) }">${ icon( iconName ) }<span>${ esc( text ) }</span></a>`;
-        // Drafts' autosaves re-render the sidebar every few seconds: keep focus on
-        // the same footer control (the open menu itself survives via userMenuOpen).
-        const footControls = () => [ ...sidebar.querySelectorAll( '.wfw-sidebar__foot :is( a, button )' ) ];
-        const focusedControl = footControls().indexOf( document.activeElement );
+        // Drafts' autosaves re-render the sidebar every few seconds, and pinning
+        // does too. Keep its scroll position, and focus on the same control or, when
+        // that's gone (an item just unpinned), the one now in its place. The open
+        // account menu itself survives via userMenuOpen.
+        const controls = () => [ ...sidebar.querySelectorAll( 'a, button' ) ];
+        const focusedControl = controls().indexOf( document.activeElement );
+        const focusedKey = focusedControl >= 0 ? controlKey( document.activeElement ) : '';
+        const scrollTop = sidebar.querySelector( '.wfw-sidebar__scroll' )?.scrollTop || 0;
         const statusNav = STATUS_VIEWS.map( ( v ) => navButton( { type: v.type }, v.label, icon( v.icon ), state.counts[ v.type ] ) ).join( '' );
+        // Pinned categories and tags, which also stay in their sections, look as they do there.
+        const pinned = state.pins
+            .map( ( pin ) => {
+                const view = viewOf( pin );
+                return navButton( view, termFor( view ).name, view.type === 'category' ? icon( 'folder' ) : TAG_ICON );
+            } )
+            .join( '' );
         const tags = state.tags
-            .map( ( t ) => navButton( { type: 'tag', id: t.id }, t.name, '<span class="wfw-nav__hash">#</span>' ) )
+            .map( ( t ) => navButton( { type: 'tag', id: t.id }, t.name, TAG_ICON ) )
             .join( '' );
         const siteIcon = settings.siteIcon ? `<img class="wfw-sidebar__icon" src="${ esc( settings.siteIcon ) }" alt="" />` : '';
 
@@ -366,6 +382,7 @@
             <div class="wfw-sidebar__head">${ siteIcon }<span class="wfw-sidebar__name">${ esc( settings.siteName ) }</span></div>
             <div class="wfw-sidebar__scroll">
                 ${ statusNav }
+                ${ pinned ? `<div class="wfw-sidebar__pins" role="group" aria-label="${ esc( __( 'Pinned', 'wordpress-for-writers' ) ) }">${ pinned }</div>` : '' }
                 ${ state.categories.length ? sidebarSection( 'categories', __( 'Categories', 'wordpress-for-writers' ), categoryTree( 0, 0 ) ) : '' }
                 ${ state.tags.length ? sidebarSection( 'tags', __( 'Tags', 'wordpress-for-writers' ), tags ) : '' }
             </div>
@@ -382,10 +399,18 @@
             </div>
         `;
         revealSiteIcon( sidebar.querySelector( '.wfw-sidebar__icon' ) );
+        sidebar.querySelector( '.wfw-sidebar__scroll' ).scrollTop = scrollTop;
         if ( focusedControl >= 0 ) {
-            footControls()[ focusedControl ].focus();
+            const after = controls();
+            ( after.find( ( el ) => controlKey( el ) === focusedKey ) || after[ Math.min( focusedControl, after.length - 1 ) ] ).focus( { preventScroll: true } );
         }
         contextTarget(); // Rings the item an open context menu is for again.
+    }
+
+    // Tells the sidebar's controls apart across renders: what they do and to
+    // what, and whether they're the pinned copy of a category or tag.
+    function controlKey( el ) {
+        return [ el.dataset.action, el.dataset.type, el.dataset.id, el.dataset.section, el.getAttribute( 'href' ), !! el.closest( '.wfw-sidebar__pins' ) ].join( '|' );
     }
 
     // The site icon stays invisible until it has loaded, and is dropped if it fails, so an empty box never shows.
@@ -1186,9 +1211,16 @@
         return items;
     }
 
+    // The same for a category or tag, whether it's the one in the main menu or in its section.
     function termMenuItems( view ) {
-        const term = ( view.type === 'category' ? state.categories : state.tags ).find( ( t ) => t.id === view.id );
-        return term?.link ? [ { href: term.link, icon: 'view', label: __( 'View on site', 'wordpress-for-writers' ) } ] : [];
+        const { link } = termFor( view );
+        const items = [ pinFor( view )
+            ? { command: 'unpin', icon: 'pin', label: __( 'Unpin from main menu', 'wordpress-for-writers' ) }
+            : { command: 'pin', icon: 'pin', label: __( 'Pin to main menu', 'wordpress-for-writers' ) } ];
+        if ( link ) {
+            items.push( { href: link, icon: 'view', label: __( 'View on site', 'wordpress-for-writers' ) } );
+        }
+        return items;
     }
 
     // Links are real links, so they open in a new tab past any popup blocker, and Cmd-click works.
@@ -1208,7 +1240,8 @@
             return note && { kind: 'note', id: note.id, note, label: el.querySelector( '.wfw-note__title' )?.textContent, items: noteMenuItems( note ) };
         }
         const view = { type: el.dataset.type, id: Number( el.dataset.id ) };
-        return { kind: 'term', ...view, label: el.querySelector( '.wfw-nav__label' )?.textContent, items: termMenuItems( view ) };
+        const inPins = !! el.closest( '.wfw-sidebar__pins' );
+        return { kind: 'term', ...view, inPins, label: el.querySelector( '.wfw-nav__label' )?.textContent, items: termMenuItems( view ) };
     }
 
     // Opens the menu for a note or sidebar item at `point`, or below the item
@@ -1248,12 +1281,14 @@
     }
 
     // The element the open menu belongs to. Drafts' autosaves re-render the list
-    // and sidebar under it, so it's found again by what it shows, and ringed again.
+    // and sidebar under it, so it's found again by what it shows (and for a
+    // pinned category or tag, by which of its two copies it was), and ringed again.
     function contextTarget() {
         if ( contextMenu && ! contextMenu.target.isConnected ) {
-            const found = root.querySelector( contextMenu.kind === 'note'
+            const selector = contextMenu.kind === 'note'
                 ? `${ NOTE_ITEM }[data-id="${ contextMenu.id }"]`
-                : `.wfw-nav[data-action="view"][data-type="${ contextMenu.type }"][data-id="${ contextMenu.id }"]` );
+                : `.wfw-nav[data-action="view"][data-type="${ contextMenu.type }"][data-id="${ contextMenu.id }"]`;
+            const found = [ ...root.querySelectorAll( selector ) ].find( ( el ) => !! el.closest( '.wfw-sidebar__pins' ) === !! contextMenu.inPins );
             if ( ! found ) {
                 return null;
             }
@@ -1294,6 +1329,10 @@
                 break;
             case 'delete':
                 refocusNotes( deleteNote( menu.id ), menu );
+                break;
+            case 'pin':
+            case 'unpin':
+                setPinned( menu, command === 'pin' );
                 break;
         }
     }
@@ -1456,6 +1495,54 @@
             closeContextMenu( { focus: contextMenuEl().contains( document.activeElement ) } );
         }
     }, true );
+
+    // ---- Pinned categories and tags ----------------------------------------
+
+    /*
+     * Categories and tags pinned from their context menus show in the main menu,
+     * below the built-in views, in the order they were pinned. They're saved per
+     * user, like appearance; includes/pinned-terms.php has the user meta, and
+     * leaves out terms that have since been deleted.
+     */
+    const TAXONOMIES = { category: 'category', tag: 'post_tag' };
+
+    function viewOf( pin ) {
+        return { type: pin.taxonomy === 'category' ? 'category' : 'tag', id: pin.id };
+    }
+
+    function pinFor( view ) {
+        return state.pins.find( ( pin ) => pin.taxonomy === TAXONOMIES[ view.type ] && pin.id === view.id );
+    }
+
+    // A category's or tag's name and archive link, from the sidebar's lists or,
+    // before they load and past their first 100 terms, from its pin.
+    function termFor( view ) {
+        const term = ( view.type === 'category' ? state.categories : state.tags ).find( ( t ) => t.id === view.id ) || pinFor( view );
+        return { name: term?.name || '', link: term?.link || '' };
+    }
+
+    function setPinned( view, pinned ) {
+        const pin = pinFor( view );
+        state.pins = state.pins.filter( ( p ) => p !== pin );
+        if ( pinned ) {
+            state.pins.push( { taxonomy: TAXONOMIES[ view.type ], id: view.id, ...termFor( view ) } );
+        }
+        renderSidebar();
+        savePins();
+    }
+
+    // One save at a time, each sending the pins as they are by then, so the last stored is the latest.
+    let pinsSaved = Promise.resolve();
+
+    function savePins() {
+        pinsSaved = pinsSaved
+            .then( () => apiFetch( {
+                path: '/wp/v2/users/me',
+                method: 'POST',
+                data: { meta: { [ settings.pinnedTermsKey ]: state.pins.map( ( { taxonomy, id } ) => ( { taxonomy, id } ) ) } },
+            } ) )
+            .catch( () => {} );
+    }
 
     // ---- Actions -----------------------------------------------------------
 
@@ -1665,9 +1752,10 @@
     // ---- Boot --------------------------------------------------------------
 
     // Reopen a folded section that holds the restored category or tag view, so
-    // the active item is in sight. Folding it later in the session is left alone.
+    // the active item is in sight, unless it's pinned and in sight already.
+    // Folding it later in the session is left alone.
     const activeSection = { category: 'categories', tag: 'tags' }[ state.view.type ];
-    if ( activeSection && state.collapsed[ activeSection ] ) {
+    if ( activeSection && state.collapsed[ activeSection ] && ! pinFor( state.view ) ) {
         state.collapsed[ activeSection ] = false;
         savePref( 'collapsed', state.collapsed );
     }
