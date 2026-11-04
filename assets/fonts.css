@@ -8,9 +8,10 @@
  */
 
 /*
- * One weight, no italic: bold and italic text in Geist Serif is synthesized.
- * The static Regular rather than the variable file, whose only axis is the
- * shape of the dots and whose overlapping contours come out hollow in bold.
+ * One weight, no italic: bold and italic text in Geist Serif is synthesized
+ * (its title and large headings stay regular instead). The static Regular
+ * rather than the variable file, whose only axis is the shape of the dots and
+ * whose overlapping contours come out hollow in bold.
  */
 @font-face {
     font-family: "Geist Serif";
