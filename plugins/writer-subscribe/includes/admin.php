@@ -121,13 +121,13 @@ add_action( 'admin_post_wsub_export', function () {
     header( 'X-Accel-Buffering: no' );
 
     $out = fopen( 'php://output', 'w' );
-    fputcsv( $out, array( 'email', 'status', 'source', 'subscribed_at', 'confirmed_at', 'unsubscribed_at' ) );
+    fputcsv( $out, array( 'email', 'status', 'source', 'subscribed_at', 'confirmed_at', 'unsubscribed_at', 'consented_at', 'consent_text' ) );
 
     $last = 0;
     do {
         $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT id, email, status, source, created_at, confirmed_at, unsubscribed_at FROM {$table} WHERE {$where} AND id > %d ORDER BY id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
+                "SELECT id, email, status, source, created_at, confirmed_at, unsubscribed_at, consented_at, consent_text FROM {$table} WHERE {$where} AND id > %d ORDER BY id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
                 $last,
                 $batch
             ),
@@ -144,6 +144,8 @@ add_action( 'admin_post_wsub_export', function () {
                     $row['created_at'],
                     (string) $row['confirmed_at'],
                     (string) $row['unsubscribed_at'],
+                    (string) $row['consented_at'],
+                    wsub_csv_cell( $row['consent_text'] ),
                 )
             );
         }
@@ -377,6 +379,11 @@ function wsub_render_settings() {
                 <td>
                     <label><input type="checkbox" name="wsub_settings[double_opt_in]" value="1" <?php checked( $s['double_opt_in'] ); ?>> <?php esc_html_e( 'Email a confirmation link before adding someone', 'writer-subscribe' ); ?></label>
                     <p class="description"><?php esc_html_e( 'Recommended. Keeps typos and fake addresses off your list. Needs working email on this site.', 'writer-subscribe' ); ?></p>
+                    <?php if ( ! $s['double_opt_in'] ) : ?>
+                        <div class="notice notice-warning inline"><p><?php esc_html_e( 'Double opt-in is off: anyone can add any email address to your list as an active subscriber, without its owner knowing. Emailing people who never signed up can get your messages marked as spam, and in many countries (including under the GDPR) you need proof that each person agreed. Turn it back on unless you check every address yourself.', 'writer-subscribe' ); ?></p></div>
+                    <?php else : ?>
+                        <p class="description"><?php esc_html_e( 'If you turn this off, anyone can add any email address as an active subscriber without its owner knowing.', 'writer-subscribe' ); ?></p>
+                    <?php endif; ?>
                 </td>
             </tr>
         </table>

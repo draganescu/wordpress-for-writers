@@ -28,6 +28,8 @@ function wsub_install() {
         created_at datetime NOT NULL,
         confirmed_at datetime NULL DEFAULT NULL,
         unsubscribed_at datetime NULL DEFAULT NULL,
+        consented_at datetime NULL DEFAULT NULL,
+        consent_text text NULL,
         PRIMARY KEY  (id),
         UNIQUE KEY email (email),
         UNIQUE KEY token (token),
@@ -42,6 +44,74 @@ function wsub_maybe_upgrade() {
         wsub_install();
     }
 }
+
+/* ------------------------------------------------------------------------
+ * Retention
+ *
+ * A pending row is someone who never consented, so it is removed once its
+ * confirmation window has passed. Unsubscribed rows are kept on purpose:
+ * they are the suppression list that stops an address from being re-added
+ * without a fresh confirmation, and that tells you not to import it into an
+ * email service again. Erase one with Tools > Erase Personal Data.
+ * --------------------------------------------------------------------- */
+
+/**
+ * Make sure the daily purge is scheduled. Runs on every load, not only on
+ * activation, so sites in a network-activated install and sites upgraded
+ * without reactivating get it too.
+ */
+function wsub_schedule_purge() {
+    if ( ! wp_next_scheduled( 'wsub_purge' ) ) {
+        wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'wsub_purge' );
+    }
+}
+
+function wsub_activate() {
+    wsub_install();
+    wsub_schedule_purge();
+}
+
+function wsub_deactivate() {
+    wp_clear_scheduled_hook( 'wsub_purge' );
+}
+
+/**
+ * How long an unconfirmed signup is kept, in seconds. Never shorter than the
+ * confirmation window, so a link in someone's inbox keeps working.
+ */
+function wsub_pending_retention() {
+    $ttl = wsub_confirm_ttl();
+    return max( $ttl, (int) apply_filters( 'wsub_pending_retention', $ttl ) );
+}
+
+/**
+ * Remove expired pending signups. A pending row that had unsubscribed
+ * before (someone, maybe a stranger, tried to re-add the address) goes back
+ * to unsubscribed instead, so the suppression record is not lost.
+ *
+ * @return int Rows deleted or reverted.
+ */
+function wsub_purge_pending() {
+    global $wpdb;
+    $table  = wsub_table();
+    $cutoff = gmdate( 'Y-m-d H:i:s', time() - wsub_pending_retention() );
+
+    $reverted = $wpdb->query(
+        $wpdb->prepare(
+            "UPDATE {$table} SET status = 'unsubscribed' WHERE status = 'pending' AND unsubscribed_at IS NOT NULL AND COALESCE(token_at, created_at) < %s", // phpcs:ignore WordPress.DB.PreparedSQL
+            $cutoff
+        )
+    );
+    $deleted = $wpdb->query(
+        $wpdb->prepare(
+            "DELETE FROM {$table} WHERE status = 'pending' AND unsubscribed_at IS NULL AND COALESCE(token_at, created_at) < %s", // phpcs:ignore WordPress.DB.PreparedSQL
+            $cutoff
+        )
+    );
+    return (int) $reverted + (int) $deleted;
+}
+add_action( 'wsub_purge', 'wsub_purge_pending' );
+add_action( 'init', 'wsub_schedule_purge' );
 
 function wsub_now() {
     return current_time( 'mysql', true );
@@ -97,6 +167,9 @@ function wsub_get_by_token( $token ) {
 /**
  * Add or re-activate a subscriber.
  *
+ * @param string $consent The consent text the person agreed to, when the form
+ *                        showed a consent checkbox. Stored with the time as
+ *                        proof of consent.
  * @param bool $public True when the request comes from a visitor rather than
  *                     an admin. Public requests can never re-activate someone
  *                     who unsubscribed without a fresh confirmation, whatever
@@ -107,7 +180,7 @@ function wsub_get_by_token( $token ) {
  *               'cooldown' (confirmation already sent recently, don't resend),
  *               'active', 'already', 'error'.
  */
-function wsub_add( $email, $source = '', $double_opt_in = true, $public = true ) {
+function wsub_add( $email, $source = '', $double_opt_in = true, $public = true, $consent = '' ) {
     global $wpdb;
 
     $email = strtolower( trim( $email ) );
@@ -142,7 +215,11 @@ function wsub_add( $email, $source = '', $double_opt_in = true, $public = true )
         'token_at'        => wsub_now(),
         'source'          => substr( (string) $source, 0, 100 ),
         'confirmed_at'    => $double_opt_in ? null : wsub_now(),
-        'unsubscribed_at' => null,
+        // Keep the unsubscribe date on a pending re-signup: if it is never
+        // confirmed, the purge turns it back into an unsubscribed row.
+        'unsubscribed_at' => ( $double_opt_in && $existing ) ? $existing->unsubscribed_at : null,
+        'consented_at'    => '' !== $consent ? wsub_now() : null,
+        'consent_text'    => '' !== $consent ? $consent : null,
     );
 
     if ( $existing ) {

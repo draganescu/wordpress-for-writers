@@ -50,3 +50,6 @@ add_action( 'admin_init', function () {
         array( 'sanitize_callback' => 'wsub_sanitize_settings', 'default' => wsub_defaults() )
     );
 } );
+
+// options.php checks manage_options by default; match the screen's capability.
+add_filter( 'option_page_capability_wsub_settings', 'wsub_capability' );

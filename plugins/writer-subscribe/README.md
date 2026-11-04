@@ -12,7 +12,9 @@ It is a standalone plugin. It works with any theme, and adds a "Subscribers" lin
 - **Abuse protection:** a honeypot field, a per-address limit (10 signups an hour, IPv6 bucketed by /64), a site-wide limit (60 a minute) and a 10-minute cooldown before a confirmation email is resent to the same address. The form gives the same answer for new and existing addresses, so it can't be used to find out who is on the list.
 - **Admin screen:** counts by status, search, add an address by hand, delete.
 - **CSV export:** streamed in batches of 5,000 straight to the download, so memory stays flat at any list size (500k rows ≈ 8 MB peak). The export respects the current status filter and search. Cells that start with a formula character are escaped so they can't run as formulas in a spreadsheet.
-- **Privacy tools:** hooks into WordPress's personal data export and erasure.
+- **Consent record:** when the form shows a consent checkbox (set its wording in Settings), each signup stores the exact wording agreed to and when. Both are in the CSV export and the personal data export.
+- **Retention:** a daily job deletes signups that were never confirmed once their confirmation link has expired (7 days by default), since those people never agreed to anything. Unsubscribed addresses are kept, with the date, as a suppression list: that is what stops a stranger from re-adding someone who left, and it tells you not to import that address into an email service again. Erase a single address for good with **Tools → Erase Personal Data**.
+- **Privacy tools:** hooks into WordPress's personal data export and erasure, and adds suggested text to the privacy policy guide (**Settings → Privacy**).
 
 Subscribers live in their own table, `{prefix}wsub_subscribers`, not in `wp_users`.
 
@@ -20,14 +22,21 @@ Subscribers live in their own table, `{prefix}wsub_subscribers`, not in `wp_user
 
 - `wsub_subscribed` / `wsub_unsubscribed`: actions, passed the subscriber row.
 - `wsub_show_popup`: filter whether the popup appears on this request.
-- `wsub_capability`: who can see and export the list (default `manage_options`).
+- `wsub_capability`: who can see and export the list and change its settings (default `manage_options`).
 - `wsub_signup_allowed`: return false to block a signup, e.g. after checking a CAPTCHA or Turnstile token you added to the form. Passed `$email` and `$source`.
 - `wsub_rate_limit`: signups per address per hour (default 10).
 - `wsub_global_rate_limit`: signups site-wide per minute (default 60).
 - `wsub_client_ip`: the address used for rate limiting; set it from a proxy header if your host doesn't restore the client IP.
 - `wsub_resend_cooldown`: seconds before a confirmation email is sent again to the same address (default 600).
 - `wsub_confirm_ttl`: seconds a confirmation link stays valid (default 7 days).
+- `wsub_pending_retention`: seconds an unconfirmed signup is kept before the daily purge deletes it (default and minimum: the confirmation window).
 - `wsub_export_batch_size`: rows per export batch (default 5000).
 - `wsub_confirmation_subject` / `wsub_confirmation_body`: the confirmation email.
 
-Uninstalling the plugin keeps the table, so a list is never lost by accident.
+## Double opt-in off
+
+With double opt-in off, anyone can type any address into the form and it is added as an active subscriber, without its owner knowing. The settings screen warns about this. Only people who unsubscribed are still asked to confirm. Leave double opt-in on unless you have no working email and check each address yourself.
+
+## Uninstalling
+
+Deactivating keeps your data. **Deleting** the plugin from the Plugins screen removes the `{prefix}wsub_subscribers` table, the `wsub_settings` and `wsub_db_version` options, the rate-limit counters and the daily purge, on every site of a multisite network. Export the list first if you want to keep it.

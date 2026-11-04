@@ -88,7 +88,10 @@ function wsub_handle_signup( $email, $source, $honeypot, $consented ) {
         return array( 'ok' => false, 'code' => 'rate_limited', 'message' => __( 'Too many attempts. Please try again later.', 'writer-subscribe' ) );
     }
 
-    $result = wsub_add( $email, sanitize_text_field( (string) $source ), $double, true );
+    // Proof of consent: the exact wording the person agreed to, and when.
+    $consent_text = $consented ? (string) wsub_setting( 'consent' ) : '';
+
+    $result = wsub_add( $email, sanitize_text_field( (string) $source ), $double, true, $consent_text );
 
     if ( 'error' === $result['status'] || ! $result['row'] ) {
         return array( 'ok' => false, 'code' => 'error', 'message' => __( 'Something went wrong. Please try again.', 'writer-subscribe' ) );
@@ -251,6 +254,7 @@ function wsub_message_page( $html, $action = '', $token = '', $button = '' ) {
  * Markup for a signup form. Works without JavaScript; app.js upgrades it.
  */
 function wsub_form( $args = array() ) {
+    wsub_enqueue_assets();
     $s    = wsub_settings();
     $args = wp_parse_args(
         $args,
@@ -300,22 +304,11 @@ add_action( 'init', function () {
         true
     );
     wp_register_style( 'wsub', WSUB_URL . 'assets/subscribe.css', array(), wsub_asset_version( 'assets/subscribe.css' ) );
+    wp_register_script( 'wsub', WSUB_URL . 'assets/subscribe.js', array(), wsub_asset_version( 'assets/subscribe.js' ), array( 'strategy' => 'defer', 'in_footer' => true ) );
 
     register_block_type(
-        'writer-subscribe/form',
+        dirname( WSUB_FILE ) . '/block',
         array(
-            'api_version'     => 3,
-            'title'           => __( 'Subscribe form', 'writer-subscribe' ),
-            'category'        => 'widgets',
-            'icon'            => 'email',
-            'editor_script'   => 'wsub-block',
-            'style'           => 'wsub',
-            'attributes'      => array(
-                'heading' => array( 'type' => 'string' ),
-                'text'    => array( 'type' => 'string' ),
-                'button'  => array( 'type' => 'string' ),
-            ),
-            'supports'        => array( 'align' => array( 'wide', 'full' ), 'html' => false ),
             'render_callback' => function ( $attrs ) {
                 $args = array_filter(
                     array(
@@ -344,9 +337,20 @@ function wsub_popup_enabled() {
     return (bool) apply_filters( 'wsub_show_popup', $show );
 }
 
-add_action( 'wp_enqueue_scripts', function () {
+/**
+ * Enqueue the front-end CSS and JS, and pass the script its settings. Called
+ * when a form renders and from wp_enqueue_scripts when the page needs them;
+ * safe to call more than once.
+ */
+function wsub_enqueue_assets() {
+    static $done = false;
+    if ( $done || is_admin() ) {
+        return;
+    }
+    $done = true;
+
     wp_enqueue_style( 'wsub' );
-    wp_enqueue_script( 'wsub', WSUB_URL . 'assets/subscribe.js', array(), wsub_asset_version( 'assets/subscribe.js' ), array( 'strategy' => 'defer', 'in_footer' => true ) );
+    wp_enqueue_script( 'wsub' );
 
     $notices = array(
         'signup'           => wsub_setting( 'double_opt_in' ) ? __( 'Almost done. Check your inbox to confirm.', 'writer-subscribe' ) : __( 'You’re subscribed. Thank you!', 'writer-subscribe' ),
@@ -358,9 +362,14 @@ add_action( 'wp_enqueue_scripts', function () {
         'error'            => __( 'Something went wrong. Please try again.', 'writer-subscribe' ),
     );
 
+    $popup = '';
+    if ( did_action( 'wp' ) && wsub_popup_enabled() ) {
+        $popup = wsub_form( array( 'source' => 'popup:' . get_queried_object_id(), 'class' => 'wsub-form--popup' ) );
+    }
+
     $config = array(
         'endpoint'   => esc_url_raw( rest_url( 'writer-subscribe/v1/subscribe' ) ),
-        'popup'      => wsub_popup_enabled() ? wsub_form( array( 'source' => 'popup:' . get_the_ID(), 'class' => 'wsub-form--popup' ) ) : '',
+        'popup'      => $popup,
         'scroll'     => (int) wsub_setting( 'scroll' ),
         'snoozeDays' => (int) wsub_setting( 'snooze_days' ),
         'notices'    => $notices,
@@ -370,4 +379,28 @@ add_action( 'wp_enqueue_scripts', function () {
     );
 
     wp_add_inline_script( 'wsub', 'window.wsubConfig = ' . wp_json_encode( $config ) . ';', 'before' );
+}
+
+/**
+ * Does this page need the assets before its content renders? True when the
+ * popup shows, a notice from a signup or confirm redirect is waiting, or the
+ * queried post holds the block or shortcode. Forms elsewhere (widgets,
+ * templates) enqueue the assets themselves as they render.
+ */
+function wsub_page_needs_assets() {
+    // phpcs:ignore WordPress.Security.NonceVerification -- read-only display flag.
+    if ( wsub_popup_enabled() || isset( $_GET['wsub_notice'] ) ) {
+        return true;
+    }
+    $post = is_singular() ? get_queried_object() : null;
+    if ( $post instanceof WP_Post ) {
+        return has_block( 'writer-subscribe/form', $post ) || has_shortcode( $post->post_content, 'writer_subscribe' );
+    }
+    return false;
+}
+
+add_action( 'wp_enqueue_scripts', function () {
+    if ( wsub_page_needs_assets() ) {
+        wsub_enqueue_assets();
+    }
 } );
