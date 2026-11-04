@@ -375,6 +375,7 @@
                     ${ updates ? menuItem( settings.adminUrl + 'update-core.php', 'updates', __( 'Updates', 'wordpress-for-writers' ), `<span class="wfw-menu__badge" aria-hidden="true">${ updates }</span><span class="screen-reader-text">${ esc( updatesText ) }</span>` ) + '<div class="wfw-menu__separator" role="separator"></div>' : '' }
                     ${ menuItem( settings.adminUrl + 'index.php?wfw_classic=1', 'dashboard', __( 'Go to admin', 'wordpress-for-writers' ) ) }
                     ${ menuItem( settings.adminUrl + 'profile.php', 'profile', __( 'Edit profile', 'wordpress-for-writers' ) ) }
+                    ${ ( settings.links || [] ).map( ( l ) => menuItem( l.url, ICONS[ l.icon ] ? l.icon : 'dashboard', l.label ) ).join( '' ) }
                     <div class="wfw-menu__separator" role="separator"></div>
                     ${ menuItem( settings.logoutUrl, 'logout', sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }
                 </div>

@@ -38,6 +38,14 @@ To reach the classic dashboard, use **Classic dashboard** in the sidebar footer 
 
 Deleting the plugin from the Plugins screen removes each user's appearance preferences (the `wfw_appearance` user meta). Your posts, tags and categories stay, and so do any site global styles set from the app's colour scheme, since they are the site's look.
 
+## Companion plugins
+
+These live in `plugins/` and are separate plugins. Install each by copying its folder into `wp-content/plugins/`.
+
+- [Writer Subscribe](plugins/writer-subscribe/README.md): a scroll-triggered subscribe popup, an inline form block, double opt-in and a streamed CSV export that handles very large lists.
+
+Companion plugins can add links to the user menu in the Writer sidebar with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '', 'icon' => '' )`; `icon` is optional and names one of the app's icons.
+
 ## Development
 
 There is no build step. Plain PHP, CSS and JavaScript use the `wp.*` globals.

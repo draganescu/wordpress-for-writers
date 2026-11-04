@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "writer-subscribe/form",
+    "title": "Subscribe form",
+    "category": "widgets",
+    "icon": "email",
+    "description": "An email signup form for new posts.",
+    "textdomain": "writer-subscribe",
+    "attributes": {
+        "heading": { "type": "string" },
+        "text": { "type": "string" },
+        "button": { "type": "string" }
+    },
+    "supports": {
+        "align": [ "wide", "full" ],
+        "html": false
+    },
+    "editorScript": "wsub-block",
+    "style": "wsub"
+}

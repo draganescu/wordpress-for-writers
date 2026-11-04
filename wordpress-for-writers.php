@@ -116,6 +116,16 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
                 ? (int) wp_get_update_data()['counts']['total']
                 : 0,
             'appearance'        => wfw_appearance_client_data(),
+            /**
+             * Extra links for the sidebar's user menu, so companion plugins can
+             * surface their screens. Each item: array( 'label' => '', 'url' => '', 'icon' => '' ).
+             */
+            'links'             => array_values( array_filter(
+                (array) apply_filters( 'wfw_sidebar_links', array() ),
+                function ( $link ) {
+                    return is_array( $link ) && ! empty( $link['label'] ) && ! empty( $link['url'] );
+                }
+            ) ),
         ) );
         return;
     }

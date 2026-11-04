@@ -1,0 +1,217 @@
+/*
+ * Writer Subscribe. Inherits the theme's fonts and colours where it can;
+ * override the custom properties below to restyle.
+ */
+.wsub-form,
+.wsub-popup,
+.wsub-toast {
+    --wsub-bg: var(--wp--preset--color--base, #fff);
+    --wsub-fg: var(--wp--preset--color--contrast, #1a1a1a);
+    --wsub-accent: var(--wp--preset--color--primary, var(--wp--preset--color--contrast, #1a1a1a));
+    --wsub-accent-fg: var(--wp--preset--color--base, #fff);
+    --wsub-muted: color-mix(in srgb, var(--wsub-fg) 60%, transparent);
+    --wsub-line: color-mix(in srgb, var(--wsub-fg) 20%, transparent);
+    --wsub-error: #b32d2e;
+    --wsub-radius: 6px;
+}
+
+.wsub-form {
+    margin: 2em 0;
+    font: inherit;
+    color: inherit;
+}
+
+.wsub-heading {
+    margin: 0 0 0.25em;
+    font-weight: 700;
+    font-size: 1.15em;
+}
+
+.wsub-text {
+    margin: 0 0 0.9em;
+    color: var(--wsub-muted);
+}
+
+.wsub-row {
+    display: flex;
+    gap: 0.5em;
+    flex-wrap: wrap;
+}
+
+.wsub-email {
+    flex: 1 1 14em;
+    min-width: 0;
+    padding: 0.65em 0.8em;
+    font: inherit;
+    font-size: max(16px, 1em); /* no zoom on iOS */
+    color: var(--wsub-fg);
+    background: var(--wsub-bg);
+    border: 1px solid var(--wsub-line);
+    border-radius: var(--wsub-radius);
+}
+
+.wsub-email:focus {
+    outline: 2px solid var(--wsub-accent);
+    outline-offset: 1px;
+}
+
+.wsub-button {
+    flex: 0 0 auto;
+    padding: 0.65em 1.2em;
+    font: inherit;
+    font-weight: 600;
+    color: var(--wsub-accent-fg);
+    background: var(--wsub-accent);
+    border: 0;
+    border-radius: var(--wsub-radius);
+    cursor: pointer;
+}
+
+.wsub-button:hover {
+    opacity: 0.9;
+}
+
+.wsub-button:focus-visible {
+    outline: 2px solid var(--wsub-accent);
+    outline-offset: 2px;
+}
+
+.wsub-form.is-busy .wsub-button {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.wsub-form.is-done .wsub-row,
+.wsub-form.is-done .wsub-consent {
+    display: none;
+}
+
+.wsub-consent {
+    display: flex;
+    gap: 0.5em;
+    align-items: flex-start;
+    margin-top: 0.6em;
+    font-size: 0.875em;
+    color: var(--wsub-muted);
+}
+
+.wsub-msg {
+    margin: 0.6em 0 0;
+    font-size: 0.925em;
+}
+
+.wsub-msg:empty {
+    display: none;
+}
+
+.wsub-msg.is-error {
+    color: var(--wsub-error);
+}
+
+.wsub-sr,
+.wsub-hp {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.wsub-hp {
+    left: -9999px;
+}
+
+/* Popup: a card in the corner on wide screens, a bottom sheet on phones. */
+
+.wsub-popup {
+    position: fixed;
+    z-index: 99999;
+    right: 24px;
+    bottom: 24px;
+    width: min(380px, calc(100vw - 32px));
+    padding: 22px 22px 18px;
+    color: var(--wsub-fg);
+    background: var(--wsub-bg);
+    border: 1px solid var(--wsub-line);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    transform: translateY(24px);
+    opacity: 0;
+    transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+.wsub-popup.is-open {
+    transform: none;
+    opacity: 1;
+}
+
+.wsub-popup .wsub-form {
+    margin: 0;
+}
+
+.wsub-popup .wsub-heading {
+    padding-right: 28px;
+}
+
+.wsub-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--wsub-muted);
+    background: none;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.wsub-close:hover,
+.wsub-close:focus-visible {
+    color: var(--wsub-fg);
+    background: var(--wsub-line);
+}
+
+@media (max-width: 600px) {
+    .wsub-popup {
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: auto;
+        padding-bottom: calc(18px + env(safe-area-inset-bottom));
+        border-width: 1px 0 0;
+        border-radius: 14px 14px 0 0;
+    }
+}
+
+/* Toast after confirm / unsubscribe */
+
+.wsub-toast {
+    position: fixed;
+    z-index: 99999;
+    left: 50%;
+    bottom: 24px;
+    max-width: calc(100vw - 32px);
+    padding: 12px 18px;
+    color: var(--wsub-bg);
+    background: var(--wsub-fg);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    transform: translateX(-50%);
+    transition: opacity 0.4s ease;
+}
+
+.wsub-toast.is-leaving {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wsub-popup,
+    .wsub-toast {
+        transition: none;
+    }
+}
