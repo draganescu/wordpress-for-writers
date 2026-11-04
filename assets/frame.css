@@ -72,7 +72,7 @@ body.wfw-frame .editor-header {
 body.wfw-frame .editor-header__back-button,
 body.wfw-frame .editor-header__center,
 body.wfw-frame .editor-document-tools,
-body.wfw-frame :is( .editor-header__settings, .edit-post-header__settings ) > :not( .editor-post-publish-button__button, .editor-post-publish-panel__toggle, .editor-post-saved-state, .editor-post-save-draft ),
+body.wfw-frame :is( .editor-header__settings, .edit-post-header__settings ) > :not( .editor-post-publish-button__button, .editor-post-publish-panel__toggle, .editor-post-saved-state, .editor-post-save-draft, .wfw-featured-image-host ),
 body.wfw-frame .editor-collapsible-block-toolbar__toggle {
     display: none !important;
 }
@@ -280,6 +280,48 @@ body.wfw-frame .editor-post-publish-panel__header .components-button.is-primary:
 
 body.wfw-frame .editor-post-publish-panel__header .components-button:focus-visible {
     box-shadow: 0 0 0 2px var( --wfw-editor-bg ), 0 0 0 4px var( --wfw-accent ) !important;
+}
+
+/* Featured image: a round icon button in the same pill style, left of Save; the accent dot says one is set. */
+body.wfw-frame .wfw-featured-image__toggle.components-button {
+    position: relative;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    margin-right: 6px;
+    border-radius: 16px;
+    background: var( --wfw-editor-bg ) !important;
+    color: var( --wfw-muted ) !important;
+    box-shadow: inset 0 0 0 1px var( --wfw-border ), var( --wfw-pill-shadow ) !important;
+}
+
+body.wfw-frame .wfw-featured-image__toggle.components-button:hover,
+body.wfw-frame .wfw-featured-image__toggle.components-button[aria-expanded="true"] {
+    color: var( --wfw-text ) !important;
+}
+
+body.wfw-frame .wfw-featured-image__toggle svg {
+    width: 20px;
+    height: 20px;
+}
+
+body.wfw-frame .wfw-featured-image__toggle.has-image::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var( --wfw-accent );
+    box-shadow: 0 0 0 2px var( --wfw-editor-bg );
+}
+
+body.wfw-frame .wfw-featured-image__content {
+    width: 280px;
+    padding: 12px;
 }
 
 body.wfw-frame .editor-header__settings .editor-post-publish-button[aria-disabled="true"] {

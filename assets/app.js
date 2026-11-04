@@ -1,6 +1,6 @@
 ( function () {
     const apiFetch = wp.apiFetch;
-    const { __, sprintf } = wp.i18n;
+    const { __, _n, sprintf } = wp.i18n;
     const settings = window.wfwSettings;
     const root = document.getElementById( 'wfw-app' );
 
@@ -24,6 +24,8 @@
         external: '<path d="M19.5 4.5h-7V6h4.44l-5.97 5.97 1.06 1.06L18 7.06v4.44h1.5v-7Zm-13 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3H17v3a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h3V5.5h-3Z"/>', // external
         palette: '<path fill-rule="evenodd" clip-rule="evenodd" d="M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 0 1-6.5 6.5v-13a6.5 6.5 0 0 1 6.5 6.5Z"/>', // styles
         dashboard: '<path d="M12 5a8 8 0 0 1 3.842.984L14.726 7.1a6.502 6.502 0 0 0-7.323 1.303 6.5 6.5 0 0 0 0 9.194l-1.06 1.06A8 8 0 0 1 12 5Zm7.021 4.168a8 8 0 0 1-1.364 9.49l-1.06-1.061a6.5 6.5 0 0 0 1.307-7.312l1.117-1.117ZM17.47 6.47a.75.75 0 1 1 1.06 1.06l-5.083 5.082a1.5 1.5 0 1 1-1.06-1.06L17.47 6.47Z"/>', // dashboard
+        check: '<path d="M16.7 7.1l-6.3 8.5-3.3-2.5-.9 1.2 4.5 3.4L17.9 8z"/>', // check
+        chevronDown: '<path d="M17.5 11.6L12 16l-5.5-4.4.9-1.2L12 14l4.5-3.6 1 1.2z"/>', // chevron-down
         logout: '<path d="M16.8 5h-7c-1.1 0-2 .9-2 2v1.5h1.5V7c0-.3.2-.5.5-.5h7c.3 0 .5.2.5.5v10c0 .3-.2.5-.5.5h-7c-.3 0-.5-.2-.5-.5v-1.5H7.8V17c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2z" transform="matrix(-1 0 0 1 22.8 0)"/><path d="M11 14.5l1.1 1.1 3-3 .5-.5-.6-.6-3-3-1 1 1.7 1.7H5v1.5h7.7L11 14.5z" transform="translate(4.4 0)"/>', // login, flipped
     };
 
@@ -44,6 +46,20 @@
         private: { icon: 'publish', label: __( 'Private', 'wordpress-for-writers' ) },
     };
 
+    // List options, like Bear's Sorting and Preview Style menus. Per device, like the other prefs.
+    const SORT_FIELDS = [
+        { value: 'modified', label: __( 'Date modified', 'wordpress-for-writers' ) },
+        { value: 'date', label: __( 'Date created', 'wordpress-for-writers' ) },
+        { value: 'title', label: __( 'Title', 'wordpress-for-writers' ) },
+    ];
+    const PREVIEW_LINES = [
+        { value: 0, label: __( 'Title only', 'wordpress-for-writers' ) },
+        { value: 1, label: __( 'One line', 'wordpress-for-writers' ) },
+        { value: 2, label: __( 'Two lines', 'wordpress-for-writers' ) },
+        { value: 3, label: __( 'Three lines', 'wordpress-for-writers' ) },
+    ];
+    const LIST_DEFAULTS = { orderby: 'modified', order: 'desc', lines: 2, images: true };
+
     const state = {
         view: loadPref( 'view', { type: 'all' } ),
         search: '',
@@ -58,6 +74,9 @@
         sidebarHidden: loadPref( 'sidebarHidden', false ),
         collapsed: loadPref( 'collapsed', {} ),
         focus: false,
+        list: { ...LIST_DEFAULTS, ...loadPref( 'list', {} ) },
+        total: 0,
+        listMenu: false,
     };
 
     const APPEARANCE_CHOICES = {
@@ -185,15 +204,17 @@
         const page = append ? state.page + 1 : 1;
         const params = {
             status: currentStatus(),
-            orderby: 'modified',
-            order: 'desc',
+            orderby: state.list.orderby,
+            order: state.list.order,
             per_page: 30,
             page,
             context: 'edit',
             // Embed featured images; _fields keeps only the link the embed needs, so the response stays small.
-            _fields: 'id,title,excerpt,modified_gmt,status,sticky,_links.wp:featuredmedia',
-            _embed: 'wp:featuredmedia',
+            _fields: 'id,title,excerpt,date_gmt,modified_gmt,status,sticky' + ( state.list.images ? ',_links.wp:featuredmedia' : '' ),
         };
+        if ( state.list.images ) {
+            params._embed = 'wp:featuredmedia';
+        }
         if ( state.view.type === 'category' ) {
             params.categories = state.view.id;
         } else if ( state.view.type === 'tag' ) {
@@ -212,6 +233,7 @@
                 return;
             }
             state.totalPages = parseInt( response.headers.get( 'X-WP-TotalPages' ), 10 ) || 1;
+            state.total = parseInt( response.headers.get( 'X-WP-Total' ), 10 ) || 0;
             state.page = page;
             state.notes = append ? state.notes.concat( items ) : items;
         } catch ( e ) {
@@ -222,6 +244,7 @@
         if ( requestId === listRequest ) {
             state.loading = false;
             renderListItems();
+            renderListMenu();
         }
     }
 
@@ -242,7 +265,9 @@
                     <label class="wfw-search">${ icon( 'search' ) }<input type="search" placeholder="${ esc( __( 'Search', 'wordpress-for-writers' ) ) }" /></label>
                     <button class="wfw-icon-btn wfw-icon-btn--accent" data-action="new" title="${ esc( __( 'New note', 'wordpress-for-writers' ) ) }">${ icon( 'compose' ) }</button>
                 </div>
-                <div class="wfw-list__title"></div>
+                <div class="wfw-list__head">
+                    <button class="wfw-list__title" data-action="list-menu" aria-haspopup="menu" aria-expanded="false"><span class="wfw-list__label"></span>${ icon( 'chevronDown' ) }</button>
+                </div>
                 <div class="wfw-list__items" role="list"></div>
             </section>
             <div class="wfw-scrim" data-action="close-drawer"></div>
@@ -357,12 +382,97 @@
     }
 
     function renderListHeader() {
-        root.querySelector( '.wfw-list__title' ).textContent = viewLabel();
+        root.querySelector( '.wfw-list__label' ).textContent = viewLabel();
+        const items = root.querySelector( '.wfw-list__items' );
+        items.style.setProperty( '--wfw-preview-lines', state.list.lines );
+        items.classList.toggle( 'is-title-only', ! state.list.lines );
+    }
+
+    function orderChoices() {
+        return state.list.orderby === 'title'
+            ? [ { value: 'asc', label: __( 'A to Z', 'wordpress-for-writers' ) }, { value: 'desc', label: __( 'Z to A', 'wordpress-for-writers' ) } ]
+            : [ { value: 'desc', label: __( 'Newest first', 'wordpress-for-writers' ) }, { value: 'asc', label: __( 'Oldest first', 'wordpress-for-writers' ) } ];
+    }
+
+    function menuItem( role, checked, key, value, label ) {
+        return `<button class="wfw-menu__item" role="${ role }" aria-checked="${ checked }" tabindex="-1" data-action="list-option" data-key="${ key }" data-value="${ esc( value ) }">${ checked ? icon( 'check' ) : '<span class="wfw-menu__spacer"></span>' }<span>${ esc( label ) }</span></button>`;
+    }
+
+    function renderListMenu() {
+        const head = root.querySelector( '.wfw-list__head' );
+        const toggle = head.querySelector( '.wfw-list__title' );
+        toggle.setAttribute( 'aria-expanded', state.listMenu ? 'true' : 'false' );
+        let menu = head.querySelector( '.wfw-menu' );
+        if ( ! state.listMenu ) {
+            menu?.remove();
+            return;
+        }
+        if ( ! menu ) {
+            menu = document.createElement( 'div' );
+            menu.className = 'wfw-menu';
+            menu.setAttribute( 'role', 'menu' );
+            menu.setAttribute( 'aria-label', __( 'List options', 'wordpress-for-writers' ) );
+            head.appendChild( menu );
+        }
+        const focused = menu.contains( document.activeElement ) ? [ ...menu.querySelectorAll( '.wfw-menu__item' ) ].indexOf( document.activeElement ) : -1;
+        const { list } = state;
+        /* translators: %d: number of notes in the list. */
+        const count = sprintf( _n( '%d note', '%d notes', state.total, 'wordpress-for-writers' ), state.total );
+        menu.innerHTML = `
+            <div class="wfw-menu__count">${ esc( count ) }</div>
+            <div class="wfw-menu__label" id="wfw-menu-sort">${ esc( __( 'Sort by', 'wordpress-for-writers' ) ) }</div>
+            <div role="group" aria-labelledby="wfw-menu-sort">${ SORT_FIELDS.map( ( f ) => menuItem( 'menuitemradio', list.orderby === f.value, 'orderby', f.value, f.label ) ).join( '' ) }</div>
+            <div class="wfw-menu__sep" role="separator"></div>
+            <div role="group" aria-label="${ esc( __( 'Order', 'wordpress-for-writers' ) ) }">${ orderChoices().map( ( o ) => menuItem( 'menuitemradio', list.order === o.value, 'order', o.value, o.label ) ).join( '' ) }</div>
+            <div class="wfw-menu__sep" role="separator"></div>
+            <div class="wfw-menu__label" id="wfw-menu-preview">${ esc( __( 'Preview', 'wordpress-for-writers' ) ) }</div>
+            <div role="group" aria-labelledby="wfw-menu-preview">${ PREVIEW_LINES.map( ( p ) => menuItem( 'menuitemradio', list.lines === p.value, 'lines', p.value, p.label ) ).join( '' ) }</div>
+            <div class="wfw-menu__sep" role="separator"></div>
+            ${ menuItem( 'menuitemcheckbox', list.images, 'images', '', __( 'Show images', 'wordpress-for-writers' ) ) }`;
+        if ( focused >= 0 ) {
+            menu.querySelectorAll( '.wfw-menu__item' )[ focused ]?.focus();
+        }
+    }
+
+    function toggleListMenu( open = ! state.listMenu, { focusFirst = false } = {} ) {
+        state.listMenu = open;
+        renderListMenu();
+        if ( open && focusFirst ) {
+            root.querySelector( '.wfw-menu .wfw-menu__item' )?.focus();
+        } else if ( ! open && root.querySelector( '.wfw-list__head' ).contains( document.activeElement ) ) {
+            root.querySelector( '.wfw-list__title' ).focus();
+        }
+    }
+
+    // The menu stays open while options change, so preview styles can be compared in place.
+    function setListOption( key, value ) {
+        const list = state.list;
+        if ( key === 'orderby' ) {
+            if ( list.orderby === value ) {
+                return;
+            }
+            list.orderby = value;
+            list.order = value === 'title' ? 'asc' : 'desc';
+        } else if ( key === 'order' ) {
+            list.order = value;
+        } else if ( key === 'lines' ) {
+            list.lines = Number( value );
+        } else if ( key === 'images' ) {
+            list.images = ! list.images;
+        }
+        savePref( 'list', list );
+        renderListHeader();
+        renderListMenu();
+        if ( key === 'lines' ) {
+            renderListItems();
+        } else {
+            loadNotes();
+        }
     }
 
     function noteHtml( note ) {
         const title = note.title.raw || htmlToText( note.title.rendered );
-        const excerpt = htmlToText( note.excerpt.rendered );
+        const excerpt = state.list.lines ? htmlToText( note.excerpt.rendered ) : '';
         const isTrash = note.status === 'trash';
         // Drafts, Published, Scheduled and Trash already say the status; mixed lists show it per note.
         const filtered = state.view.type !== 'all' && STATUS_VIEWS.some( ( v ) => v.type === state.view.type );
@@ -373,7 +483,8 @@
         // Prefer the square crop WordPress makes for thumbnails; the fixed box crops anything else.
         const media = note._embedded?.[ 'wp:featuredmedia' ]?.[ 0 ];
         const sizes = media?.media_details?.sizes || {};
-        const thumb = media?.media_type === 'image' ? ( sizes.thumbnail || sizes.medium || media ).source_url : '';
+        const thumb = state.list.images && media?.media_type === 'image' ? ( sizes.thumbnail || sizes.medium || media ).source_url : '';
+        const date = state.list.orderby === 'date' ? note.date_gmt : note.modified_gmt;
         const actions = isTrash
             ? `<span class="wfw-icon-btn" role="button" data-action="restore" data-id="${ note.id }" title="${ esc( __( 'Restore', 'wordpress-for-writers' ) ) }">${ icon( 'restore' ) }</span>
                <span class="wfw-icon-btn" role="button" data-action="delete" data-id="${ note.id }" title="${ esc( __( 'Delete permanently', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</span>`
@@ -384,7 +495,7 @@
                 <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || __( 'Untitled', 'wordpress-for-writers' ) ) }</div>
                 ${ excerpt ? `<div class="wfw-note__excerpt">${ esc( excerpt ) }</div>` : '' }
                 ${ thumb ? `<img class="wfw-note__thumb" src="${ esc( thumb ) }" alt="" width="64" height="64" loading="lazy" />` : '' }
-                <div class="wfw-note__meta"><span>${ esc( formatDate( note.modified_gmt ) ) }</span>${ statusIcon }</div>
+                <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ statusIcon }</div>
                 ${ settings.canDelete ? `<div class="wfw-note__actions">${ actions }</div>` : '' }
             </div>`;
     }
@@ -670,9 +781,17 @@
                 state.view = id ? { type: target.dataset.type, id } : { type: target.dataset.type };
                 savePref( 'view', state.view );
                 root.classList.remove( 'is-sidebar-open' );
+                state.listMenu = false;
+                renderListMenu();
                 renderSidebar();
                 renderListHeader();
                 loadNotes();
+                break;
+            case 'list-menu':
+                toggleListMenu( undefined, { focusFirst: event.detail === 0 } );
+                break;
+            case 'list-option':
+                setListOption( target.dataset.key, target.dataset.value );
                 break;
             case 'toggle-section': {
                 // Flipped in place rather than re-rendered, so keyboard focus stays on the heading.
@@ -732,6 +851,27 @@
         }
     }
 
+    document.addEventListener( 'pointerdown', ( event ) => {
+        if ( state.listMenu && ! event.target.closest( '.wfw-list__head' ) ) {
+            toggleListMenu( false );
+        }
+    } );
+
+    root.addEventListener( 'keydown', ( event ) => {
+        const menu = event.target.closest( '.wfw-menu' );
+        if ( menu && ( event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End' ) ) {
+            event.preventDefault();
+            const items = [ ...menu.querySelectorAll( '.wfw-menu__item' ) ];
+            const i = items.indexOf( event.target );
+            const next = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[ event.key ];
+            items[ ( next + items.length ) % items.length ].focus();
+            return;
+        }
+        if ( event.key === 'Tab' && menu ) {
+            toggleListMenu( false );
+        }
+    } );
+
     root.addEventListener( 'keydown', ( event ) => {
         if ( event.key === 'Enter' && event.target.classList.contains( 'wfw-note' ) ) {
             openNote( Number( event.target.dataset.id ) );
@@ -739,7 +879,9 @@
     } );
 
     document.addEventListener( 'keydown', ( event ) => {
-        if ( event.key === 'Escape' && root.querySelector( '.wfw-sheet' ) ) {
+        if ( event.key === 'Escape' && state.listMenu ) {
+            toggleListMenu( false );
+        } else if ( event.key === 'Escape' && root.querySelector( '.wfw-sheet' ) ) {
             closeAppearance();
         } else if ( event.key === 'Escape' && state.focus ) {
             toggleFocus();

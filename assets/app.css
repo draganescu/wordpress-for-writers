@@ -315,11 +315,104 @@ body.wfw-takeover #wpbody-content {
     box-shadow: none;
 }
 
+.wfw-list__head {
+    position: relative;
+    z-index: 5;
+    padding: 6px 10px 0;
+}
+
+/* The list's name opens its options (sorting, preview style), like Bear's list title. */
 .wfw-list__title {
-    padding: 10px 16px 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    max-width: 100%;
+    padding: 4px 4px 4px 6px;
+    border-radius: 6px;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: var( --wfw-list-muted ) !important;
+}
+
+.wfw-list__title:hover,
+.wfw-list__title[aria-expanded="true"] {
+    background: var( --wfw-list-hover );
+    color: var( --wfw-list-fg ) !important;
+}
+
+.wfw-list__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wfw-list__title svg {
+    width: 16px;
+    height: 16px;
+}
+
+.wfw-menu {
+    position: absolute;
+    top: calc( 100% + 4px );
+    left: 10px;
+    width: 220px;
+    max-width: calc( 100% - 20px );
+    max-height: calc( 100vh - 140px );
+    overflow-y: auto;
+    padding: 6px;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border: 1px solid var( --wfw-border );
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba( 0, 0, 0, 0.18 );
+    font-size: 13px;
+}
+
+.wfw-menu__count {
+    padding: 4px 10px 6px;
     font-size: 12px;
+    color: var( --wfw-muted );
+}
+
+.wfw-menu__label {
+    padding: 6px 10px 2px;
+    font-size: 11px;
     font-weight: 600;
-    color: var( --wfw-list-muted );
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var( --wfw-muted );
+}
+
+.wfw-menu__sep {
+    margin: 5px 4px;
+    border-top: 1px solid var( --wfw-border );
+}
+
+.wfw-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 10px 5px 6px !important;
+    border-radius: 6px;
+    text-align: left;
+    outline: none;
+}
+
+.wfw-menu__item:hover,
+.wfw-menu__item:focus-visible {
+    background: var( --wfw-list-hover ) !important;
+}
+
+.wfw-menu__item svg {
+    width: 18px;
+    height: 18px;
+    color: var( --wfw-accent );
+}
+
+.wfw-menu__spacer {
+    width: 18px;
+    flex: none;
 }
 
 .wfw-list__items {
@@ -377,7 +470,7 @@ body.wfw-takeover #wpbody-content {
     line-height: 1.45;
     color: var( --wfw-list-muted );
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: var( --wfw-preview-lines, 2 );
     -webkit-box-orient: vertical;
     overflow: hidden;
     margin-bottom: 8px;

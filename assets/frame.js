@@ -190,6 +190,67 @@
         } ).observe( document.body, { childList: true, subtree: true } );
     }
 
+    /*
+     * Featured image: the settings sidebar is hidden, so give the image its own
+     * button beside Save. It opens core's featured image control (set, replace,
+     * remove) in a popover. The header is re-rendered by the editor, so the
+     * button lives in its own React root and is put back whenever it drops out.
+     */
+    function mountFeaturedImage() {
+        const { createElement: el, createRoot } = wp.element;
+        const { Dropdown, Button } = wp.components;
+        const { PostFeaturedImage, PostFeaturedImageCheck } = wp.editor;
+        const { useSelect } = wp.data;
+        const { __ } = wp.i18n;
+        if ( ! createRoot || ! Dropdown || ! PostFeaturedImage ) {
+            return;
+        }
+
+        // @wordpress/icons `image`.
+        const imageIcon = el( 'svg', { viewBox: '0 0 24 24', xmlns: 'http://www.w3.org/2000/svg', width: 24, height: 24, 'aria-hidden': true },
+            el( 'path', { d: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z' } )
+        );
+
+        function FeaturedImageButton() {
+            const hasImage = useSelect( ( s ) => !! s( 'core/editor' ).getEditedPostAttribute( 'featured_media' ), [] );
+            const label = hasImage ? __( 'Change featured image', 'wordpress-for-writers' ) : __( 'Add featured image', 'wordpress-for-writers' );
+            return el( PostFeaturedImageCheck, null,
+                el( Dropdown, {
+                    className: 'wfw-featured-image',
+                    contentClassName: 'wfw-featured-image__popover',
+                    popoverProps: { placement: 'bottom-end', offset: 8 },
+                    renderToggle: ( { isOpen, onToggle } ) => el( Button, {
+                        className: 'wfw-featured-image__toggle' + ( hasImage ? ' has-image' : '' ),
+                        icon: imageIcon,
+                        label,
+                        showTooltip: true,
+                        onClick: onToggle,
+                        'aria-expanded': isOpen,
+                    } ),
+                    renderContent: () => el( 'div', { className: 'wfw-featured-image__content' }, el( PostFeaturedImage ) ),
+                } )
+            );
+        }
+
+        let host = null;
+        const attach = () => {
+            const header = document.querySelector( '.editor-header__settings' );
+            if ( ! header || ( host && host.parentNode === header ) ) {
+                return;
+            }
+            if ( ! host ) {
+                host = document.createElement( 'div' );
+                host.className = 'wfw-featured-image-host';
+                createRoot( host ).render( el( FeaturedImageButton ) );
+            }
+            header.prepend( host );
+        };
+        new MutationObserver( attach ).observe( document.body, { childList: true, subtree: true } );
+        attach();
+    }
+
+    mountFeaturedImage();
+
     function post( message ) {
         window.parent.postMessage( { source: 'wfw-frame', ...message }, window.location.origin );
     }
