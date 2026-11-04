@@ -4,25 +4,31 @@
     const settings = window.wfwSettings;
     const root = document.getElementById( 'wfw-app' );
 
+    // Glyphs from @wordpress/icons 15.2.0 (GPL-2.0-or-later), the filled 24x24 set
+    // WordPress 7.1's editor ships; each line ends with the icon's name there. The
+    // package has no log-out glyph, so `logout` is `login` with its door flipped.
     const ICONS = {
-        notes: '<path d="M4 3h8l4 4v10H4z"/><path d="M12 3v4h4"/>',
-        draft: '<path d="M13.5 3.5l3 3L7 16H4v-3z"/>',
-        publish: '<circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-4"/>',
-        future: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>',
-        trash: '<path d="M4 6h12M8 6V4h4v2M6 6l1 11h6l1-11"/>',
-        folder: '<path d="M3 5h5l2 2h7v9H3z"/>',
-        search: '<circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/>',
-        compose: '<path d="M11 4H4v12h12V9"/><path d="M14.5 2.5l3 3L11 12H8V9z"/>',
-        sidebar: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M8 4v12"/>',
-        focus: '<path d="M4 8V4h4M16 8V4h-4M4 12v4h4M16 12v4h-4"/>',
-        restore: '<path d="M4 10a6 6 0 1 0 2-4.5"/><path d="M4 3v3h3"/>',
-        close: '<path d="M5 5l10 10M15 5L5 15"/>',
-        back: '<path d="M12.5 4L6.5 10l6 6"/>',
-        external: '<path d="M11 4h5v5M16 4l-7 7M14 12v4H4V6h4"/>',
-        palette: '<path d="M10 3a7 7 0 1 0 0 14c1 0 1.5-.7 1.5-1.4 0-1-.9-1.3-.9-2.1 0-.8.6-1.3 1.4-1.3H14a3 3 0 0 0 3-3C17 5.6 13.9 3 10 3z"/><circle cx="6.5" cy="9" r=".8"/><circle cx="9" cy="6" r=".8"/><circle cx="12.5" cy="6.5" r=".8"/>',
-        check: '<path d="M5 10.5l3 3 7-7"/>',
-        chevronDown: '<path d="M6 8l4 4 4-4"/>',
-        image: '<rect x="3" y="4" width="14" height="12" rx="1.5"/><circle cx="7.5" cy="8.5" r="1.3"/><path d="M3.5 14l4-3.5 3 2.5 2.5-2 3.5 3"/>',
+        notes: '<path d="M15.5 7.5h-7V9h7V7.5Zm-7 3.5h7v1.5h-7V11Zm7 3.5h-7V16h7v-1.5Z"/><path d="M17 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2ZM7 5.5h10a.5.5 0 0 1 .5.5v12a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5V6a.5.5 0 0 1 .5-.5Z"/>', // page
+        draft: '<path fill-rule="evenodd" clip-rule="evenodd" d="M12 18.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm8 4a4 4 0 0 0 4-4H8a4 4 0 0 0 4 4Z"/>', // drafts
+        publish: '<path fill-rule="evenodd" clip-rule="evenodd" d="M12 18.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm11.53-1.47-1.06-1.06L11 12.94l-1.47-1.47-1.06 1.06L11 15.06l4.53-4.53Z"/>', // published
+        future: '<path fill-rule="evenodd" clip-rule="evenodd" d="M12 18.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm9 1V8h-1.5v3.5h-2V13H13Z"/>', // scheduled
+        trash: '<path fill-rule="evenodd" clip-rule="evenodd" d="M12 5.5A2.25 2.25 0 0 0 9.878 7h4.244A2.251 2.251 0 0 0 12 5.5ZM12 4a3.751 3.751 0 0 0-3.675 3H5v1.5h1.27l.818 8.997a2.75 2.75 0 0 0 2.739 2.501h4.347a2.75 2.75 0 0 0 2.738-2.5L17.73 8.5H19V7h-3.325A3.751 3.751 0 0 0 12 4Zm4.224 4.5H7.776l.806 8.861a1.25 1.25 0 0 0 1.245 1.137h4.347a1.25 1.25 0 0 0 1.245-1.137l.805-8.861Z"/>', // trash
+        folder: '<path fill-rule="evenodd" clip-rule="evenodd" d="M12.848 8a1 1 0 0 1-.914-.594l-.723-1.63a.5.5 0 0 0-.447-.276H5a.5.5 0 0 0-.5.5v11.5a.5.5 0 0 0 .5.5h14a.5.5 0 0 0 .5-.5v-9A.5.5 0 0 0 19 8h-6.152Zm.612-1.5a.5.5 0 0 1-.462-.31l-.445-1.084A2 2 0 0 0 10.763 4H5a2 2 0 0 0-2 2v11.5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-5.54Z"/>', // file
+        search: '<path d="M13 5c-3.3 0-6 2.7-6 6 0 1.4.5 2.7 1.3 3.7l-3.8 3.8 1.1 1.1 3.8-3.8c1 .8 2.3 1.3 3.7 1.3 3.3 0 6-2.7 6-6S16.3 5 13 5zm0 10.5c-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5 4.5 2 4.5 4.5-2 4.5-4.5 4.5z"/>', // search
+        compose: '<path d="M18.5 5.5V8H20V5.5h2.5V4H20V1.5h-1.5V4H16v1.5h2.5zM12 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-6h-1.5v6a.5.5 0 01-.5.5H6a.5.5 0 01-.5-.5V6a.5.5 0 01.5-.5h6V4z"/>', // add-card
+        sidebar: '<path fill-rule="evenodd" clip-rule="evenodd" d="M18 4H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8.5 18.5H6c-.3 0-.5-.2-.5-.5V6c0-.3.2-.5.5-.5h2.5v13zm10-.5c0 .3-.2.5-.5.5h-8v-13h8c.3 0 .5.2.5.5v12z"/>', // drawer-left
+        focus: '<path d="M7 18h4.5v1.5h-7v-7H6V17L17 6h-4.5V4.5h7v7H18V7L7 18Z"/>', // resize-corner-ne
+        restore: '<path d="M13.75 4.194a8 8 0 0 0-4.812.415l-.301.132a8 8 0 0 0-3.203 2.692L4 6.001v4h4L6.517 8.516q.333-.526.758-.977l.011-.012q.341-.359.733-.662l.025-.02a6.5 6.5 0 0 1 2.469-1.172l.034-.008q.117-.027.236-.05l.015-.002q.32-.06.65-.088.08-.008.16-.013a7 7 0 0 1 .323-.01L12 5.5h.05l.203.005.101.003q.146.008.293.023l.12.014.158.02q.103.015.205.033l.058.011q.107.02.212.043l.068.016a6.5 6.5 0 0 1 1.447.521l.02.01a7 7 0 0 1 .452.25l.02.014a7 7 0 0 1 .468.317l.07.054a7 7 0 0 1 .403.334l.034.03q.091.084.18.172l.047.045q.293.294.548.627l.03.038.07.097.096.135q.037.053.072.107a6 6 0 0 1 .167.265l.042.073q.236.411.413.857l.027.07a6.5 6.5 0 0 1 .418 2.014 6.6 6.6 0 0 1-.034 1.04 6 6 0 0 1-.063.424q-.109.597-.32 1.152-.016.034-.028.07a6.5 6.5 0 0 1-.413.856l-.042.073a6 6 0 0 1-.327.497l-.087.118-.02.028a7 7 0 0 1-.526.604l-.035.035-.035.032q-.089.088-.18.172l-.034.03a7 7 0 0 1-.38.317l-.093.071q-.09.067-.183.13l-.076.053q-.112.076-.227.146-.218.133-.446.247l-.028.015-.192.093-.081.036a6.5 6.5 0 0 1-1.184.396l-.058.012a7 7 0 0 1-.475.087q-.08.012-.157.02l-.122.014q-.145.015-.292.023l-.136.005-.139.003L12 18.5q-.053-.002-.104-.003l-.127-.004-.162-.007q-.08-.005-.159-.013a7 7 0 0 1-.65-.088q-.008 0-.015-.002a7 7 0 0 1-.236-.05l-.034-.008a6.5 6.5 0 0 1-4.14-3.077l-1.3.75a8 8 0 0 0 3.564 3.26l.301.131a8 8 0 0 0 11.055-7.061l.007-.33c0-1.76-.581-3.473-1.653-4.87l-.206-.256a8 8 0 0 0-4.07-2.6zM12 7.75a.75.75 0 0 0-.75.75V12a.75.75 0 0 0 .218.529l1.282-.839-1.28.84 2.5 2.5a.75.75 0 1 0 1.06-1.06l-2.28-2.28V8.5a.75.75 0 0 0-.75-.75"/>', // backup
+        close: '<path d="m13.06 12 6.47-6.47-1.06-1.06L12 10.94 5.53 4.47 4.47 5.53 10.94 12l-6.47 6.47 1.06 1.06L12 13.06l6.47 6.47 1.06-1.06L13.06 12Z"/>', // close
+        back: '<path d="M14.6 7l-1.2-1L8 12l5.4 6 1.2-1-4.6-5z"/>', // chevron-left
+        external: '<path d="M19.5 4.5h-7V6h4.44l-5.97 5.97 1.06 1.06L18 7.06v4.44h1.5v-7Zm-13 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3H17v3a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h3V5.5h-3Z"/>', // external
+        appearance: '<path fill-rule="evenodd" clip-rule="evenodd" d="M10.289 4.836A1 1 0 0111.275 4h1.306a1 1 0 01.987.836l.244 1.466c.787.26 1.503.679 2.108 1.218l1.393-.522a1 1 0 011.216.437l.653 1.13a1 1 0 01-.23 1.273l-1.148.944a6.025 6.025 0 010 2.435l1.149.946a1 1 0 01.23 1.272l-.653 1.13a1 1 0 01-1.216.437l-1.394-.522c-.605.54-1.32.958-2.108 1.218l-.244 1.466a1 1 0 01-.987.836h-1.306a1 1 0 01-.986-.836l-.244-1.466a5.995 5.995 0 01-2.108-1.218l-1.394.522a1 1 0 01-1.217-.436l-.653-1.131a1 1 0 01.23-1.272l1.149-.946a6.026 6.026 0 010-2.435l-1.148-.944a1 1 0 01-.23-1.272l.653-1.131a1 1 0 011.217-.437l1.393.522a5.994 5.994 0 012.108-1.218l.244-1.466zM14.929 12a3 3 0 11-6 0 3 3 0 016 0z"/>', // cog
+        dashboard: '<path d="M12 5a8 8 0 0 1 3.842.984L14.726 7.1a6.502 6.502 0 0 0-7.323 1.303 6.5 6.5 0 0 0 0 9.194l-1.06 1.06A8 8 0 0 1 12 5Zm7.021 4.168a8 8 0 0 1-1.364 9.49l-1.06-1.061a6.5 6.5 0 0 0 1.307-7.312l1.117-1.117ZM17.47 6.47a.75.75 0 1 1 1.06 1.06l-5.083 5.082a1.5 1.5 0 1 1-1.06-1.06L17.47 6.47Z"/>', // dashboard
+        logout: '<path d="M16.8 5h-7c-1.1 0-2 .9-2 2v1.5h1.5V7c0-.3.2-.5.5-.5h7c.3 0 .5.2.5.5v10c0 .3-.2.5-.5.5h-7c-.3 0-.5-.2-.5-.5v-1.5H7.8V17c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2z" transform="matrix(-1 0 0 1 22.8 0)"/><path d="M11 14.5l1.1 1.1 3-3 .5-.5-.6-.6-3-3-1 1 1.7 1.7H5v1.5h7.7L11 14.5z" transform="translate(4.4 0)"/>', // login, flipped
+        profile: '<path fill-rule="evenodd" clip-rule="evenodd" d="M7.25 16.437a6.5 6.5 0 1 1 9.5 0V16A2.75 2.75 0 0 0 14 13.25h-4A2.75 2.75 0 0 0 7.25 16v.437Zm1.5 1.193a6.47 6.47 0 0 0 3.25.87 6.47 6.47 0 0 0 3.25-.87V16c0-.69-.56-1.25-1.25-1.25h-4c-.69 0-1.25.56-1.25 1.25v1.63ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm10-2a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/>', // comment-author-avatar
+        dropdown: '<path d="m15.99 10.889-3.988 3.418-3.988-3.418.976-1.14 3.012 2.582 3.012-2.581.976 1.139Z"/>', // chevron-down-small
+        check: '<path d="M16.7 7.1l-6.3 8.5-3.3-2.5-.9 1.2 4.5 3.4L17.9 8z"/>', // check
+        image: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"/>', // image
     };
 
     const STATUS_VIEWS = [
@@ -68,6 +74,7 @@
         categories: [],
         tags: [],
         sidebarHidden: loadPref( 'sidebarHidden', false ),
+        collapsed: loadPref( 'collapsed', {} ),
         focus: false,
         list: { ...LIST_DEFAULTS, ...loadPref( 'list', {} ) },
         total: 0,
@@ -116,7 +123,7 @@
     }
 
     function icon( name ) {
-        return '<svg viewBox="0 0 20 20" aria-hidden="true">' + ICONS[ name ] + '</svg>';
+        return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[ name ] + '</svg>';
     }
 
     // DOMParser builds an inert document: unlike innerHTML on a detached element,
@@ -263,7 +270,7 @@
                     <button class="wfw-icon-btn wfw-icon-btn--accent" data-action="new" title="${ esc( __( 'New note', 'wordpress-for-writers' ) ) }">${ icon( 'compose' ) }</button>
                 </div>
                 <div class="wfw-list__head">
-                    <button class="wfw-list__title" data-action="list-menu" aria-haspopup="menu" aria-expanded="false"><span class="wfw-list__label"></span>${ icon( 'chevronDown' ) }</button>
+                    <button class="wfw-list__title" data-action="list-menu" aria-haspopup="menu" aria-expanded="false"><span class="wfw-list__label"></span>${ icon( 'dropdown' ) }</button>
                 </div>
                 <div class="wfw-list__items" role="list"></div>
             </section>
@@ -316,27 +323,78 @@
             .join( '' );
     }
 
+    // Categories and Tags fold away under a heading that works like a nav item.
+    function sidebarSection( key, label, items ) {
+        const open = ! state.collapsed[ key ];
+        return `
+            <button class="wfw-nav wfw-sidebar__section" data-action="toggle-section" data-section="${ esc( key ) }" aria-expanded="${ open ? 'true' : 'false' }" aria-controls="wfw-section-${ esc( key ) }">
+                <span class="wfw-nav__icon wfw-sidebar__chevron">${ icon( 'back' ) }</span>
+                <span class="wfw-nav__label">${ esc( label ) }</span>
+            </button>
+            <div class="wfw-sidebar__items" id="wfw-section-${ esc( key ) }">${ items }</div>`;
+    }
+
     function renderSidebar() {
         const sidebar = root.querySelector( '.wfw-sidebar' );
+        const avatar = settings.avatarUrl
+            ? `<img class="wfw-user__avatar" src="${ esc( settings.avatarUrl ) }" alt="" />`
+            : `<span class="wfw-user__avatar">${ esc( Array.from( settings.userName.trim() )[ 0 ] ) }</span>`;
+        const label = ( text ) => `title="${ esc( text ) }" aria-label="${ esc( text ) }"`;
+        const menuItem = ( href, iconName, text ) => `<a class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="menu-item" href="${ esc( href ) }">${ icon( iconName ) }<span>${ esc( text ) }</span></a>`;
+        // Drafts' autosaves re-render the sidebar every few seconds: keep focus on
+        // the same footer control (the open menu itself survives via userMenuOpen).
+        const footControls = () => [ ...sidebar.querySelectorAll( '.wfw-sidebar__foot :is( a, button )' ) ];
+        const focusedControl = footControls().indexOf( document.activeElement );
         const statusNav = STATUS_VIEWS.map( ( v ) => navButton( { type: v.type }, v.label, icon( v.icon ), state.counts[ v.type ] ) ).join( '' );
         const tags = state.tags
             .map( ( t ) => navButton( { type: 'tag', id: t.id }, t.name, '<span class="wfw-nav__hash">#</span>' ) )
             .join( '' );
+        const siteIcon = settings.siteIcon ? `<img class="wfw-sidebar__icon" src="${ esc( settings.siteIcon ) }" alt="" />` : '';
 
         sidebar.innerHTML = `
-            <div class="wfw-sidebar__head">${ esc( settings.siteName ) }</div>
+            <div class="wfw-sidebar__head">${ siteIcon }<span class="wfw-sidebar__name">${ esc( settings.siteName ) }</span></div>
             <div class="wfw-sidebar__scroll">
                 ${ statusNav }
-                ${ state.categories.length ? `<div class="wfw-sidebar__section">${ esc( __( 'Categories', 'wordpress-for-writers' ) ) }</div>${ categoryTree( 0, 0 ) }` : '' }
-                ${ state.tags.length ? `<div class="wfw-sidebar__section">${ esc( __( 'Tags', 'wordpress-for-writers' ) ) }</div>${ tags }` : '' }
+                ${ state.categories.length ? sidebarSection( 'categories', __( 'Categories', 'wordpress-for-writers' ), categoryTree( 0, 0 ) ) : '' }
+                ${ state.tags.length ? sidebarSection( 'tags', __( 'Tags', 'wordpress-for-writers' ), tags ) : '' }
             </div>
             <div class="wfw-sidebar__foot">
-                <button data-action="appearance">${ esc( __( 'Appearance', 'wordpress-for-writers' ) ) }</button>
-                <a href="${ esc( settings.siteUrl ) }" target="_blank" rel="noopener">${ esc( __( 'View site', 'wordpress-for-writers' ) ) } ↗</a>
-                <a href="${ esc( settings.adminUrl + 'index.php?wfw_classic=1' ) }">${ esc( __( 'Classic dashboard', 'wordpress-for-writers' ) ) }</a>
-                <a href="${ esc( settings.logoutUrl ) }">${ esc( sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }</a>
+                <button class="wfw-user" id="wfw-user" data-action="user-menu" aria-haspopup="menu" aria-expanded="${ userMenuOpen ? 'true' : 'false' }" aria-controls="wfw-user-menu">${ avatar }<span class="wfw-user__name" title="${ esc( settings.userName ) }">${ esc( settings.userName ) }</span>${ icon( 'dropdown' ) }</button>
+                <div class="wfw-menu" id="wfw-user-menu" role="menu" aria-labelledby="wfw-user"${ userMenuOpen ? '' : ' hidden' }>
+                    ${ menuItem( settings.adminUrl + 'index.php?wfw_classic=1', 'dashboard', __( 'Go to admin', 'wordpress-for-writers' ) ) }
+                    ${ menuItem( settings.adminUrl + 'profile.php', 'profile', __( 'Edit profile', 'wordpress-for-writers' ) ) }
+                    <div class="wfw-menu__separator" role="separator"></div>
+                    ${ menuItem( settings.logoutUrl, 'logout', sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }
+                </div>
+                <a class="wfw-icon-btn" href="${ esc( settings.siteUrl ) }" target="_blank" rel="noopener" ${ label( __( 'View site', 'wordpress-for-writers' ) ) }>${ icon( 'external' ) }</a>
+                <button class="wfw-icon-btn" data-action="appearance" ${ label( __( 'Appearance', 'wordpress-for-writers' ) ) }>${ icon( 'appearance' ) }</button>
             </div>
         `;
+        revealSiteIcon( sidebar.querySelector( '.wfw-sidebar__icon' ) );
+        if ( focusedControl >= 0 ) {
+            footControls()[ focusedControl ].focus();
+        }
+    }
+
+    // The site icon stays invisible until it has loaded, and is dropped if it fails, so an empty box never shows.
+    function revealSiteIcon( img ) {
+        if ( ! img ) {
+            return;
+        }
+        const settle = () => {
+            if ( img.naturalWidth ) {
+                img.classList.add( 'is-loaded' );
+            } else {
+                settings.siteIcon = ''; // Leave it out of later renders too.
+                img.remove();
+            }
+        };
+        if ( img.complete ) {
+            settle();
+        } else {
+            img.addEventListener( 'load', settle );
+            img.addEventListener( 'error', settle );
+        }
     }
 
     function renderListHeader() {
@@ -352,43 +410,43 @@
             : [ { value: 'desc', label: __( 'Newest first', 'wordpress-for-writers' ) }, { value: 'asc', label: __( 'Oldest first', 'wordpress-for-writers' ) } ];
     }
 
-    function menuItem( role, checked, key, value, label ) {
-        return `<button class="wfw-menu__item" role="${ role }" aria-checked="${ checked }" tabindex="-1" data-action="list-option" data-key="${ key }" data-value="${ esc( value ) }">${ checked ? icon( 'check' ) : '<span class="wfw-menu__spacer"></span>' }<span>${ esc( label ) }</span></button>`;
+    function listMenuItem( role, checked, key, value, label ) {
+        return `<button class="wfw-list-menu__item" role="${ role }" aria-checked="${ checked }" tabindex="-1" data-action="list-option" data-key="${ key }" data-value="${ esc( value ) }">${ checked ? icon( 'check' ) : '<span class="wfw-list-menu__spacer"></span>' }<span>${ esc( label ) }</span></button>`;
     }
 
     function renderListMenu() {
         const head = root.querySelector( '.wfw-list__head' );
         const toggle = head.querySelector( '.wfw-list__title' );
         toggle.setAttribute( 'aria-expanded', state.listMenu ? 'true' : 'false' );
-        let menu = head.querySelector( '.wfw-menu' );
+        let menu = head.querySelector( '.wfw-list-menu' );
         if ( ! state.listMenu ) {
             menu?.remove();
             return;
         }
         if ( ! menu ) {
             menu = document.createElement( 'div' );
-            menu.className = 'wfw-menu';
+            menu.className = 'wfw-list-menu';
             menu.setAttribute( 'role', 'menu' );
             menu.setAttribute( 'aria-label', __( 'List options', 'wordpress-for-writers' ) );
             head.appendChild( menu );
         }
-        const focused = menu.contains( document.activeElement ) ? [ ...menu.querySelectorAll( '.wfw-menu__item' ) ].indexOf( document.activeElement ) : -1;
+        const focused = menu.contains( document.activeElement ) ? [ ...menu.querySelectorAll( '.wfw-list-menu__item' ) ].indexOf( document.activeElement ) : -1;
         const { list } = state;
         /* translators: %d: number of notes in the list. */
         const count = sprintf( _n( '%d note', '%d notes', state.total, 'wordpress-for-writers' ), state.total );
         menu.innerHTML = `
-            <div class="wfw-menu__count">${ esc( count ) }</div>
-            <div class="wfw-menu__label" id="wfw-menu-sort">${ esc( __( 'Sort by', 'wordpress-for-writers' ) ) }</div>
-            <div role="group" aria-labelledby="wfw-menu-sort">${ SORT_FIELDS.map( ( f ) => menuItem( 'menuitemradio', list.orderby === f.value, 'orderby', f.value, f.label ) ).join( '' ) }</div>
-            <div class="wfw-menu__sep" role="separator"></div>
-            <div role="group" aria-label="${ esc( __( 'Order', 'wordpress-for-writers' ) ) }">${ orderChoices().map( ( o ) => menuItem( 'menuitemradio', list.order === o.value, 'order', o.value, o.label ) ).join( '' ) }</div>
-            <div class="wfw-menu__sep" role="separator"></div>
-            <div class="wfw-menu__label" id="wfw-menu-preview">${ esc( __( 'Preview', 'wordpress-for-writers' ) ) }</div>
-            <div role="group" aria-labelledby="wfw-menu-preview">${ PREVIEW_LINES.map( ( p ) => menuItem( 'menuitemradio', list.lines === p.value, 'lines', p.value, p.label ) ).join( '' ) }</div>
-            <div class="wfw-menu__sep" role="separator"></div>
-            ${ menuItem( 'menuitemcheckbox', list.images, 'images', '', __( 'Show images', 'wordpress-for-writers' ) ) }`;
+            <div class="wfw-list-menu__count">${ esc( count ) }</div>
+            <div class="wfw-list-menu__label" id="wfw-list-menu-sort">${ esc( __( 'Sort by', 'wordpress-for-writers' ) ) }</div>
+            <div role="group" aria-labelledby="wfw-list-menu-sort">${ SORT_FIELDS.map( ( f ) => listMenuItem( 'menuitemradio', list.orderby === f.value, 'orderby', f.value, f.label ) ).join( '' ) }</div>
+            <div class="wfw-list-menu__sep" role="separator"></div>
+            <div role="group" aria-label="${ esc( __( 'Order', 'wordpress-for-writers' ) ) }">${ orderChoices().map( ( o ) => listMenuItem( 'menuitemradio', list.order === o.value, 'order', o.value, o.label ) ).join( '' ) }</div>
+            <div class="wfw-list-menu__sep" role="separator"></div>
+            <div class="wfw-list-menu__label" id="wfw-list-menu-preview">${ esc( __( 'Preview', 'wordpress-for-writers' ) ) }</div>
+            <div role="group" aria-labelledby="wfw-list-menu-preview">${ PREVIEW_LINES.map( ( p ) => listMenuItem( 'menuitemradio', list.lines === p.value, 'lines', p.value, p.label ) ).join( '' ) }</div>
+            <div class="wfw-list-menu__sep" role="separator"></div>
+            ${ listMenuItem( 'menuitemcheckbox', list.images, 'images', '', __( 'Show images', 'wordpress-for-writers' ) ) }`;
         if ( focused >= 0 ) {
-            menu.querySelectorAll( '.wfw-menu__item' )[ focused ]?.focus();
+            menu.querySelectorAll( '.wfw-list-menu__item' )[ focused ]?.focus();
         }
     }
 
@@ -396,7 +454,7 @@
         state.listMenu = open;
         renderListMenu();
         if ( open && focusFirst ) {
-            root.querySelector( '.wfw-menu .wfw-menu__item' )?.focus();
+            root.querySelector( '.wfw-list-menu .wfw-list-menu__item' )?.focus();
         } else if ( ! open && root.querySelector( '.wfw-list__head' ).contains( document.activeElement ) ) {
             root.querySelector( '.wfw-list__title' ).focus();
         }
@@ -951,6 +1009,90 @@
         openAppearance();
     }
 
+    // ---- Account menu ------------------------------------------------------
+
+    // The avatar and name open a menu of account links that follows the WAI-ARIA
+    // menu button pattern. It opens upward from the sidebar's footer.
+    let userMenuOpen = false;
+
+    function syncUserMenu() {
+        root.querySelector( '.wfw-user' )?.setAttribute( 'aria-expanded', userMenuOpen ? 'true' : 'false' );
+        const menu = root.querySelector( '.wfw-menu' );
+        if ( menu ) {
+            menu.hidden = ! userMenuOpen;
+        }
+    }
+
+    // Focuses item `index` once open; a negative index counts from the end.
+    function openUserMenu( index = 0 ) {
+        userMenuOpen = true;
+        syncUserMenu();
+        const items = root.querySelectorAll( '.wfw-menu [role="menuitem"]' );
+        items[ ( index + items.length ) % items.length ]?.focus();
+    }
+
+    function closeUserMenu( returnFocus = true ) {
+        if ( ! userMenuOpen ) {
+            return;
+        }
+        userMenuOpen = false;
+        syncUserMenu();
+        if ( returnFocus ) {
+            root.querySelector( '.wfw-user' )?.focus();
+        }
+    }
+
+    root.addEventListener( 'keydown', ( event ) => {
+        const onButton = event.target.closest( '.wfw-user' );
+        const menu = event.target.closest( '.wfw-menu' );
+        if ( ! onButton && ! menu ) {
+            return;
+        }
+        if ( event.key === 'Escape' && userMenuOpen ) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeUserMenu();
+            return;
+        }
+        if ( onButton ) {
+            if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
+                event.preventDefault();
+                openUserMenu( event.key === 'ArrowDown' ? 0 : -1 );
+            }
+            return;
+        }
+        const items = [ ...menu.querySelectorAll( '[role="menuitem"]' ) ];
+        const index = items.indexOf( event.target );
+        switch ( event.key ) {
+            case 'ArrowDown':
+            case 'ArrowUp':
+            case 'Home':
+            case 'End': {
+                event.preventDefault();
+                const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: -1 }[ event.key ];
+                items[ ( next + items.length ) % items.length ].focus();
+                break;
+            }
+            case 'Tab':
+                // Focus goes back to the button, and the browser's Tab then moves on from there.
+                closeUserMenu();
+                break;
+            case ' ':
+                event.preventDefault();
+                event.target.click();
+                break;
+        }
+    } );
+
+    // A click outside closes the menu. So does the page losing focus, which is how
+    // a click into the editor's iframe shows up here.
+    document.addEventListener( 'pointerdown', ( event ) => {
+        if ( userMenuOpen && ! event.target.closest( '.wfw-user, .wfw-menu' ) ) {
+            closeUserMenu( false );
+        }
+    } );
+    window.addEventListener( 'blur', () => closeUserMenu( false ) );
+
     // ---- Actions -----------------------------------------------------------
 
     function toggleFocus() {
@@ -1007,6 +1149,14 @@
             case 'list-option':
                 setListOption( target.dataset.key, target.dataset.value );
                 break;
+            case 'toggle-section': {
+                // Flipped in place rather than re-rendered, so keyboard focus stays on the heading.
+                const key = target.dataset.section;
+                state.collapsed[ key ] = ! state.collapsed[ key ];
+                savePref( 'collapsed', state.collapsed );
+                target.setAttribute( 'aria-expanded', state.collapsed[ key ] ? 'false' : 'true' );
+                break;
+            }
             case 'open':
                 openNote( id );
                 break;
@@ -1050,6 +1200,16 @@
             case 'appearance':
                 openAppearance();
                 break;
+            case 'user-menu':
+                if ( userMenuOpen ) {
+                    closeUserMenu();
+                } else {
+                    openUserMenu();
+                }
+                break;
+            case 'menu-item':
+                closeUserMenu();
+                break;
             case 'set-appearance':
                 setAppearance( target.dataset.key, target.dataset.value );
                 break;
@@ -1068,10 +1228,10 @@
     } );
 
     root.addEventListener( 'keydown', ( event ) => {
-        const menu = event.target.closest( '.wfw-menu' );
+        const menu = event.target.closest( '.wfw-list-menu' );
         if ( menu && ( event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End' ) ) {
             event.preventDefault();
-            const items = [ ...menu.querySelectorAll( '.wfw-menu__item' ) ];
+            const items = [ ...menu.querySelectorAll( '.wfw-list-menu__item' ) ];
             const i = items.indexOf( event.target );
             const next = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[ event.key ];
             items[ ( next + items.length ) % items.length ].focus();
@@ -1132,6 +1292,14 @@
     }
 
     // ---- Boot --------------------------------------------------------------
+
+    // Reopen a folded section that holds the restored category or tag view, so
+    // the active item is in sight. Folding it later in the session is left alone.
+    const activeSection = { category: 'categories', tag: 'tags' }[ state.view.type ];
+    if ( activeSection && state.collapsed[ activeSection ] ) {
+        state.collapsed[ activeSection ] = false;
+        savePref( 'collapsed', state.collapsed );
+    }
 
     renderShell();
     renderSidebar();
