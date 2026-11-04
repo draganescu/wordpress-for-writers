@@ -14,6 +14,43 @@
 
     let appearance = ( window.wfwFrame && window.wfwFrame.appearance ) || {};
 
+    /*
+     * Visibility picker in the note's settings sidebar, when a companion
+     * plugin (Writer Members) offers options. Saved with the post through the
+     * REST API as the post meta it names; shown only for post types that
+     * register that meta.
+     */
+    const visibility = window.wfwFrame && window.wfwFrame.visibility;
+    const SettingPanel = ( wp.editor && wp.editor.PluginDocumentSettingPanel ) || ( wp.editPost && wp.editPost.PluginDocumentSettingPanel );
+    if ( visibility && wp.plugins && SettingPanel ) {
+        const el = wp.element.createElement;
+        const { __ } = wp.i18n;
+        const key = visibility.metaKey;
+        const options = [ { value: '', label: __( 'Everyone', 'wordpress-for-writers' ) } ].concat( visibility.options );
+
+        wp.plugins.registerPlugin( 'wfw-visibility', {
+            render: function VisibilityPanel() {
+                const meta = wp.data.useSelect( ( s ) => s( 'core/editor' ).getEditedPostAttribute( 'meta' ), [] );
+                const { editPost } = wp.data.useDispatch( 'core/editor' );
+                if ( ! meta || ! Object.prototype.hasOwnProperty.call( meta, key ) ) {
+                    return null;
+                }
+                return el(
+                    SettingPanel,
+                    { name: 'wfw-visibility', title: __( 'Visibility', 'wordpress-for-writers' ), className: 'wfw-visibility' },
+                    el( wp.components.SelectControl, {
+                        label: __( 'Who can read the whole note', 'wordpress-for-writers' ),
+                        value: meta[ key ] || '',
+                        options,
+                        onChange: ( value ) => editPost( { meta: { ...meta, [ key ]: value } } ),
+                        __nextHasNoMarginBottom: true,
+                        __next40pxDefaultSize: true,
+                    } )
+                );
+            },
+        } );
+    }
+
     function stamp( doc ) {
         if ( ! doc || ! doc.documentElement ) {
             return;
