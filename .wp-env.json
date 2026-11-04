@@ -1,6 +1,6 @@
 {
     "core": null,
-    "plugins": [ ".", "./plugins/writer-subscribe" ],
+    "plugins": [ ".", "./plugins/writer-subscribe", "./plugins/writer-members" ],
     "themes": [
         "./themes/writer-newsletter",
         "./themes/writer-essay",

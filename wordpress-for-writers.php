@@ -36,6 +36,30 @@ function wfw_is_frame() {
 }
 
 /**
+ * Who can read a note, for the Visibility picker in the note's settings.
+ * Companion plugins (Writer Members) fill `wfw_visibility_options` with
+ * array( 'value' => '', 'label' => '' ) items; with none, there is no picker.
+ * The choice is saved to the post meta named by `wfw_visibility_meta_key`,
+ * which must be registered with show_in_rest. "Everyone" (an empty value)
+ * is always offered first.
+ */
+function wfw_visibility() {
+    $options = array_values( array_filter(
+        (array) apply_filters( 'wfw_visibility_options', array() ),
+        function ( $option ) {
+            return is_array( $option ) && isset( $option['value'], $option['label'] ) && '' !== (string) $option['value'];
+        }
+    ) );
+    if ( ! $options ) {
+        return null;
+    }
+    return array(
+        'metaKey' => (string) apply_filters( 'wfw_visibility_meta_key', 'wmem_tier' ),
+        'options' => $options,
+    );
+}
+
+/**
  * Register the app page.
  */
 add_action( 'admin_menu', function () {
@@ -135,11 +159,12 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( wfw_is_frame() && in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
         wp_enqueue_style( 'wfw-frame', WFW_URL . 'assets/frame.css', array(), wfw_asset_version( 'assets/frame.css' ) );
         wp_add_inline_style( 'wfw-frame', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
+        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
         wp_localize_script( 'wfw-frame', 'wfwFrame', array(
             'appearance'     => wfw_get_appearance(),
             // Same checks as the app's featured image panel, which the link above the title opens.
             'featuredImages' => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
+            'visibility'     => wfw_visibility(),
         ) );
     }
 } );

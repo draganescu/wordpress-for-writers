@@ -43,8 +43,11 @@ Deleting the plugin from the Plugins screen removes each user's appearance prefe
 These live in `plugins/` and are separate plugins. Install each by copying its folder into `wp-content/plugins/`.
 
 - [Writer Subscribe](plugins/writer-subscribe/README.md): a scroll-triggered subscribe popup, an inline form block, double opt-in and a streamed CSV export that handles very large lists.
+- [Writer Members](plugins/writer-members/README.md): membership tiers, a Paywall block and per-post gating (also in feeds and the REST API), with a minimal Stripe webhook for Payment Links.
 
 Companion plugins can add links to the user menu in the Writer sidebar with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '', 'icon' => '' )`; `icon` is optional and names one of the app's icons.
+
+They can also add a **Visibility** picker to the note's settings with the `wfw_visibility_options` filter (items are `array( 'value' => '', 'label' => '' )`). The choice is saved to the post meta named by `wfw_visibility_meta_key` (default `wmem_tier`), which must be registered with `show_in_rest`. With no options, there is no picker.
 
 ## Themes
 
