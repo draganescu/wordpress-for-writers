@@ -3,8 +3,9 @@
  * files). Loaded into the app and into the editor canvas, since an iframe does
  * not inherit @font-face. A browser only downloads a face when text uses it, so
  * only the family the font option puts first in --wfw-font-body is fetched
- * (see includes/appearance.php), and its italic or Latin Extended file only
- * when the text has some.
+ * (see includes/appearance.php), plus Roboto Mono when a note has code (see
+ * assets/editor-content.css), and an italic or Latin Extended file only when
+ * the text has some.
  */
 
 /*
