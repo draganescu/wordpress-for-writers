@@ -28,7 +28,11 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
 
 ## Try it
 
-The **Try it in WordPress Playground** button opens a disposable WordPress in your browser with the plugin active and a demo blog, "The Slow Margin", already written. Nothing is installed and nothing is saved. The setup lives in `blueprint.json`, and the demo posts in `playground/demo-content.php`.
+The **Try it in WordPress Playground** button opens a disposable WordPress in your browser with the whole platform set up: the Writer app, both companion plugins, the three themes (Writer Newsletter active), and a demo blog, "The Slow Margin", already written. Nothing is installed and nothing is saved.
+
+The demo comes with an audience too: forty subscribers in various states, three membership tiers, six members, two essays gated part-way through, two members-only posts and a "Become a member" page. Open **Subscribers** or **Members** from the user menu in the Writer sidebar to see them, or log out and read a gated essay to hit the paywall. There's no Stripe account behind the demo, so the tiers' payment links point at the membership page.
+
+The setup lives in `blueprint.json`, the demo posts in `playground/demo-content.php`, and the audience in `playground/demo-audience.php`.
 
 ## Install
 

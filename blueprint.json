@@ -94,7 +94,7 @@
         },
         {
             "step": "runPHP",
-            "code": "<?php require '/wordpress/wp-load.php'; require WP_PLUGIN_DIR . '/wordpress-for-writers/playground/demo-content.php';"
+            "code": "<?php require '/wordpress/wp-load.php'; require WP_PLUGIN_DIR . '/wordpress-for-writers/playground/demo-content.php'; require WP_PLUGIN_DIR . '/wordpress-for-writers/playground/demo-audience.php';"
         }
     ]
 }
