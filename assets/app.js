@@ -130,9 +130,14 @@
         if ( view ) {
             return view.label;
         }
-        const list = state.view.type === 'category' ? state.categories : state.tags;
+        const isCategory = state.view.type === 'category';
+        const list = isCategory ? state.categories : state.tags;
         const term = list.find( ( t ) => t.id === state.view.id );
-        return term ? '#' + term.name : '';
+        if ( ! term ) {
+            return '';
+        }
+        // Match the sidebar: tags are marked with a #, categories with a folder icon.
+        return isCategory ? term.name : '# ' + term.name;
     }
 
     // ---- Data --------------------------------------------------------------
