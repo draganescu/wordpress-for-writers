@@ -89,19 +89,24 @@ add_action( 'load-toplevel_page_' . WFW_PAGE, function () {
 
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( 'toplevel_page_' . WFW_PAGE === $hook ) {
-        wp_enqueue_style( 'wfw-app', WFW_URL . 'assets/app.css', array(), wfw_asset_version( 'assets/app.css' ) );
+        wp_enqueue_style( 'wfw-app', WFW_URL . 'assets/app.css', array( 'wp-components' ), wfw_asset_version( 'assets/app.css' ) );
         wp_add_inline_style( 'wfw-app', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-app', WFW_URL . 'assets/app.js', array( 'wp-api-fetch', 'wp-i18n' ), wfw_asset_version( 'assets/app.js' ), true );
+        wp_enqueue_script( 'wfw-app', WFW_URL . 'assets/app.js', array( 'wp-api-fetch', 'wp-i18n', 'wp-element', 'wp-components', 'wp-data', 'wp-core-data', 'wp-media-utils' ), wfw_asset_version( 'assets/app.js' ), true );
         $user = wp_get_current_user();
         wp_localize_script( 'wfw-app', 'wfwSettings', array(
-            'adminUrl'    => admin_url(),
-            'siteUrl'     => home_url( '/' ),
-            'siteName'    => get_bloginfo( 'name' ),
-            'userName'    => $user->display_name,
-            'canManage'   => current_user_can( 'manage_options' ),
-            'canDelete'   => current_user_can( 'delete_posts' ),
-            'logoutUrl'   => wp_logout_url(),
-            'appearance'  => wfw_appearance_client_data(),
+            'adminUrl'          => admin_url(),
+            'siteUrl'           => home_url( '/' ),
+            'siteName'          => get_bloginfo( 'name' ),
+            'userName'          => $user->display_name,
+            'canManage'         => current_user_can( 'manage_options' ),
+            'canDelete'         => current_user_can( 'delete_posts' ),
+            'canUpload'         => current_user_can( 'upload_files' ),
+            // The featured image panel follows the same checks as the editor's own control.
+            'featuredImages'    => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
+            'maxUploadFileSize' => wp_max_upload_size(),
+            'allowedMimeTypes'  => get_allowed_mime_types(),
+            'logoutUrl'         => wp_logout_url(),
+            'appearance'        => wfw_appearance_client_data(),
         ) );
         return;
     }
@@ -165,4 +170,29 @@ add_action( 'enqueue_block_assets', function () {
  */
 add_filter( 'admin_body_class', function ( $classes ) {
     return wfw_is_frame() ? $classes . ' wfw-frame' : $classes;
+} );
+
+/**
+ * Who else is editing a note, for the app's featured image panel, which saves
+ * outside the editor. Same lock the editor's takeover dialog reads; empty when
+ * the note is free or locked by the current user.
+ */
+add_action( 'rest_api_init', function () {
+    register_rest_field( 'post', 'wfw_locked_by', array(
+        'get_callback' => function ( $post ) {
+            if ( ! current_user_can( 'edit_post', $post['id'] ) ) {
+                return '';
+            }
+            require_once ABSPATH . 'wp-admin/includes/post.php';
+            $user_id = wp_check_post_lock( $post['id'] );
+            $user    = $user_id ? get_userdata( $user_id ) : null;
+            return $user ? $user->display_name : '';
+        },
+        'schema'       => array(
+            'description' => __( 'Display name of another user currently editing the post.', 'wordpress-for-writers' ),
+            'type'        => 'string',
+            'context'     => array( 'edit' ),
+            'readonly'    => true,
+        ),
+    ) );
 } );
