@@ -345,6 +345,32 @@
         requestAnimationFrame( () => requestAnimationFrame( () => post( { type: 'painted' } ) ) );
     }
 
+    /*
+     * No Welcome Guide in the app's editor (it also loads its pictures from
+     * s.w.org). The editor switches the guide on with an in-memory default when
+     * it initializes on DOM ready, after this script has run, so that default
+     * is turned back off as soon as it's set, before the editor first renders.
+     * Defaults aren't saved, so wp-admin's own editor still shows the guide to
+     * anyone who hasn't closed it there. Setting the preference itself didn't
+     * stick for a new user: with nothing saved yet, their preferences load
+     * late, from a REST request, and replace whatever was set before them.
+     */
+    const preferences = select( 'core/preferences' );
+    let closingGuide = false;
+    subscribe( () => {
+        if ( closingGuide || ! preferences.get( 'core/edit-post', 'welcomeGuide' ) ) {
+            return;
+        }
+        closingGuide = true;
+        dispatch( 'core/preferences' ).setDefaults( 'core/edit-post', { welcomeGuide: false } );
+        // Still on: the guide was saved open (opened from the editor's options
+        // menu and never closed). Close it, as its own close button would.
+        if ( preferences.get( 'core/edit-post', 'welcomeGuide' ) ) {
+            dispatch( 'core/preferences' ).set( 'core/edit-post', 'welcomeGuide', false );
+        }
+        closingGuide = false;
+    }, 'core/preferences' );
+
     let ready = false;
     let lastTitle = null;
     let wasSaving = false;
@@ -358,7 +384,6 @@
 
         if ( ! ready ) {
             ready = true;
-            dispatch( 'core/preferences' )?.set( 'core/edit-post', 'welcomeGuide', false );
             // Dock the block toolbar in the (bottom) header instead of floating over text.
             // Defaults are in-memory only, so the user's own editor preference is untouched.
             // Applied here because the editor sets its own defaults during initialization.
