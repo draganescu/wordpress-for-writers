@@ -36,6 +36,8 @@ Copy or clone this folder into `wp-content/plugins/` and activate **WordPress fo
 
 To reach the classic dashboard, use **Classic dashboard** in the sidebar footer (`/wp-admin/index.php?wfw_classic=1`). The settings sidebar (categories, tags, status, excerpt) opens with **Cmd/Ctrl + Shift + ,**.
 
+Deleting the plugin from the Plugins screen removes each user's appearance preferences (the `wfw_appearance` user meta). Your posts, tags and categories stay, and so do any site global styles set from the app's colour scheme, since they are the site's look.
+
 ## Companion plugins
 
 These live in `plugins/` and are separate plugins. Install each by copying its folder into `wp-content/plugins/`.
