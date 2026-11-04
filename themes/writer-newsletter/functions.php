@@ -12,6 +12,10 @@ defined( 'ABSPATH' ) || exit;
  */
 function writer_newsletter_setup() {
     add_editor_style( 'assets/theme.css' );
+
+    // Style variations named after the Writer app's colour schemes, so
+    // WordPress for Writers can match the site to the writer's chosen scheme.
+    add_theme_support( 'wfw-color-schemes' );
 }
 add_action( 'after_setup_theme', 'writer_newsletter_setup' );
 

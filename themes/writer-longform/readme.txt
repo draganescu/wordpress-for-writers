@@ -17,7 +17,7 @@ Writer Longform treats each post as a feature story. Headlines use Fraunces, bod
 * Story text: the first paragraph opens with a drop cap and small capitals. Every Heading 2 becomes a numbered chapter heading (I, II, III…); pick the "Plain" heading style to leave one unnumbered.
 * Wide and full-width images, galleries, covers and pull quotes break out of the text column.
 * Home: the latest story as a full-width cover, then a responsive grid of story cards. Archives and search use the same grid.
-* Style variations: the ten colour schemes of the Writer app's Appearance menu (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the site can match the editor. System follows the reader's light or dark setting, like the app. Muted text and accents are nudged where needed to keep at least 4.5:1 contrast.
+* Style variations: the ten colour schemes of the Writer app's Appearance menu (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the site can match the editor. System follows the reader's light or dark setting, like the app. Muted text and accents are nudged where needed to keep at least 4.5:1 contrast. With the WordPress for Writers plugin active, the site follows the colour scheme an administrator picks in the Writer app.
 * Patterns: lead story, story grid, wide pull quote, chapter opening and story introduction.
 
 = Writer Subscribe =

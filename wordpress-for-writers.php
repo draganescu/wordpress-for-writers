@@ -17,6 +17,7 @@ define( 'WFW_URL', plugin_dir_url( __FILE__ ) );
 define( 'WFW_PAGE', 'wfw' );
 
 require_once __DIR__ . '/includes/appearance.php';
+require_once __DIR__ . '/includes/site-scheme.php';
 
 /**
  * Cache-busting version for a plugin asset.

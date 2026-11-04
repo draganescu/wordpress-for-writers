@@ -17,7 +17,7 @@ Writer Newsletter is built for writers who publish regular issues. Everything si
 * Home: a dated list of posts with excerpts, author and reading time.
 * Single post: a large title, a byline with avatar, date and reading time, then a subscribe box, previous/next links and a short "From the archive" list.
 * Archive: a simple one-line-per-post list with dates.
-* Style variations: the ten colour schemes of the Writer app's Appearance menu (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the site can match the editor. System follows the reader's light or dark setting, like the app. Muted text and accents are nudged where needed to keep at least 4.5:1 contrast.
+* Style variations: the ten colour schemes of the Writer app's Appearance menu (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the site can match the editor. System follows the reader's light or dark setting, like the app. Muted text and accents are nudged where needed to keep at least 4.5:1 contrast. With the WordPress for Writers plugin active, the site follows the colour scheme an administrator picks in the Writer app.
 * Patterns: dated post list, simple archive list, issue sign-off and an About page.
 
 = Writer Subscribe =

@@ -17,7 +17,7 @@ Writer Essay is for long, considered pieces. Body text is set in Literata at a c
 * Home: the latest essay, large, followed by a list with category, excerpt, date, reading time and an optional thumbnail.
 * Single essay: a large serif title, a byline with avatar, reading time and date, a wide featured image, tags, and a clean author bio (from the user's Biographical Info) at the end.
 * Drop cap: pick the "Essay with drop cap" template for a post, or the "Drop cap" style on the Content block. Paragraphs also support the editor's own drop cap.
-* Style variations: the ten colour schemes of the Writer app's Appearance menu (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the site can match the editor. System follows the reader's light or dark setting, like the app. Muted text and accents are nudged where needed to keep at least 4.5:1 contrast.
+* Style variations: the ten colour schemes of the Writer app's Appearance menu (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the site can match the editor. System follows the reader's light or dark setting, like the app. Muted text and accents are nudged where needed to keep at least 4.5:1 contrast. With the WordPress for Writers plugin active, the site follows the colour scheme an administrator picks in the Writer app.
 * Patterns: featured essay, essay list, centred pull quote and an author's note.
 
 = Writer Subscribe =

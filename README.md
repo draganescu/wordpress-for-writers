@@ -46,7 +46,7 @@ Three reading themes for the public side of the site live in `themes/`. Each is 
 | [Writer Essay](themes/writer-essay/readme.txt) | Elegant long read with a quiet sans-serif interface, drop cap option and author bio | One featured essay, then a list |
 | [Writer Longform](themes/writer-longform/readme.txt) | Magazine feature with a full-bleed hero, chapter headings and wide pull quotes | Lead story cover, then a grid |
 
-Every theme offers the Writer app's ten colour schemes as style variations (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the public site can match the editor; System follows the reader's light or dark setting. Each theme also has templates for the home page, posts, pages, archives, search and 404, header and footer parts, its own patterns, a reading-time line, and bundled open-licence fonts (Source Serif 4, Literata, Fraunces and Inter, all under the SIL Open Font License).
+Every theme offers the Writer app's ten colour schemes as style variations (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light, Solarized Dark, Dracula, Nord and WordPress), so the public site can match the editor; System follows the reader's light or dark setting. The plugin keeps them in step: when someone who can edit the site's appearance picks a scheme in the Writer app (or activates one of these themes), the site switches to the matching variation. Only the colours change, so fonts, spacing and custom CSS set in the Site Editor stay. Authors' choices only change their own editor. Any block theme can opt in with `add_theme_support( 'wfw-color-schemes' )` and a `styles/<scheme>.json` per scheme; turn the sync off with `add_filter( 'wfw_sync_site_color_scheme', '__return_false' )`. Each theme also has templates for the home page, posts, pages, archives, search and 404, header and footer parts, its own patterns, a reading-time line, and bundled open-licence fonts (Source Serif 4, Literata, Fraunces and Inter, all under the SIL Open Font License).
 
 When the Writer Subscribe plugin is active, the themes add its form after posts and in the footer, plus a Subscribe button in the header. These pieces are patterns that the theme registers only if the `writer-subscribe/form` block exists, so without the plugin they don't render at all. The form picks up the theme's colours through the plugin's `--wsub-*` custom properties.
 
@@ -72,6 +72,7 @@ npx wp-env stop
 
 - `wordpress-for-writers.php`: admin takeover, redirects, asset loading, and editor-frame settings (theme styles stripped, canvas CSS injected).
 - `includes/appearance.php`: theme palettes, font/size/width options, user meta, and generated CSS tokens.
+- `includes/site-scheme.php`: applies the chosen colour scheme to themes that support `wfw-color-schemes`.
 - `assets/app.js`, `assets/app.css`: the three-pane app.
 - `assets/frame.js`, `assets/frame.css`: run inside the embedded block editor. They handle messaging with the app, draft autosave, the fixed bottom toolbar, and theming of the editor UI.
 - `assets/editor-content.css`: the default writing surface inside the editor canvas.
