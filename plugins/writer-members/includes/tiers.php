@@ -98,16 +98,51 @@ function wmem_sanitize_tiers( $rows ) {
  * Members
  * --------------------------------------------------------------------- */
 
+/**
+ * Per-site member data. Everything the plugin keeps about a member (tier,
+ * the tier Stripe sold them, Stripe IDs) is stored under a blog-prefixed
+ * user meta key, like core's capabilities, so on multisite paying on one site
+ * never opens another. On a single site the prefix is just $table_prefix.
+ */
+function wmem_member_keys() {
+    return array( 'wmem_tier', 'wmem_paid_tier', 'wmem_stripe_customer', 'wmem_stripe_subscription', 'wmem_stripe_payment_intent' );
+}
+
+/**
+ * The user meta key for a member field on the current site.
+ */
+function wmem_meta_key( $key ) {
+    global $wpdb;
+    return $wpdb->get_blog_prefix() . $key;
+}
+
+/**
+ * Reads only the blog-prefixed key. get_user_option() would fall back to the
+ * unprefixed, network-wide key, which is exactly what must not apply on
+ * multisite, so this reads the prefixed meta directly.
+ */
+function wmem_get_member_data( $user_id, $key ) {
+    return $user_id ? (string) get_user_meta( $user_id, wmem_meta_key( $key ), true ) : '';
+}
+
+function wmem_update_member_data( $user_id, $key, $value ) {
+    return update_user_option( $user_id, $key, $value ); // Blog-prefixed.
+}
+
+function wmem_delete_member_data( $user_id, $key ) {
+    return delete_user_option( $user_id, $key ); // Blog-prefixed.
+}
+
 function wmem_user_tier( $user_id ) {
-    return $user_id ? (string) get_user_meta( $user_id, 'wmem_tier', true ) : '';
+    return wmem_get_member_data( $user_id, 'wmem_tier' );
 }
 
 function wmem_set_user_tier( $user_id, $slug ) {
     $old = wmem_user_tier( $user_id );
     if ( '' === $slug ) {
-        delete_user_meta( $user_id, 'wmem_tier' );
+        wmem_delete_member_data( $user_id, 'wmem_tier' );
     } else {
-        update_user_meta( $user_id, 'wmem_tier', $slug );
+        wmem_update_member_data( $user_id, 'wmem_tier', $slug );
     }
     if ( $old !== $slug ) {
         /**

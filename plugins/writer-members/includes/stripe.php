@@ -53,6 +53,67 @@ add_action( 'rest_api_init', function () {
 } );
 
 /**
+ * The endpoint's signing secret. WMEM_STRIPE_WEBHOOK_SECRET in wp-config.php
+ * wins over the one saved in Members → Settings.
+ */
+function wmem_webhook_secret_from_constant() {
+    return defined( 'WMEM_STRIPE_WEBHOOK_SECRET' ) && is_string( WMEM_STRIPE_WEBHOOK_SECRET ) && '' !== trim( WMEM_STRIPE_WEBHOOK_SECRET );
+}
+
+function wmem_webhook_secret() {
+    if ( wmem_webhook_secret_from_constant() ) {
+        return trim( WMEM_STRIPE_WEBHOOK_SECRET );
+    }
+    return (string) wmem_setting( 'webhook_secret' );
+}
+
+/*
+ * Event claims. Each event id gets a row in the options table (wmem_evt_…,
+ * not autoloaded), inserted with INSERT IGNORE so the unique option_name
+ * makes the claim atomic: of two concurrent deliveries only one inserts the
+ * row and goes on to grant. The value is "p:{time}" while processing and
+ * "d:{time}" when done. A claim stuck in processing for five minutes (the
+ * request died) can be taken over. Rows older than a day are cleaned up.
+ */
+function wmem_stripe_claim_event( $event_id ) {
+    global $wpdb;
+    $name = 'wmem_evt_' . md5( $event_id );
+    $now  = time();
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery
+    $wpdb->query(
+        $wpdb->prepare(
+            "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND CAST( SUBSTRING( option_value, 3 ) AS UNSIGNED ) < %d",
+            $wpdb->esc_like( 'wmem_evt_' ) . '%',
+            $now - DAY_IN_SECONDS
+        )
+    );
+    $inserted = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} ( option_name, option_value, autoload ) VALUES ( %s, %s, 'no' )", $name, 'p:' . $now ) );
+    if ( 1 === $inserted ) {
+        return $name;
+    }
+    $current = (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $name ) );
+    if ( 0 === strpos( $current, 'p:' ) && (int) substr( $current, 2 ) < $now - 300 ) {
+        // Compare-and-swap, so only one retry takes over a stuck claim.
+        $taken = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", 'p:' . $now, $name, $current ) );
+        if ( 1 === $taken ) {
+            return $name;
+        }
+    }
+    // phpcs:enable
+    return '';
+}
+
+function wmem_stripe_finish_event( $name ) {
+    global $wpdb;
+    $wpdb->update( $wpdb->options, array( 'option_value' => 'd:' . time() ), array( 'option_name' => $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+}
+
+function wmem_stripe_release_event( $name ) {
+    global $wpdb;
+    $wpdb->delete( $wpdb->options, array( 'option_name' => $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+}
+
+/**
  * Check a Stripe-Signature header ("t=…,v1=…[,v1=…]") against the raw body.
  * The signed payload is "{t}.{body}", HMAC-SHA256 with the endpoint secret.
  */
@@ -87,7 +148,7 @@ function wmem_stripe_verify( $payload, $header, $secret, $tolerance = 300 ) {
 
 function wmem_stripe_webhook( WP_REST_Request $request ) {
     $payload = $request->get_body();
-    $secret  = (string) wmem_setting( 'webhook_secret' );
+    $secret  = wmem_webhook_secret();
 
     if ( '' === $secret ) {
         return new WP_Error( 'wmem_no_secret', 'Webhook secret is not set.', array( 'status' => 503 ) );
@@ -101,11 +162,12 @@ function wmem_stripe_webhook( WP_REST_Request $request ) {
         return new WP_Error( 'wmem_bad_payload', 'Invalid payload.', array( 'status' => 400 ) );
     }
 
-    // Stripe retries and a signed body can be replayed within the tolerance: handle each event once.
-    $seen_key = '';
+    // Stripe retries, may deliver an event twice at once, and a signed body can
+    // be replayed within the tolerance: claim the event id before acting on it.
+    $claim = '';
     if ( ! empty( $event['id'] ) && is_string( $event['id'] ) ) {
-        $seen_key = 'wmem_evt_' . md5( $event['id'] );
-        if ( get_transient( $seen_key ) ) {
+        $claim = wmem_stripe_claim_event( $event['id'] );
+        if ( '' === $claim ) {
             return rest_ensure_response( array( 'received' => true ) );
         }
     }
@@ -134,8 +196,12 @@ function wmem_stripe_webhook( WP_REST_Request $request ) {
             $result = array( 'ignored' => 'event type' );
     }
 
-    if ( $seen_key ) {
-        set_transient( $seen_key, 1, DAY_IN_SECONDS );
+    if ( $claim ) {
+        if ( isset( $result['error'] ) ) {
+            wmem_stripe_release_event( $claim ); // Let a resend from Stripe try again.
+        } else {
+            wmem_stripe_finish_event( $claim );
+        }
     }
 
     /**
@@ -184,7 +250,7 @@ function wmem_stripe_checkout_paid( $session ) {
     }
 
     $customer = is_string( $session['customer'] ?? null ) ? sanitize_text_field( $session['customer'] ) : '';
-    $stored   = (string) get_user_meta( $user_id, 'wmem_stripe_customer', true );
+    $stored   = (string) wmem_get_member_data( $user_id, 'wmem_stripe_customer' );
 
     // The checkout email isn't verified, so someone else can pay "as" a member.
     // That may only ever raise their tier, never lower it, and it must not take
@@ -202,24 +268,40 @@ function wmem_stripe_checkout_paid( $session ) {
         return array( 'user' => $user_id, 'tier' => wmem_user_tier( $user_id ), 'note' => 'lower tier' );
     }
     wmem_set_user_tier( $user_id, $tier['slug'] );
-    update_user_meta( $user_id, 'wmem_paid_tier', $tier['slug'] );
+    wmem_update_member_data( $user_id, 'wmem_paid_tier', $tier['slug'] );
     if ( '' !== $customer ) {
-        update_user_meta( $user_id, 'wmem_stripe_customer', $customer );
+        wmem_update_member_data( $user_id, 'wmem_stripe_customer', $customer );
     }
     foreach ( array( 'subscription' => 'wmem_stripe_subscription', 'payment_intent' => 'wmem_stripe_payment_intent' ) as $field => $meta ) {
         if ( is_string( $session[ $field ] ?? null ) && '' !== $session[ $field ] ) {
-            update_user_meta( $user_id, $meta, sanitize_text_field( $session[ $field ] ) );
+            wmem_update_member_data( $user_id, $meta, sanitize_text_field( $session[ $field ] ) );
         }
     }
     return array( 'user' => $user_id, 'tier' => wmem_user_tier( $user_id ) );
 }
 
+/**
+ * The member whose stored Stripe ID ($meta_key, unprefixed) is $value.
+ *
+ * Scale: this is a meta_value lookup, which the usermeta table doesn't index
+ * (only meta_key is), so MySQL scans every row for that key. That's fine for
+ * a writer's list of a few thousand members and runs once per webhook. Past
+ * tens of thousands, keep a lookup table keyed by Stripe ID instead.
+ */
 function wmem_stripe_user_by( $meta_key, $value ) {
     $value = is_string( $value ) ? sanitize_text_field( $value ) : '';
     if ( '' === $value ) {
         return 0;
     }
-    $users = get_users( array( 'meta_key' => $meta_key, 'meta_value' => $value, 'number' => 1, 'fields' => 'ID' ) );
+    $users = get_users(
+        array(
+            'blog_id'    => 0, // The key is already per site; don't also require site membership.
+            'meta_key'   => wmem_meta_key( $meta_key ),
+            'meta_value' => $value,
+            'number'     => 1,
+            'fields'     => 'ID',
+        )
+    );
     return $users ? (int) $users[0] : 0;
 }
 
@@ -231,7 +313,7 @@ function wmem_stripe_revoke( $user_id, $reason ) {
     if ( ! $user_id ) {
         return array( 'ignored' => 'unknown member' );
     }
-    $paid = (string) get_user_meta( $user_id, 'wmem_paid_tier', true );
+    $paid = (string) wmem_get_member_data( $user_id, 'wmem_paid_tier' );
     if ( '' === $paid || wmem_user_tier( $user_id ) !== $paid ) {
         return array( 'ignored' => 'tier not from Stripe', 'user' => $user_id );
     }
@@ -253,7 +335,7 @@ function wmem_stripe_subscription_ended( $subscription ) {
     $user_id = wmem_stripe_subscription_member( $subscription );
     $result  = wmem_stripe_revoke( $user_id, 'subscription ended' );
     if ( $user_id ) {
-        delete_user_meta( $user_id, 'wmem_stripe_subscription' );
+        wmem_delete_member_data( $user_id, 'wmem_stripe_subscription' );
     }
     return $result;
 }
@@ -269,7 +351,7 @@ function wmem_stripe_subscription_updated( $subscription ) {
     }
     if ( in_array( $status, array( 'active', 'trialing' ), true ) ) {
         // Back in good standing: restore the tier it paid for, if that's higher.
-        $paid = (string) get_user_meta( $user_id, 'wmem_paid_tier', true );
+        $paid = (string) wmem_get_member_data( $user_id, 'wmem_paid_tier' );
         if ( wmem_tier( $paid ) && wmem_tier_rank( $paid ) > wmem_tier_rank( wmem_user_tier( $user_id ) ) ) {
             wmem_set_user_tier( $user_id, $paid );
         }
@@ -285,6 +367,11 @@ function wmem_stripe_subscription_updated( $subscription ) {
 function wmem_find_or_create_member( $email ) {
     $user = get_user_by( 'email', $email );
     if ( $user ) {
+        // On multisite the account may belong to another site: add it here,
+        // so the member shows up among this site's users.
+        if ( is_multisite() && ! is_user_member_of_blog( $user->ID ) ) {
+            add_user_to_blog( get_current_blog_id(), $user->ID, 'subscriber' );
+        }
         return $user->ID;
     }
     $base  = sanitize_user( strstr( $email, '@', true ), true );

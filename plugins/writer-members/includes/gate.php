@@ -197,6 +197,13 @@ add_filter( 'render_block_data', function ( $block ) {
  * Search must not reveal what is behind a paywall: for people who can't
  * edit others' posts, gated posts match on title and excerpt only. Covers
  * the site search, /wp/v2/search and ?search= on the posts endpoints.
+ *
+ * Scale: this rewrites core's search SQL with a regex on its
+ * `post_content LIKE '…'` clauses and adds a LEFT JOIN on postmeta. That's
+ * cheap for a blog's few thousand posts, but it depends on the shape of
+ * core's search SQL and adds a join to every search; on a large archive, or
+ * with a search plugin that replaces core's SQL, use a search index that
+ * leaves gated content out instead.
  */
 add_filter( 'posts_search', function ( $search, $query ) {
     global $wpdb;
