@@ -1,0 +1,661 @@
+/*
+ * Writer Longform: layout details that theme.json can't express.
+ * Colours and type come from theme.json presets, so style variations apply here too.
+ */
+
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+:where(.wp-site-blocks) > * {
+    margin-block-start: 0;
+}
+
+::selection {
+    background: color-mix(in srgb, var(--wp--preset--color--accent) 22%, transparent);
+}
+
+:where(a, button, input, textarea, summary):focus-visible {
+    outline: 2px solid var(--wp--preset--color--accent);
+    outline-offset: 2px;
+}
+
+/* Small sans-serif labels. */
+
+.wlf-kicker,
+.wlf-kicker a {
+    margin: 0;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--accent);
+    text-decoration: none;
+}
+
+.wlf-meta {
+    gap: 0 0.5rem;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    color: var(--wp--preset--color--muted);
+}
+
+.wlf-meta > * {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+}
+
+.wlf-meta > * + *::before {
+    content: "·";
+    margin-right: 0.5rem;
+}
+
+.wlf-meta a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.wlf-byline .wp-block-post-author-name {
+    font-weight: 600;
+}
+
+.wlf-byline .wp-block-post-author-name::before {
+    content: "By ";
+    font-weight: 400;
+}
+
+.wlf-reading-time:empty {
+    display: none;
+}
+
+.wlf-section-title {
+    margin-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--40) !important;
+    padding-top: var(--wp--preset--spacing--30);
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-top: 3px solid var(--wp--preset--color--contrast);
+}
+
+/* Header. */
+
+.wlf-header {
+    padding-block: 0.9rem;
+    border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.wlf-header-row {
+    gap: 1rem;
+}
+
+.wlf-brand {
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.wlf-brand .wp-block-site-title {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wlf-header-actions {
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.wlf-nav {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.wlf-nav a {
+    text-decoration: none;
+}
+
+.wlf-nav a:hover {
+    color: var(--wp--preset--color--accent);
+}
+
+.wlf-header-cta .wp-block-button__link {
+    padding: 0.6em 1.1em;
+}
+
+/* Main. */
+
+.wlf-main {
+    padding-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--70);
+}
+
+.wlf-main--home,
+.wlf-main--story {
+    padding-top: 0;
+}
+
+.wlf-main--home > .wlf-lead {
+    margin-block-start: 0;
+}
+
+.wlf-page-head {
+    margin-bottom: var(--wp--preset--spacing--40);
+}
+
+.wlf-page-head > * {
+    margin-block: 0;
+}
+
+.wlf-page-head .wp-block-query-title,
+.wlf-page-head .wp-block-post-title {
+    font-size: var(--wp--preset--font-size--xx-large);
+}
+
+.wlf-page-head .wp-block-term-description {
+    margin-top: 0.75rem;
+    max-width: 40em;
+    color: var(--wp--preset--color--muted);
+}
+
+.wlf-page-head .wp-block-search {
+    max-width: 32rem;
+    margin-top: var(--wp--preset--spacing--40);
+}
+
+/* Hero: a full-bleed cover with the title over the image. */
+
+.wlf-hero {
+    padding-block: var(--wp--preset--spacing--70) var(--wp--preset--spacing--60) !important;
+    color: var(--wp--custom--hero--text);
+}
+
+.wlf-hero .wp-block-cover__background {
+    background: linear-gradient(to top, rgba(10, 10, 10, 0.88) 0%, rgba(10, 10, 10, 0.55) 40%, rgba(10, 10, 10, 0.1) 100%) !important;
+    opacity: 1 !important;
+}
+
+/* No featured image: a solid dark panel instead of a washed-out overlay. */
+.wlf-hero:not(:has(.wp-block-cover__image-background)) .wp-block-cover__background {
+    background: var(--wp--custom--hero--background) !important;
+}
+
+.wlf-hero:not(:has(.wp-block-cover__image-background)) {
+    min-height: min(60vh, 34rem) !important;
+}
+
+.wlf-hero-text > * {
+    margin-block: 0;
+}
+
+.wlf-hero .wlf-kicker,
+.wlf-hero .wlf-kicker a {
+    color: inherit;
+    opacity: 0.85;
+}
+
+.wlf-hero-title {
+    margin-block: 0.75rem 1.25rem !important;
+    font-size: var(--wp--preset--font-size--display);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    color: inherit;
+}
+
+.wlf-hero--lead .wlf-hero-title {
+    max-width: 16em;
+    font-size: var(--wp--preset--font-size--xx-large);
+}
+
+.wlf-hero-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.wlf-hero-title a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.12em;
+}
+
+.wlf-hero-dek {
+    max-width: 38em;
+    margin-bottom: 1.25rem !important;
+    font-size: var(--wp--preset--font-size--medium);
+    color: inherit;
+    opacity: 0.9;
+}
+
+.wlf-hero-dek .wp-block-post-excerpt__excerpt {
+    margin: 0;
+}
+
+.wlf-hero .wlf-meta {
+    color: inherit;
+    opacity: 0.85;
+}
+
+/* Title below the image (the "Story with title below the image" template). */
+
+.wlf-hero-image img {
+    display: block;
+}
+
+.wlf-headline {
+    padding-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--30);
+    text-align: center;
+}
+
+.wlf-headline > * {
+    margin-block: 0;
+}
+
+.wlf-headline-title {
+    margin-block: 0.75rem 1.25rem !important;
+    font-size: var(--wp--preset--font-size--display);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+}
+
+.wlf-headline .wlf-meta {
+    justify-content: center;
+}
+
+/* The story. */
+
+.wlf-article > .wlf-story {
+    margin-block-start: var(--wp--preset--spacing--60);
+    counter-reset: chapter;
+}
+
+.wlf-story > p:first-child {
+    margin-top: 0;
+}
+
+/* Opening paragraph: a drop cap and a small-caps lead-in. */
+.wlf-story > p:first-of-type::first-letter {
+    float: left;
+    margin: 0.06em 0.1em 0 0;
+    font-family: var(--wp--preset--font-family--display);
+    font-size: 5em;
+    font-weight: 600;
+    font-style: normal;
+    line-height: 0.8;
+    color: var(--wp--preset--color--accent);
+}
+
+.wlf-story > p:first-of-type::first-line {
+    font-variant: small-caps;
+    letter-spacing: 0.03em;
+}
+
+.has-drop-cap:not(:focus)::first-letter {
+    font-family: var(--wp--preset--font-family--display);
+    font-weight: 600;
+    color: var(--wp--preset--color--accent);
+}
+
+/* Chapter headings: numbered, centred, with room around them. */
+.wlf-story > h2:not(.is-style-plain) {
+    counter-increment: chapter;
+    margin-block: var(--wp--preset--spacing--70) var(--wp--preset--spacing--40);
+    font-size: var(--wp--preset--font-size--x-large);
+    text-align: center;
+    text-wrap: balance;
+}
+
+.wlf-story > h2:not(.is-style-plain)::before {
+    content: counter(chapter, upper-roman);
+    display: block;
+    margin-bottom: 0.5rem;
+    font-family: var(--wp--preset--font-family--display);
+    font-size: 0.6em;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: var(--wp--preset--color--accent);
+}
+
+.wlf-story > h2:not(.is-style-plain)::after {
+    content: "";
+    display: block;
+    width: 2.5rem;
+    height: 2px;
+    margin: 1rem auto 0;
+    background: var(--wp--preset--color--accent);
+}
+
+.wlf-story > h3 {
+    margin-top: var(--wp--preset--spacing--50);
+}
+
+.wlf-story .wp-block-pullquote {
+    margin-block: var(--wp--preset--spacing--60);
+    text-align: left;
+}
+
+.wlf-story .wp-block-pullquote.alignwide,
+.wlf-story .wp-block-pullquote.alignfull {
+    font-size: clamp(1.75rem, 1.2rem + 2.2vw, 3rem);
+}
+
+.wlf-story .wp-block-pullquote.alignwide blockquote {
+    max-width: 22em;
+}
+
+.wlf-story .wp-block-pullquote blockquote p {
+    font-size: inherit;
+    line-height: inherit;
+}
+
+.wlf-story .wp-block-pullquote cite {
+    display: block;
+    margin-top: 1rem;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-style: normal;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--muted);
+}
+
+.wlf-story .alignwide,
+.wlf-story .alignfull {
+    margin-block: var(--wp--preset--spacing--60);
+}
+
+.wlf-story .wp-block-image figcaption,
+.wlf-story .wp-block-gallery figcaption {
+    text-align: left;
+}
+
+.wlf-story .alignfull figcaption {
+    padding-inline: var(--wp--preset--spacing--40);
+}
+
+.wlf-dek {
+    font-style: italic;
+    line-height: 1.45;
+    color: var(--wp--preset--color--muted);
+}
+
+.wp-block-separator.wlf-short-rule,
+.wp-block-separator:not(.is-style-wide):not(.is-style-dots) {
+    width: 4rem;
+    border-top-width: 2px;
+}
+
+/* Story end: tags and the author. */
+
+.wlf-story-end {
+    margin-block-start: var(--wp--preset--spacing--60) !important;
+}
+
+.wlf-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: var(--wp--preset--spacing--40);
+}
+
+.wlf-tags .wp-block-post-terms__separator {
+    display: none;
+}
+
+.wlf-tags a {
+    padding: 0.35em 0.8em;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--contrast);
+    text-decoration: none;
+    border: 1px solid var(--wp--preset--color--line);
+}
+
+.wlf-tags a:hover {
+    border-color: var(--wp--preset--color--accent);
+    color: var(--wp--preset--color--accent);
+}
+
+.wlf-author {
+    gap: 1.25rem;
+    padding-block: var(--wp--preset--spacing--50);
+    border-block: 1px solid var(--wp--preset--color--line);
+}
+
+.wlf-author .wp-block-avatar img {
+    display: block;
+    border-radius: 50%;
+}
+
+.wlf-author-name {
+    margin: 0 0 0.35rem;
+    font-family: var(--wp--preset--font-family--display);
+    font-size: var(--wp--preset--font-size--large);
+    font-weight: 600;
+}
+
+.wlf-author-name a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.wlf-author .wp-block-post-author-biography {
+    margin: 0;
+    font-size: var(--wp--preset--font-size--small);
+    line-height: 1.6;
+    color: var(--wp--preset--color--muted);
+}
+
+/* Grid of story cards. */
+
+.wlf-grid .wp-block-post-template {
+    row-gap: var(--wp--preset--spacing--60);
+    margin: 0;
+}
+
+.wlf-card {
+    height: 100%;
+}
+
+.wlf-card > * {
+    margin-block: 0;
+}
+
+.wlf-card-image {
+    margin-bottom: 1rem !important;
+}
+
+.wlf-card-image img {
+    transition: opacity 0.2s ease;
+}
+
+.wlf-card-image a:hover img {
+    opacity: 0.88;
+}
+
+/* Cards without an image get a rule on top instead. */
+.wlf-card:not(:has(.wlf-card-image)) {
+    padding-top: 1rem;
+    border-top: 3px solid var(--wp--preset--color--accent);
+}
+
+.wlf-card-title {
+    margin-block: 0.5rem 0.6rem !important;
+    font-size: var(--wp--preset--font-size--large);
+    font-weight: 600;
+    line-height: 1.15;
+    text-wrap: balance;
+}
+
+.wlf-card-title a:hover {
+    color: var(--wp--preset--color--accent);
+}
+
+.wlf-card .wp-block-post-excerpt {
+    font-size: var(--wp--preset--font-size--small);
+    line-height: 1.55;
+    color: var(--wp--preset--color--muted);
+}
+
+.wlf-card .wp-block-post-excerpt__excerpt {
+    margin: 0 0 0.6rem;
+}
+
+.wp-block-post-excerpt__more-text {
+    display: none;
+}
+
+.wp-block-query-pagination {
+    margin-top: var(--wp--preset--spacing--60);
+    font-family: var(--wp--preset--font-family--sans);
+}
+
+.wp-block-query-pagination a {
+    text-decoration: none;
+}
+
+/* Comments. */
+
+.wlf-comments {
+    margin-block-start: var(--wp--preset--spacing--60);
+}
+
+.wlf-comment {
+    margin-bottom: var(--wp--preset--spacing--40);
+}
+
+.wlf-comment .wp-block-avatar img {
+    border-radius: 50%;
+}
+
+.wlf-comment .wp-block-comment-date {
+    color: var(--wp--preset--color--muted);
+}
+
+/* Forms (search, comments). */
+
+.wp-block-search__input,
+.wp-block-post-comments-form input:not([type="submit"]):not([type="checkbox"]),
+.wp-block-post-comments-form textarea {
+    padding: 0.65em 0.8em;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: max(16px, 1em);
+    color: var(--wp--preset--color--contrast);
+    background: var(--wp--preset--color--base);
+    border: 1px solid var(--wp--preset--color--line);
+    border-radius: 0;
+}
+
+.wp-block-search__button {
+    margin-left: 0.5rem;
+}
+
+/* Footer. */
+
+.wlf-footer {
+    padding-block: var(--wp--preset--spacing--50) var(--wp--preset--spacing--60);
+    border-top: 3px solid var(--wp--preset--color--contrast);
+}
+
+.wlf-colophon {
+    gap: 0.5rem 1.5rem;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    color: var(--wp--preset--color--muted);
+}
+
+.wlf-colophon > * {
+    margin: 0;
+}
+
+.wlf-colophon .wp-block-site-title {
+    font-size: var(--wp--preset--font-size--medium);
+}
+
+/*
+ * Writer Subscribe (only present when that plugin is active).
+ * The plugin reads these custom properties; body raises specificity over
+ * its defaults whatever order the stylesheets load in.
+ */
+
+body .wsub-form,
+body .wsub-popup,
+body .wsub-toast {
+    --wsub-bg: var(--wp--preset--color--base);
+    --wsub-fg: var(--wp--preset--color--contrast);
+    --wsub-accent: var(--wp--preset--color--accent);
+    --wsub-accent-fg: var(--wp--preset--color--accent-contrast);
+    --wsub-muted: var(--wp--preset--color--muted);
+    --wsub-line: var(--wp--preset--color--line);
+    --wsub-error: var(--wp--custom--error);
+    --wsub-radius: 0;
+}
+
+body .wsub-form {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: 1rem;
+}
+
+.wlf-subscribe-box {
+    margin-block-start: var(--wp--preset--spacing--50) !important;
+    padding: var(--wp--preset--spacing--50);
+    background: var(--wp--preset--color--surface);
+    border-top: 3px solid var(--wp--preset--color--accent);
+    scroll-margin-top: 2rem;
+}
+
+.wlf-subscribe-box .wsub-form {
+    margin: 0;
+}
+
+.wlf-subscribe-box .wsub-heading {
+    font-family: var(--wp--preset--font-family--display);
+    font-size: var(--wp--preset--font-size--large);
+    font-weight: 600;
+}
+
+.wlf-subscribe-box .wsub-button {
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.8125rem;
+}
+
+.wlf-subscribe-footer {
+    margin-block: 0 var(--wp--preset--spacing--50) !important;
+}
+
+/* Keep the header button on one line on small phones. */
+
+.wlf-header-cta .wp-block-button__link {
+    white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+    .wlf-header-cta .wp-block-button__link {
+        padding-inline: 0.8em;
+        letter-spacing: 0.02em;
+    }
+}

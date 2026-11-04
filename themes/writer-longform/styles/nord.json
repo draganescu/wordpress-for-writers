@@ -1,0 +1,28 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/theme.json",
+    "version": 3,
+    "title": "Nord",
+    "settings": {
+        "color": {
+            "palette": [
+                { "slug": "base", "name": "Base", "color": "#353c4a" },
+                { "slug": "surface", "name": "Surface", "color": "#3b4252" },
+                { "slug": "line", "name": "Line", "color": "#4e5461" },
+                { "slug": "muted", "name": "Muted", "color": "#9ea8bd" },
+                { "slug": "contrast", "name": "Contrast", "color": "#e5e9f0" },
+                { "slug": "accent", "name": "Accent", "color": "#88c0d0" },
+                { "slug": "accent-contrast", "name": "On accent", "color": "#111111" }
+            ]
+        },
+        "custom": {
+            "error": "#ff8f86",
+            "hero": {
+                "background": "#2e3440",
+                "text": "#ffffff"
+            }
+        }
+    },
+    "styles": {
+        "css": ":root{color-scheme:dark}"
+    }
+}

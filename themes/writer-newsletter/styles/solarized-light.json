@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/theme.json",
+    "version": 3,
+    "title": "Solarized Light",
+    "settings": {
+        "color": {
+            "palette": [
+                { "slug": "base", "name": "Base", "color": "#fdf6e3" },
+                { "slug": "surface", "name": "Surface", "color": "#eee8d5" },
+                { "slug": "line", "name": "Line", "color": "#e4ddc8" },
+                { "slug": "muted", "name": "Muted", "color": "#627276" },
+                { "slug": "contrast", "name": "Contrast", "color": "#46575c" },
+                { "slug": "accent", "name": "Accent", "color": "#c14715" },
+                { "slug": "accent-contrast", "name": "On accent", "color": "#ffffff" }
+            ]
+        },
+        "custom": {
+            "error": "#b32d2e"
+        }
+    }
+}

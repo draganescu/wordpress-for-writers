@@ -1,0 +1,516 @@
+/*
+ * Writer Essay: layout details that theme.json can't express.
+ * Colours and type come from theme.json presets, so style variations apply here too.
+ */
+
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+:where(.wp-site-blocks) > * {
+    margin-block-start: 0;
+}
+
+::selection {
+    background: color-mix(in srgb, var(--wp--preset--color--accent) 22%, transparent);
+}
+
+:where(a, button, input, textarea, summary):focus-visible {
+    outline: 2px solid var(--wp--preset--color--accent);
+    outline-offset: 2px;
+}
+
+/* The quiet sans-serif interface. */
+
+.wes-eyebrow,
+.wes-eyebrow a {
+    margin: 0;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--muted);
+    text-decoration: none;
+}
+
+.wes-eyebrow a:hover {
+    color: var(--wp--preset--color--accent);
+}
+
+.wes-meta {
+    gap: 0 0.5rem;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    color: var(--wp--preset--color--muted);
+}
+
+.wes-meta > * {
+    margin: 0;
+    font-size: inherit;
+}
+
+.wes-meta > * + *::before {
+    content: "·";
+    margin-right: 0.5rem;
+}
+
+.wes-reading-time:empty {
+    display: none;
+}
+
+.wes-section-title {
+    margin-block: var(--wp--preset--spacing--60) 0;
+    padding-bottom: var(--wp--preset--spacing--30);
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--muted);
+    border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+/* Header: one slim row. */
+
+.wes-header {
+    padding-block: 1.1rem;
+    border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.wes-header-row {
+    gap: 1rem;
+}
+
+.wes-brand {
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.wes-brand .wp-block-site-title {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wes-header-actions {
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.wes-nav a {
+    color: var(--wp--preset--color--muted);
+    text-decoration: none;
+}
+
+.wes-nav a:hover {
+    color: var(--wp--preset--color--contrast);
+}
+
+.wes-header-cta .wp-block-button__link {
+    padding: 0.45em 1em;
+    font-size: var(--wp--preset--font-size--x-small);
+}
+
+/* Main column. */
+
+.wes-main {
+    padding-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--70);
+}
+
+.wes-page-head {
+    margin-bottom: var(--wp--preset--spacing--50);
+}
+
+.wes-page-head > * {
+    margin-block: 0;
+}
+
+.wes-page-head .wp-block-term-description {
+    margin-top: 0.75rem;
+    color: var(--wp--preset--color--muted);
+}
+
+.wes-page-head .wp-block-search {
+    margin-top: var(--wp--preset--spacing--40);
+}
+
+/* Home: one featured essay, then a list. */
+
+.wes-featured .wp-block-post-template {
+    margin: 0;
+}
+
+.wes-featured-card {
+    display: grid;
+    gap: var(--wp--preset--spacing--40);
+}
+
+.wes-featured-card > * {
+    margin: 0 !important;
+}
+
+.wes-featured-image img {
+    border-radius: 4px;
+}
+
+.wes-featured-text > * {
+    margin-block: 0;
+}
+
+.wes-featured-title {
+    margin-block: 0.6rem 0.9rem !important;
+    font-size: var(--wp--preset--font-size--xx-large);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+}
+
+.wes-featured-title a:hover,
+.wes-post-row .wp-block-post-title a:hover {
+    color: var(--wp--preset--color--accent);
+}
+
+.wes-featured-excerpt {
+    font-size: var(--wp--preset--font-size--large);
+    line-height: 1.5;
+}
+
+.wes-featured-excerpt .wp-block-post-excerpt__excerpt {
+    margin-block: 0 1.25rem;
+}
+
+.wp-block-post-excerpt__more-text {
+    display: none;
+}
+
+.wes-post-list .wp-block-post-template {
+    margin: 0;
+}
+
+.wes-post-row {
+    gap: var(--wp--preset--spacing--50);
+    padding-block: var(--wp--preset--spacing--50);
+    border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.wes-post-row-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.wes-post-row-text > * {
+    margin-block: 0;
+}
+
+.wes-post-row .wp-block-post-title {
+    margin-block: 0.35rem 0.35rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.wes-post-row .wp-block-post-excerpt {
+    font-size: var(--wp--preset--font-size--small);
+    line-height: 1.55;
+}
+
+.wes-post-row .wp-block-post-excerpt__excerpt {
+    margin: 0 0 0.5rem;
+}
+
+.wes-thumb {
+    flex: 0 0 auto;
+}
+
+.wes-thumb img {
+    border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+    .wes-thumb {
+        width: 84px !important;
+    }
+}
+
+.wp-block-query-pagination {
+    margin-top: var(--wp--preset--spacing--50);
+}
+
+.wp-block-query-pagination a {
+    text-decoration: none;
+}
+
+/* Single essay. */
+
+.wes-post-head > * {
+    margin-block: 0;
+}
+
+.wes-post-head .wp-block-post-title {
+    margin-block: 0.75rem var(--wp--preset--spacing--50);
+    font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4rem);
+    font-weight: 600;
+    line-height: 1.06;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+}
+
+.wes-byline {
+    gap: 0.75rem;
+}
+
+.wes-byline .wp-block-avatar img,
+.wes-author-bio .wp-block-avatar img {
+    display: block;
+    border-radius: 50%;
+}
+
+.wes-byline-text {
+    gap: 0.1rem;
+}
+
+.wes-byline .wp-block-post-author-name a,
+.wes-author-bio-name a {
+    color: var(--wp--preset--color--contrast);
+    text-decoration: none;
+}
+
+.wes-article > .wes-featured-image {
+    margin-block-start: var(--wp--preset--spacing--60) !important;
+}
+
+.wes-article > .wp-block-post-content {
+    margin-block-start: var(--wp--preset--spacing--60);
+}
+
+.wes-article .wp-block-post-content > p:first-child {
+    margin-top: 0;
+}
+
+/* Drop cap: the "Drop cap" Content style and the "Essay with drop cap" template. */
+
+.wp-block-post-content.is-style-drop-cap > p:first-of-type::first-letter,
+.has-drop-cap:not(:focus)::first-letter {
+    float: left;
+    margin: 0.08em 0.1em 0 0;
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: 4.6em;
+    font-weight: 600;
+    font-style: normal;
+    line-height: 0.82;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--contrast);
+}
+
+.wes-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-block-start: var(--wp--preset--spacing--50);
+}
+
+.wes-tags .wp-block-post-terms__separator {
+    display: none;
+}
+
+.wes-tags a {
+    padding: 0.3em 0.8em;
+    color: var(--wp--preset--color--contrast);
+    text-decoration: none;
+    background: var(--wp--preset--color--surface);
+    border-radius: 999px;
+}
+
+.wes-tags a:hover {
+    color: var(--wp--preset--color--accent);
+}
+
+/* Separators: three spaced dots for section breaks. */
+
+.wp-block-separator.is-style-dots {
+    margin-block: var(--wp--preset--spacing--50);
+}
+
+.wes-note {
+    color: var(--wp--preset--color--muted);
+}
+
+.wes-pullquote {
+    padding-block: var(--wp--preset--spacing--40);
+    text-align: center;
+}
+
+.wes-pullquote blockquote::before,
+.wes-pullquote blockquote::after {
+    content: "";
+    display: block;
+    width: 3rem;
+    height: 1px;
+    margin: 0 auto var(--wp--preset--spacing--40);
+    background: var(--wp--preset--color--muted);
+}
+
+.wes-pullquote blockquote::after {
+    margin: var(--wp--preset--spacing--40) auto 0;
+}
+
+/* Author bio at the end of the essay. */
+
+.wes-author-bio {
+    gap: 1.25rem;
+    margin-block-start: var(--wp--preset--spacing--60);
+    padding-block: var(--wp--preset--spacing--50);
+    border-block: 1px solid var(--wp--preset--color--line);
+}
+
+.wes-author-bio-text > * {
+    margin-block: 0;
+}
+
+.wes-author-bio-name {
+    margin-block: 0.25rem 0.4rem !important;
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: var(--wp--preset--font-size--large);
+    font-weight: 600;
+}
+
+.wes-author-bio .wp-block-post-author-biography {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--small);
+    line-height: 1.6;
+    color: var(--wp--preset--color--muted);
+}
+
+/* Comments. */
+
+.wes-comments {
+    margin-block-start: var(--wp--preset--spacing--60);
+}
+
+.wes-comment {
+    margin-bottom: var(--wp--preset--spacing--40);
+}
+
+.wes-comment .wp-block-avatar img {
+    border-radius: 50%;
+}
+
+.wes-comment .wp-block-comment-date {
+    color: var(--wp--preset--color--muted);
+}
+
+/* Forms (search, comments). */
+
+.wp-block-search__input,
+.wp-block-post-comments-form input:not([type="submit"]):not([type="checkbox"]),
+.wp-block-post-comments-form textarea {
+    padding: 0.6em 0.9em;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: max(16px, 1em);
+    color: var(--wp--preset--color--contrast);
+    background: var(--wp--preset--color--base);
+    border: 1px solid var(--wp--preset--color--line);
+    border-radius: 999px;
+}
+
+.wp-block-post-comments-form textarea {
+    border-radius: 8px;
+}
+
+.wp-block-search__button {
+    margin-left: 0.5rem;
+}
+
+/* Footer. */
+
+.wes-footer {
+    padding-block: var(--wp--preset--spacing--50) var(--wp--preset--spacing--60);
+    border-top: 1px solid var(--wp--preset--color--line);
+}
+
+.wes-colophon {
+    gap: 0.5rem 1.5rem;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    color: var(--wp--preset--color--muted);
+}
+
+.wes-colophon > * {
+    margin: 0;
+}
+
+.wes-colophon .wp-block-site-title {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+}
+
+/*
+ * Writer Subscribe (only present when that plugin is active).
+ * The plugin reads these custom properties; body raises specificity over
+ * its defaults whatever order the stylesheets load in.
+ */
+
+body .wsub-form,
+body .wsub-popup,
+body .wsub-toast {
+    --wsub-bg: var(--wp--preset--color--base);
+    --wsub-fg: var(--wp--preset--color--contrast);
+    --wsub-accent: var(--wp--preset--color--contrast);
+    --wsub-accent-fg: var(--wp--preset--color--base);
+    --wsub-muted: var(--wp--preset--color--muted);
+    --wsub-line: var(--wp--preset--color--line);
+    --wsub-error: var(--wp--custom--error);
+    --wsub-radius: 999px;
+}
+
+body .wsub-form {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: 1rem;
+}
+
+.wes-subscribe-box {
+    margin-block-start: var(--wp--preset--spacing--50) !important;
+    padding-block: var(--wp--preset--spacing--40);
+    scroll-margin-top: 2rem;
+}
+
+.wes-subscribe-box .wsub-form {
+    margin: 0;
+}
+
+.wes-subscribe-box .wsub-heading {
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: var(--wp--preset--font-size--large);
+    font-weight: 600;
+}
+
+.wes-subscribe-footer {
+    margin-block: 0 var(--wp--preset--spacing--50) !important;
+    padding-block: 0 var(--wp--preset--spacing--40);
+}
+
+/* Keep the header button on one line on small phones. */
+
+.wes-header-cta .wp-block-button__link {
+    white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+    .wes-header-cta .wp-block-button__link {
+        padding-inline: 0.8em;
+        letter-spacing: 0.02em;
+    }
+}

@@ -18,6 +18,8 @@ define( 'WFW_PAGE', 'wfw' );
 
 require_once __DIR__ . '/includes/pinned-terms.php';
 require_once __DIR__ . '/includes/appearance.php';
+require_once __DIR__ . '/includes/thumbnails.php';
+require_once __DIR__ . '/includes/site-scheme.php';
 
 /**
  * Cache-busting version for a plugin asset.
@@ -32,6 +34,30 @@ function wfw_asset_version( $path ) {
  */
 function wfw_is_frame() {
     return isset( $_GET['wfw_frame'] ); // phpcs:ignore WordPress.Security.NonceVerification
+}
+
+/**
+ * Who can read a note, for the Visibility picker in the note's settings.
+ * Companion plugins (Writer Members) fill `wfw_visibility_options` with
+ * array( 'value' => '', 'label' => '' ) items; with none, there is no picker.
+ * The choice is saved to the post meta named by `wfw_visibility_meta_key`,
+ * which must be registered with show_in_rest. "Everyone" (an empty value)
+ * is always offered first.
+ */
+function wfw_visibility() {
+    $options = array_values( array_filter(
+        (array) apply_filters( 'wfw_visibility_options', array() ),
+        function ( $option ) {
+            return is_array( $option ) && isset( $option['value'], $option['label'] ) && '' !== (string) $option['value'];
+        }
+    ) );
+    if ( ! $options ) {
+        return null;
+    }
+    return array(
+        'metaKey' => (string) apply_filters( 'wfw_visibility_meta_key', 'wmem_tier' ),
+        'options' => $options,
+    );
 }
 
 /**
@@ -72,6 +98,7 @@ add_filter( 'login_redirect', function ( $redirect_to, $requested, $user ) {
 
 /**
  * The app page owns the whole viewport: no notices, full-screen body class.
+ * Pending updates still surface, in the account menu (see `updatesCount`).
  */
 add_action( 'load-toplevel_page_' . WFW_PAGE, function () {
     remove_all_actions( 'admin_notices' );
@@ -110,10 +137,25 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'maxUploadFileSize' => wp_max_upload_size(),
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),
+            // Core's update notices are hidden on the app page, so the account menu shows the
+            // pending count instead, to the same people core shows it to (zero for everyone else).
+            'updatesCount'      => current_user_can( 'update_core' ) || current_user_can( 'update_plugins' ) || current_user_can( 'update_themes' )
+                ? (int) wp_get_update_data()['counts']['total']
+                : 0,
             'appearance'        => wfw_appearance_client_data(),
             // Categories and tags pinned to the main menu, and the user meta key that stores them.
             'pinnedTerms'       => wfw_pinned_terms_client_data(),
             'pinnedTermsKey'    => wfw_pinned_terms_key(),
+            /**
+             * Extra links for the sidebar's user menu, so companion plugins can
+             * surface their screens. Each item: array( 'label' => '', 'url' => '', 'icon' => '' ).
+             */
+            'links'             => array_values( array_filter(
+                (array) apply_filters( 'wfw_sidebar_links', array() ),
+                function ( $link ) {
+                    return is_array( $link ) && ! empty( $link['label'] ) && ! empty( $link['url'] );
+                }
+            ) ),
         ) );
         return;
     }
@@ -121,11 +163,12 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( wfw_is_frame() && in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
         wp_enqueue_style( 'wfw-frame', WFW_URL . 'assets/frame.css', array(), wfw_asset_version( 'assets/frame.css' ) );
         wp_add_inline_style( 'wfw-frame', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
+        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
         wp_localize_script( 'wfw-frame', 'wfwFrame', array(
             'appearance'     => wfw_get_appearance(),
             // Same checks as the app's featured image panel, which the link above the title opens.
             'featuredImages' => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
+            'visibility'     => wfw_visibility(),
         ) );
     }
 } );

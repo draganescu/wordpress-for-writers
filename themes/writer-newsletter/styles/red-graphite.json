@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/theme.json",
+    "version": 3,
+    "title": "Red Graphite",
+    "settings": {
+        "color": {
+            "palette": [
+                { "slug": "base", "name": "Base", "color": "#ffffff" },
+                { "slug": "surface", "name": "Surface", "color": "#f3f2f0" },
+                { "slug": "line", "name": "Line", "color": "#e6e4e1" },
+                { "slug": "muted", "name": "Muted", "color": "#767573" },
+                { "slug": "contrast", "name": "Contrast", "color": "#333333" },
+                { "slug": "accent", "name": "Accent", "color": "#cb4649" },
+                { "slug": "accent-contrast", "name": "On accent", "color": "#ffffff" }
+            ]
+        },
+        "custom": {
+            "error": "#b32d2e"
+        }
+    }
+}
