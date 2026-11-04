@@ -33,7 +33,7 @@ function demo_hr() {
 // Site identity.
 update_option( 'blogname', 'The Slow Margin' );
 update_option( 'blogdescription', 'Essays on writing, reading and paying attention' );
-wp_update_user( array( 'ID' => 1, 'display_name' => 'Ilinca Marin', 'first_name' => 'Ilinca', 'last_name' => 'Marin' ) );
+wp_update_user( array( 'ID' => 1, 'display_name' => 'Ilinca Marin', 'first_name' => 'Ilinca', 'last_name' => 'Marin', 'description' => 'Ilinca Marin writes about the craft of writing, slow reading and the habits that make room for both. She lives in Bucharest and walks a lot.' ) );
 
 // Drop the default "Hello world!" post.
 wp_delete_post( 1, true );

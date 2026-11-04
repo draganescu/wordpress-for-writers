@@ -1,0 +1,26 @@
+<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+<!-- wp:group {"tagName":"main","className":"wlf-main wlf-main--home","layout":{"type":"constrained"}} -->
+<main class="wp-block-group wlf-main wlf-main--home">
+    <!-- wp:pattern {"slug":"writer-longform/lead-story"} /-->
+
+    <!-- wp:heading {"align":"wide","className":"wlf-section-title is-style-plain"} -->
+    <h2 class="wp-block-heading alignwide wlf-section-title is-style-plain">Latest stories</h2>
+    <!-- /wp:heading -->
+
+    <!-- wp:query {"queryId":3,"query":{"perPage":9,"pages":0,"offset":1,"postType":"post","order":"desc","orderBy":"date","author":"","search":"","exclude":[],"sticky":"","inherit":false},"align":"wide","className":"wlf-grid"} -->
+    <div class="wp-block-query alignwide wlf-grid">
+        <!-- wp:post-template {"style":{"spacing":{"blockGap":"var:preset|spacing|50"}},"layout":{"type":"grid","columnCount":3,"minimumColumnWidth":"17rem"}} -->
+            <!-- wp:pattern {"slug":"writer-longform/story-card"} /-->
+        <!-- /wp:post-template -->
+
+        <!-- wp:query-pagination {"paginationArrow":"arrow","layout":{"type":"flex","justifyContent":"space-between"}} -->
+            <!-- wp:query-pagination-previous {"label":"Newer stories"} /-->
+            <!-- wp:query-pagination-next {"label":"Older stories"} /-->
+        <!-- /wp:query-pagination -->
+    </div>
+    <!-- /wp:query -->
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

@@ -1,0 +1,424 @@
+/*
+ * Writer Newsletter: layout details that theme.json can't express.
+ * Colours and type come from theme.json presets, so style variations apply here too.
+ */
+
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+:where(.wp-site-blocks) > * {
+    margin-block-start: 0;
+}
+
+::selection {
+    background: color-mix(in srgb, var(--wp--preset--color--accent) 25%, transparent);
+}
+
+:where(a, button, input, textarea, summary):focus-visible {
+    outline: 2px solid var(--wp--preset--color--accent);
+    outline-offset: 2px;
+}
+
+/* Header: a centred masthead, like the top of an email issue. */
+
+.wnl-header {
+    padding-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--40);
+    border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.wnl-masthead {
+    gap: 0.4rem;
+    text-align: center;
+}
+
+.wnl-masthead .wp-block-site-tagline {
+    max-width: 30em;
+    margin: 0;
+}
+
+.wnl-header-cta {
+    margin-block-start: 0.75rem !important;
+}
+
+.wnl-nav {
+    margin-block-start: var(--wp--preset--spacing--40);
+    gap: 0.25rem 1.5rem;
+}
+
+.wnl-nav a {
+    color: var(--wp--preset--color--muted);
+    text-decoration: none;
+}
+
+.wnl-nav a:hover,
+.wnl-nav .current-menu-item a {
+    color: var(--wp--preset--color--contrast);
+}
+
+/* Main column. */
+
+.wnl-main {
+    padding-block: var(--wp--preset--spacing--60);
+}
+
+.wnl-page-head {
+    margin-bottom: var(--wp--preset--spacing--50);
+}
+
+.wnl-page-head .wp-block-query-title,
+.wnl-page-head .wp-block-post-title {
+    margin: 0;
+}
+
+.wnl-page-head .wp-block-term-description {
+    margin-top: 0.75rem;
+    color: var(--wp--preset--color--muted);
+}
+
+.wnl-section-title {
+    margin-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--30);
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--muted);
+}
+
+.wnl-kicker,
+.wnl-kicker a {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--wp--preset--color--muted);
+    text-decoration: none;
+}
+
+/* Meta lines: "Author · 4 min read". */
+
+.wnl-meta {
+    gap: 0 0.5rem;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    color: var(--wp--preset--color--muted);
+}
+
+.wnl-meta > * {
+    margin: 0;
+    font-size: inherit;
+}
+
+.wnl-meta > * + *::before {
+    content: "·";
+    margin-right: 0.5rem;
+}
+
+.wnl-meta .wp-block-post-author-name {
+    font-weight: 500;
+}
+
+.wnl-reading-time:empty {
+    display: none;
+}
+
+/* Home: the dated list. */
+
+.wnl-post-list .wp-block-post-template {
+    margin: 0;
+}
+
+.wnl-post-row {
+    padding-block: var(--wp--preset--spacing--50);
+    border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.wnl-post-list li:first-child .wnl-post-row {
+    padding-top: 0;
+}
+
+.wnl-post-row > * {
+    margin-block: 0;
+}
+
+.wnl-post-row .wp-block-post-title {
+    margin-block: 0.35rem 0.4rem;
+    line-height: 1.25;
+}
+
+.wnl-post-row .wp-block-post-title a:hover {
+    color: var(--wp--preset--color--accent);
+}
+
+.wnl-post-row .wp-block-post-excerpt__excerpt {
+    margin: 0 0 0.6rem;
+}
+
+.wnl-post-row .wp-block-post-excerpt__more-text {
+    display: none;
+}
+
+.wp-block-query-pagination {
+    margin-top: var(--wp--preset--spacing--50);
+}
+
+.wp-block-query-pagination a {
+    text-decoration: none;
+}
+
+/* Simple archive: one line per post. */
+
+.wnl-archive-list .wp-block-post-template {
+    margin: 0;
+}
+
+.wnl-archive-row {
+    gap: 1.5rem;
+    padding-block: 0.85rem;
+    border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.wnl-archive-row .wp-block-post-title {
+    margin: 0;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.wnl-archive-row .wp-block-post-date {
+    flex-shrink: 0;
+    padding-top: 0.2em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Single post. */
+
+.wnl-post-head > * {
+    margin-block: 0;
+}
+
+.wnl-post-head .wp-block-post-title {
+    margin-block: 0.5rem var(--wp--preset--spacing--40);
+    font-size: clamp(2.125rem, 1.4rem + 3vw, 3.25rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+}
+
+.wnl-byline {
+    gap: 0.75rem;
+    padding-block: var(--wp--preset--spacing--30);
+    border-block: 1px solid var(--wp--preset--color--line);
+}
+
+.wnl-byline .wp-block-avatar img {
+    display: block;
+    border-radius: 50%;
+}
+
+.wnl-byline-text {
+    gap: 0.1rem;
+}
+
+.wnl-byline .wp-block-post-author-name a {
+    color: var(--wp--preset--color--contrast);
+    text-decoration: none;
+}
+
+.wnl-featured {
+    margin-block-start: var(--wp--preset--spacing--50) !important;
+}
+
+.wnl-featured img {
+    border-radius: 4px;
+}
+
+.wnl-article .wp-block-post-content {
+    margin-block-start: var(--wp--preset--spacing--50);
+}
+
+.wnl-article .wp-block-post-content > p:first-child {
+    margin-top: 0;
+}
+
+.wnl-tags {
+    margin-block-start: var(--wp--preset--spacing--50);
+    color: var(--wp--preset--color--muted);
+}
+
+.wnl-tags a {
+    color: var(--wp--preset--color--contrast);
+}
+
+.wnl-post-nav {
+    gap: 1.5rem;
+    margin-block-start: var(--wp--preset--spacing--50);
+    padding-block-start: var(--wp--preset--spacing--40);
+    border-top: 1px solid var(--wp--preset--color--line);
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--small);
+}
+
+.wnl-post-nav a {
+    text-decoration: none;
+}
+
+.wnl-post-nav .post-navigation-link-next {
+    margin-left: auto;
+    text-align: right;
+}
+
+.wnl-sign-off {
+    color: var(--wp--preset--color--muted);
+}
+
+/* Separators: the dotted "section break" style. */
+
+.wp-block-separator.is-style-dots {
+    color: var(--wp--preset--color--muted);
+}
+
+/* Comments. */
+
+.wnl-comments {
+    margin-block-start: var(--wp--preset--spacing--60);
+}
+
+.wnl-comment {
+    margin-bottom: var(--wp--preset--spacing--40);
+}
+
+.wnl-comment .wp-block-avatar img {
+    border-radius: 50%;
+}
+
+.wnl-comment .wp-block-comment-date {
+    color: var(--wp--preset--color--muted);
+}
+
+/* Forms (search, comments). */
+
+.wp-block-search__input,
+.wp-block-post-comments-form input:not([type="submit"]):not([type="checkbox"]),
+.wp-block-post-comments-form textarea {
+    padding: 0.6em 0.75em;
+    font-size: max(16px, 1em);
+    color: var(--wp--preset--color--contrast);
+    background: var(--wp--preset--color--base);
+    border: 1px solid var(--wp--preset--color--line);
+    border-radius: 6px;
+}
+
+.wp-block-search__button {
+    margin-left: 0.5rem;
+}
+
+/* Footer. */
+
+.wnl-footer {
+    padding-block: var(--wp--preset--spacing--50) var(--wp--preset--spacing--60);
+    border-top: 1px solid var(--wp--preset--color--line);
+}
+
+.wnl-colophon {
+    gap: 0.5rem 1.5rem;
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    color: var(--wp--preset--color--muted);
+}
+
+.wnl-colophon > * {
+    margin: 0;
+}
+
+.wnl-colophon .wp-block-site-title {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: var(--wp--preset--font-size--x-small);
+    font-weight: 600;
+}
+
+/*
+ * Writer Subscribe (only present when that plugin is active).
+ * The plugin reads these custom properties; body raises specificity over
+ * its defaults whatever order the stylesheets load in.
+ */
+
+body .wsub-form,
+body .wsub-popup,
+body .wsub-toast {
+    --wsub-bg: var(--wp--preset--color--base);
+    --wsub-fg: var(--wp--preset--color--contrast);
+    --wsub-accent: var(--wp--preset--color--accent);
+    --wsub-accent-fg: var(--wp--preset--color--accent-contrast);
+    --wsub-muted: var(--wp--preset--color--muted);
+    --wsub-line: var(--wp--preset--color--line);
+    --wsub-error: var(--wp--custom--error);
+    --wsub-radius: 6px;
+}
+
+body .wsub-form {
+    font-family: var(--wp--preset--font-family--sans);
+    font-size: 1rem;
+}
+
+.wnl-subscribe-box {
+    margin-block-start: var(--wp--preset--spacing--60) !important;
+    padding: var(--wp--preset--spacing--50);
+    text-align: center;
+    background: var(--wp--preset--color--surface);
+    border: 1px solid var(--wp--preset--color--line);
+    border-radius: 8px;
+    scroll-margin-top: 2rem;
+}
+
+.wnl-subscribe-box .wsub-form {
+    margin: 0;
+}
+
+.wnl-subscribe-box .wsub-heading {
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: var(--wp--preset--font-size--large);
+}
+
+.wnl-subscribe-box .wsub-row {
+    max-width: 28rem;
+    margin-inline: auto;
+}
+
+.wnl-subscribe-box .wsub-consent {
+    justify-content: center;
+    text-align: left;
+}
+
+.wnl-subscribe-box .wsub-email {
+    background: var(--wp--preset--color--base);
+}
+
+.wnl-subscribe-footer {
+    margin-block: 0 var(--wp--preset--spacing--50) !important;
+}
+
+/* Keep the header button on one line on small phones. */
+
+.wnl-header-cta .wp-block-button__link {
+    white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+    .wnl-header-cta .wp-block-button__link {
+        padding-inline: 0.8em;
+        letter-spacing: 0.02em;
+    }
+}
