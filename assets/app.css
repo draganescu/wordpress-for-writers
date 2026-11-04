@@ -985,8 +985,8 @@ body.wfw-takeover #wpbody-content {
  * Circles stay circles. Capsules keep their radius, already half their height, and
  * only take the squircle's flatter ends.
  *
- * Some selectors style elements that only exist on unmerged branches: the site
- * icon, the footer's icon row, note thumbnails, the folding section headings.
+ * Rules for elements styled later in this file (the note thumbnail button, the
+ * featured image panel) carry a .wfw prefix so they outrank those rules.
  */
 :root {
     --wfw-corner-shape: squircle;
@@ -994,8 +994,7 @@ body.wfw-takeover #wpbody-content {
 
 @supports ( corner-shape: squircle ) {
     @container style( --wfw-corner-shape: squircle ) {
-        /* Was 4px: status badges, the site icon. */
-        .wfw-badge,
+        /* Was 4px: the site icon. */
         .wfw-sidebar__icon {
             border-radius: 7px;
             corner-shape: squircle;
@@ -1003,14 +1002,19 @@ body.wfw-takeover #wpbody-content {
 
         /*
          * Was 6px. .wfw-nav includes the folding Categories and Tags headings, and
-         * .wfw-icon-btn the footer's icon row. The .wfw prefix outranks the footer
-         * button rule below this block.
+         * the footer rule its icon row and the account menu's items. The account
+         * button is a capsule, below. The thumbnail button matches the thumbnail it
+         * wraps, so its focus ring follows the image's corners.
          */
         .wfw-nav,
-        .wfw .wfw-sidebar__foot :is( a, button ),
+        .wfw .wfw-sidebar__foot :is( a, button ):not( .wfw-user ),
+        .wfw .wfw-menu__item,
         .wfw-icon-btn,
+        .wfw-list__title,
+        .wfw-list-menu__item,
         .wfw-segmented button,
-        .wfw-note__thumb {
+        .wfw-note__thumb,
+        .wfw .wfw-note__thumb-btn {
             border-radius: 10px;
             corner-shape: squircle;
         }
@@ -1021,11 +1025,24 @@ body.wfw-takeover #wpbody-content {
             corner-shape: squircle;
         }
 
-        /* Was 8px. */
+        /*
+         * Was 8px: notes, the account menu, and the featured image panel's preview
+         * and image tiles (whose drop zone follows the preview).
+         */
         .wfw-note,
+        .wfw-menu,
         .wfw-theme__preview,
-        .wfw-segmented {
+        .wfw-segmented,
+        .wfw .wfw-media__current,
+        .wfw .wfw-media__current .components-drop-zone,
+        .wfw .wfw-media .wfw-media__tile.components-button {
             border-radius: 14px;
+            corner-shape: squircle;
+        }
+
+        /* Was 10px: the list options menu. */
+        .wfw-list-menu {
+            border-radius: 17px;
             corner-shape: squircle;
         }
 
@@ -1035,7 +1052,8 @@ body.wfw-takeover #wpbody-content {
             corner-shape: squircle;
         }
 
-        /* Capsule: the back button on phones. */
+        /* Capsules: the account button, and the back button on phones. */
+        .wfw .wfw-user,
         .wfw-back {
             corner-shape: squircle;
         }
