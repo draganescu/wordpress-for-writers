@@ -175,6 +175,13 @@ if ( function_exists( 'wmem_set_user_tier' ) ) {
             'post_content' => demo_add_paywall( $post->post_content, $gate['after'] ),
         ) );
         update_post_meta( $post->ID, 'wmem_tier', $gate['tier'] );
+        // Keep the note list's order: wp_update_post() bumped the modified time.
+        $GLOBALS['wpdb']->update(
+            $GLOBALS['wpdb']->posts,
+            array( 'post_modified' => $post->post_modified, 'post_modified_gmt' => $post->post_modified_gmt ),
+            array( 'ID' => $post->ID )
+        );
+        clean_post_cache( $post->ID );
     }
 
     // Two posts written for members.
