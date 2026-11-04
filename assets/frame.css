@@ -579,3 +579,47 @@ body.wfw-frame .editor-header__settings .interface-pinned-items {
         bottom: calc( 68px + var( --wfw-keyboard, 0px ) ) !important;
     }
 }
+
+/*
+ * Squircle corners (experiment), as in app.css: smooth superellipse corners with
+ * radii about 1.7x the ones they override. Set --wfw-corner-shape to round (here
+ * and in app.css) to compare.
+ */
+:root {
+    --wfw-corner-shape: squircle;
+}
+
+@supports ( corner-shape: squircle ) {
+    @container style( --wfw-corner-shape: squircle ) {
+        /* Formatting pill, was 12px. */
+        body.wfw-frame .editor-header .editor-collapsible-block-toolbar,
+        body.wfw-frame .interface-interface-skeleton__content > .block-editor-block-contextual-toolbar {
+            border-radius: 20px;
+            corner-shape: squircle;
+        }
+
+        /* Popovers (the pill's menus among them) and modals, was 10px. */
+        body.wfw-frame .components-popover__content,
+        body.wfw-frame .components-modal__frame {
+            border-radius: 16px !important;
+            corner-shape: squircle;
+        }
+
+        /* Menu items, was 6px. */
+        body.wfw-frame .components-menu-item__button,
+        body.wfw-frame .components-menu-items-choice {
+            border-radius: 10px;
+            corner-shape: squircle;
+        }
+
+        /*
+         * Capsules: Save / Publish and the publish panel's Cancel / Publish. Their
+         * radius is already half their height, so only the ends change.
+         */
+        body.wfw-frame .editor-header__settings .editor-post-publish-button,
+        body.wfw-frame .editor-header__settings .editor-post-publish-panel__toggle,
+        body.wfw-frame .editor-post-publish-panel__header .components-button {
+            corner-shape: squircle;
+        }
+    }
+}
