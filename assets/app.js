@@ -857,7 +857,16 @@
                     !! currentId && el( Button, { variant: 'tertiary', isDestructive: true, onClick: () => setImage( 0 ), disabled, __next40pxDefaultSize: true }, __( 'Remove', 'wordpress-for-writers' ) ),
                     status && el( 'span', { className: 'wfw-media__status', role: 'status' }, el( Spinner ), status )
                 ),
-                el( 'div', { className: 'wfw-media__library-head' },
+                el( 'div', {
+                    className: 'wfw-media__library-head',
+                    // Escape clears a search before it leaves the panel.
+                    onKeyDown: ( event ) => {
+                        if ( event.key === 'Escape' && searchInput ) {
+                            event.preventDefault();
+                            setSearchInput( '' );
+                        }
+                    },
+                },
                     el( 'h3', { className: 'wfw-media__label', id: 'wfw-media-library' }, __( 'Your images', 'wordpress-for-writers' ) ),
                     el( SearchControl, {
                         className: 'wfw-media__search',
