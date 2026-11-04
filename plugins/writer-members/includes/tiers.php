@@ -11,23 +11,28 @@ defined( 'ABSPATH' ) || exit;
 
 function wmem_default_tiers() {
     return array(
-        array( 'slug' => 'free', 'name' => __( 'Free', 'writer-members' ), 'link' => '' ),
-        array( 'slug' => 'supporter', 'name' => __( 'Supporter', 'writer-members' ), 'link' => '' ),
-        array( 'slug' => 'founding', 'name' => __( 'Founding', 'writer-members' ), 'link' => '' ),
+        array( 'slug' => 'free', 'name' => __( 'Free', 'writer-members' ), 'link' => '', 'plink' => '' ),
+        array( 'slug' => 'supporter', 'name' => __( 'Supporter', 'writer-members' ), 'link' => '', 'plink' => '' ),
+        array( 'slug' => 'founding', 'name' => __( 'Founding', 'writer-members' ), 'link' => '', 'plink' => '' ),
     );
 }
 
 /**
- * The ordered tier list: array of array( 'slug', 'name', 'link' ).
+ * The ordered tier list: array of array( 'slug', 'name', 'link', 'plink' ).
+ * 'link' is the Payment Link URL readers are sent to; 'plink' is its ID
+ * (plink_…), which is how the webhook knows what was bought.
  */
 function wmem_tiers() {
     $tiers = get_option( 'wmem_tiers', null );
     if ( ! is_array( $tiers ) ) {
         return wmem_default_tiers();
     }
-    return array_values( array_filter( $tiers, function ( $t ) {
-        return is_array( $t ) && ! empty( $t['slug'] ) && ! empty( $t['name'] );
-    } ) );
+    $tiers = array_filter( $tiers, function ( $t ) {
+        return is_array( $t ) && '' !== (string) ( $t['slug'] ?? '' ) && '' !== (string) ( $t['name'] ?? '' );
+    } );
+    return array_values( array_map( function ( $t ) {
+        return wp_parse_args( $t, array( 'link' => '', 'plink' => '' ) );
+    }, $tiers ) );
 }
 
 function wmem_tier( $slug ) {
@@ -70,6 +75,11 @@ function wmem_sanitize_tiers( $rows ) {
         if ( '' === $slug ) {
             $slug = sanitize_key( sanitize_title( $name ) );
         }
+        // Slugs must be non-empty and not purely numeric, or the tier would vanish.
+        if ( '' === $slug || ctype_digit( $slug ) ) {
+            $slug = 'tier-' . $slug;
+            $slug = 'tier-' === $slug ? 'tier-' . ( count( $out ) + 1 ) : $slug;
+        }
         $base = $slug;
         $n    = 2;
         while ( isset( $seen[ $slug ] ) ) {
@@ -77,7 +87,9 @@ function wmem_sanitize_tiers( $rows ) {
         }
         $seen[ $slug ] = true;
         $link          = esc_url_raw( trim( $row['link'] ?? '' ), array( 'https' ) );
-        $out[]         = array( 'slug' => $slug, 'name' => $name, 'link' => $link );
+        $plink         = trim( (string) ( $row['plink'] ?? '' ) );
+        $plink         = preg_match( '/^plink_[A-Za-z0-9]+$/', $plink ) ? $plink : '';
+        $out[]         = array( 'slug' => $slug, 'name' => $name, 'link' => $link, 'plink' => $plink );
     }
     return $out;
 }

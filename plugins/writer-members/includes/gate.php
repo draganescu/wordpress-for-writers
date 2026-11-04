@@ -81,17 +81,25 @@ function wmem_before_paywall( $raw ) {
 }
 
 /**
- * The teaser shown when a gated post has no paywall block: the writer's own
- * excerpt, or the first words of the post.
+ * The teaser text: the writer's own excerpt, or the first words of what
+ * comes before the paywall (of the whole post when it has none). Never words
+ * from behind the paywall.
+ */
+function wmem_teaser_text( $post ) {
+    if ( has_excerpt( $post ) ) {
+        return $post->post_excerpt;
+    }
+    $before = wmem_before_paywall( $post->post_content );
+    $source = null === $before ? $post->post_content : $before;
+    $length = (int) apply_filters( 'excerpt_length', 55 );
+    return wp_trim_words( wp_strip_all_tags( strip_shortcodes( excerpt_remove_blocks( $source ) ) ), $length );
+}
+
+/**
+ * The teaser as block markup, shown when a gated post has no paywall block.
  */
 function wmem_teaser( $post ) {
-    if ( has_excerpt( $post ) ) {
-        $text = $post->post_excerpt;
-    } else {
-        $length = (int) apply_filters( 'excerpt_length', 55 );
-        $text   = wp_trim_words( wp_strip_all_tags( strip_shortcodes( excerpt_remove_blocks( $post->post_content ) ) ), $length );
-    }
-    return "<!-- wp:paragraph -->\n<p>" . esc_html( $text ) . "</p>\n<!-- /wp:paragraph -->";
+    return "<!-- wp:paragraph -->\n<p>" . esc_html( wmem_teaser_text( $post ) ) . "</p>\n<!-- /wp:paragraph -->";
 }
 
 /**
@@ -112,16 +120,113 @@ function wmem_locked_content( $post, $with_box = true ) {
  * Runs before do_blocks (priority 9), so the hidden part is never rendered.
  * Covers the post page, the Post Content block, the auto excerpt, feeds
  * (the_content_feed and the_excerpt_rss both go through here) and the REST
- * API's content.rendered and excerpt.rendered.
+ * API's content.rendered and excerpt.rendered. Some callers, such as
+ * trackbacks, run outside the loop and pass the post ID instead.
  */
-add_filter( 'the_content', function ( $content ) {
-    $post = get_post();
+add_filter( 'the_content', function ( $content, $post_id = 0 ) {
+    $post = $post_id ? get_post( $post_id ) : get_post();
     if ( ! $post || ! wmem_should_lock( $post ) ) {
+        return $content;
+    }
+    // Leave the password form alone; core shows it instead of any content.
+    if ( post_password_required( $post ) ) {
         return $content;
     }
     // The auto excerpt is plain text: leave the upgrade box out of it.
     return wmem_locked_content( $post, ! doing_filter( 'get_the_excerpt' ) );
-}, 1 );
+}, 1, 2 );
+
+/**
+ * Excerpts for gated posts are the teaser, before wp_trim_excerpt builds one
+ * from the content. Works from the post passed in, so it holds outside the loop.
+ */
+add_filter( 'get_the_excerpt', function ( $excerpt, $post = null ) {
+    $post = get_post( $post );
+    if ( ! $post || ! wmem_should_lock( $post ) ) {
+        return $excerpt;
+    }
+    return wmem_teaser_text( $post );
+}, 9, 2 );
+
+/**
+ * The REST API hands out content.raw and excerpt.raw in the edit context to
+ * anyone who can edit posts, for every post in a collection, without asking
+ * whether they can edit that one. Swap in the locked version for people who
+ * can't read the post in full.
+ */
+add_action( 'init', function () {
+    foreach ( wmem_post_types() as $type ) {
+        add_filter( 'rest_prepare_' . $type, 'wmem_rest_lock_raw', 10, 2 );
+    }
+}, 20 );
+
+function wmem_rest_lock_raw( $response, $post ) {
+    if ( ! wmem_is_gated( $post ) || wmem_can_read( $post ) ) {
+        return $response;
+    }
+    $data = $response->get_data();
+    if ( isset( $data['content']['raw'] ) ) {
+        $data['content']['raw'] = wmem_locked_content( $post, false );
+        if ( isset( $data['content']['block_version'] ) ) {
+            $data['content']['block_version'] = block_version( $data['content']['raw'] );
+        }
+    }
+    if ( isset( $data['excerpt']['raw'] ) ) {
+        $data['excerpt']['raw'] = wmem_teaser_text( $post );
+    }
+    $response->set_data( $data );
+    return $response;
+}
+
+/**
+ * The Latest Posts block's "full post" mode prints post_content directly,
+ * without the_content, so any author could list every gated post in full.
+ * For readers who can't read everything, it falls back to excerpts (which
+ * are the teaser for gated posts).
+ */
+add_filter( 'render_block_data', function ( $block ) {
+    if ( 'core/latest-posts' === ( $block['blockName'] ?? '' )
+        && 'full_post' === ( $block['attrs']['displayPostContentRadio'] ?? '' )
+        && ! current_user_can( 'edit_others_posts' ) ) {
+        $block['attrs']['displayPostContentRadio'] = 'excerpt';
+    }
+    return $block;
+} );
+
+/**
+ * Search must not reveal what is behind a paywall: for people who can't
+ * edit others' posts, gated posts match on title and excerpt only. Covers
+ * the site search, /wp/v2/search and ?search= on the posts endpoints.
+ */
+add_filter( 'posts_search', function ( $search, $query ) {
+    global $wpdb;
+    if ( '' === $search || current_user_can( 'edit_others_posts' ) ) {
+        return $search;
+    }
+    $like  = "/{$wpdb->posts}\.post_content LIKE '(?:[^'\\\\]|\\\\.)*'/";
+    $count = 0;
+    $search = preg_replace_callback(
+        $like,
+        function ( $m ) {
+            return '(' . $m[0] . ' AND wmem_gate.meta_id IS NULL)';
+        },
+        $search,
+        -1,
+        $count
+    );
+    if ( $count ) {
+        $query->set( 'wmem_search_gate', true );
+    }
+    return $search;
+}, 10, 2 );
+
+add_filter( 'posts_join', function ( $join, $query ) {
+    global $wpdb;
+    if ( $query->get( 'wmem_search_gate' ) ) {
+        $join .= " LEFT JOIN {$wpdb->postmeta} AS wmem_gate ON ( wmem_gate.post_id = {$wpdb->posts}.ID AND wmem_gate.meta_key = 'wmem_tier' AND wmem_gate.meta_value <> '' )";
+    }
+    return $join;
+}, 10, 2 );
 
 /**
  * The paywall block renders nothing for readers with access, and the
@@ -129,21 +234,22 @@ add_filter( 'the_content', function ( $content ) {
  */
 function wmem_render_paywall() {
     $post = get_post();
-    if ( ! $post || ! wmem_should_lock( $post ) ) {
+    if ( ! $post || ! wmem_should_lock( $post ) || post_password_required( $post ) ) {
         return '';
     }
     return wmem_upgrade_box( $post );
 }
 
 /**
- * Payment link for a tier, with the tier slug as client_reference_id (the
- * webhook reads it back) and the reader's email prefilled when known.
+ * Payment link for a tier, with the reader's email prefilled when known.
+ * The webhook works out the tier from the Payment Link itself, never from
+ * anything in this URL.
  */
 function wmem_payment_url( $tier ) {
     if ( empty( $tier['link'] ) ) {
         return '';
     }
-    $args = array( 'client_reference_id' => $tier['slug'] );
+    $args = array();
     $user = wp_get_current_user();
     if ( $user->exists() ) {
         $args['prefilled_email'] = rawurlencode( $user->user_email );
@@ -189,7 +295,7 @@ function wmem_upgrade_box( $post ) {
     }
 
     $heading = (string) wmem_setting( 'heading' );
-    $heading = false !== strpos( $heading, '%s' ) ? sprintf( $heading, $name ) : $heading;
+    $heading = str_replace( '%s', $name, $heading );
 
     $html  = '<div class="wmem-paywall">';
     $html .= '<p class="wmem-paywall__heading">' . esc_html( $heading ) . '</p>';
@@ -203,13 +309,14 @@ function wmem_upgrade_box( $post ) {
 }
 
 /**
- * Members see a different page than everyone else, so a gated post must not
- * be stored by a page cache for them. Most page caches already skip
- * logged-in visitors (they see the WordPress auth cookie); this covers the
- * ones that only follow Cache-Control.
+ * Members see different pages than everyone else: gated posts, and any list
+ * or Query Loop that shows their content. So no page a logged-in visitor gets
+ * may be stored by a page cache. Most page caches already skip logged-in
+ * visitors (they see the WordPress auth cookie); this covers the ones that
+ * only follow Cache-Control.
  */
 add_action( 'template_redirect', function () {
-    if ( is_singular() && is_user_logged_in() && wmem_is_gated( get_queried_object() ) ) {
+    if ( is_user_logged_in() ) {
         nocache_headers();
     }
 } );
