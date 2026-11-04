@@ -29,6 +29,9 @@
         dropdown: '<path d="m15.99 10.889-3.988 3.418-3.988-3.418.976-1.14 3.012 2.582 3.012-2.581.976 1.139Z"/>', // chevron-down-small
         check: '<path d="M16.7 7.1l-6.3 8.5-3.3-2.5-.9 1.2 4.5 3.4L17.9 8z"/>', // check
         image: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"/>', // image
+        open: '<path d="m19 7-3-3-8.5 8.5-1 4 4-1L19 7Zm-7 11.5H5V20h7v-1.5Z"/>', // pencil
+        view: '<path d="M3.99961 13C4.67043 13.3354 4.6703 13.3357 4.67017 13.3359L4.67298 13.3305C4.67621 13.3242 4.68184 13.3135 4.68988 13.2985C4.70595 13.2686 4.7316 13.2218 4.76695 13.1608C4.8377 13.0385 4.94692 12.8592 5.09541 12.6419C5.39312 12.2062 5.84436 11.624 6.45435 11.0431C7.67308 9.88241 9.49719 8.75 11.9996 8.75C14.502 8.75 16.3261 9.88241 17.5449 11.0431C18.1549 11.624 18.6061 12.2062 18.9038 12.6419C19.0523 12.8592 19.1615 13.0385 19.2323 13.1608C19.2676 13.2218 19.2933 13.2686 19.3093 13.2985C19.3174 13.3135 19.323 13.3242 19.3262 13.3305L19.3291 13.3359C19.3289 13.3357 19.3288 13.3354 19.9996 13C20.6704 12.6646 20.6703 12.6643 20.6701 12.664L20.6697 12.6632L20.6688 12.6614L20.6662 12.6563L20.6583 12.6408C20.6517 12.6282 20.6427 12.6108 20.631 12.5892C20.6078 12.5459 20.5744 12.4852 20.5306 12.4096C20.4432 12.2584 20.3141 12.0471 20.1423 11.7956C19.7994 11.2938 19.2819 10.626 18.5794 9.9569C17.1731 8.61759 14.9972 7.25 11.9996 7.25C9.00203 7.25 6.82614 8.61759 5.41987 9.9569C4.71736 10.626 4.19984 11.2938 3.85694 11.7956C3.68511 12.0471 3.55605 12.2584 3.4686 12.4096C3.42484 12.4852 3.39142 12.5459 3.36818 12.5892C3.35656 12.6108 3.34748 12.6282 3.34092 12.6408L3.33297 12.6563L3.33041 12.6614L3.32948 12.6632L3.32911 12.664C3.32894 12.6643 3.32879 12.6646 3.99961 13ZM11.9996 16C13.9326 16 15.4996 14.433 15.4996 12.5C15.4996 10.567 13.9326 9 11.9996 9C10.0666 9 8.49961 10.567 8.49961 12.5C8.49961 14.433 10.0666 16 11.9996 16Z"/>', // seen
+        link: '<path d="M10 17.389H8.444A5.194 5.194 0 1 1 8.444 7H10v1.5H8.444a3.694 3.694 0 0 0 0 7.389H10v1.5ZM14 7h1.556a5.194 5.194 0 0 1 0 10.39H14v-1.5h1.556a3.694 3.694 0 0 0 0-7.39H14V7Zm-4.5 6h5v-1.5h-5V13Z"/>', // link
     };
 
     const STATUS_VIEWS = [
@@ -198,8 +201,8 @@
 
     async function loadTerms() {
         const [ categories, tags ] = await Promise.all( [
-            apiFetch( { path: '/wp/v2/categories?per_page=100&orderby=name&_fields=id,name,parent,count' } ).catch( () => [] ),
-            apiFetch( { path: '/wp/v2/tags?per_page=100&orderby=name&_fields=id,name,count' } ).catch( () => [] ),
+            apiFetch( { path: '/wp/v2/categories?per_page=100&orderby=name&_fields=id,name,parent,count,link' } ).catch( () => [] ),
+            apiFetch( { path: '/wp/v2/tags?per_page=100&orderby=name&_fields=id,name,count,link' } ).catch( () => [] ),
         ] );
         state.categories = categories;
         state.tags = tags;
@@ -232,6 +235,8 @@
         if ( state.search ) {
             params.search = state.search;
         }
+        // Each note's permalink, for View post and Copy link in its context menu.
+        params._fields += ',link';
         if ( ! append ) {
             renderListItems();
         }
@@ -254,13 +259,12 @@
             state.loading = false;
             renderListItems();
             renderListMenu();
+            contextTarget(); // Rings the note an open context menu is for again.
         }
     }
 
     function refresh() {
-        loadNotes();
-        loadCounts();
-        loadTerms();
+        return Promise.all( [ loadNotes(), loadCounts(), loadTerms() ] );
     }
 
     // ---- Rendering ---------------------------------------------------------
@@ -285,6 +289,8 @@
                 <button class="wfw-icon-btn wfw-focus-toggle" data-action="toggle-focus" title="${ esc( __( 'Focus mode', 'wordpress-for-writers' ) ) }">${ icon( 'focus' ) }</button>
                 <div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>
             </main>
+            <div class="wfw-menu wfw-menu--context" id="wfw-context-menu" role="menu" tabindex="-1" hidden></div>
+            <div class="wfw-toast" role="status"></div>
         `;
 
         root.addEventListener( 'click', onClick );
@@ -379,6 +385,7 @@
         if ( focusedControl >= 0 ) {
             footControls()[ focusedControl ].focus();
         }
+        contextTarget(); // Rings the item an open context menu is for again.
     }
 
     // The site icon stays invisible until it has loaded, and is dropped if it fails, so an empty box never shows.
@@ -1059,16 +1066,20 @@
         }
     }
 
+    // Keys for both kinds of .wfw-menu: this one and the context menus below.
     root.addEventListener( 'keydown', ( event ) => {
         const onButton = event.target.closest( '.wfw-user' );
         const menu = event.target.closest( '.wfw-menu' );
         if ( ! onButton && ! menu ) {
             return;
         }
-        if ( event.key === 'Escape' && userMenuOpen ) {
+        // Each closes back to where it opened: this one to its button, a context menu to its note or item.
+        const isContext = !! menu?.classList.contains( 'wfw-menu--context' );
+        const close = isContext ? () => closeContextMenu() : () => closeUserMenu();
+        if ( event.key === 'Escape' && ( isContext || userMenuOpen ) ) {
             event.preventDefault();
             event.stopPropagation();
-            closeUserMenu();
+            close();
             return;
         }
         if ( onButton ) {
@@ -1086,13 +1097,14 @@
             case 'Home':
             case 'End': {
                 event.preventDefault();
-                const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: -1 }[ event.key ];
+                // A context menu opened by pointer has focus itself, with no item picked yet: ArrowUp starts from the end.
+                const next = { ArrowDown: index + 1, ArrowUp: index < 0 ? -1 : index - 1, Home: 0, End: -1 }[ event.key ];
                 items[ ( next + items.length ) % items.length ].focus();
                 break;
             }
             case 'Tab':
-                // Focus goes back to the button, and the browser's Tab then moves on from there.
-                closeUserMenu();
+                // Focus goes back to the button (or note), and the browser's Tab then moves on from there.
+                close();
                 break;
             case ' ':
                 event.preventDefault();
@@ -1110,6 +1122,341 @@
     } );
     window.addEventListener( 'blur', () => closeUserMenu( false ) );
 
+    // ---- Context menus -----------------------------------------------------
+
+    /*
+     * Right-click menus for the notes in the list and the categories and tags in
+     * the sidebar. Each is the account menu's .wfw-menu, with its keys (above),
+     * in one element at the app's root, outside the panes that re-render. It opens
+     * at the pointer and stays inside the window. The context-menu key and
+     * Shift+F10 open it for the focused note or item, and on touch screens a long
+     * press does for sidebar items. A long press on a note is left to the browser
+     * for selecting text, since the note's own buttons are the touch path. The
+     * editor keeps the browser's menu: its canvas is another document, so these
+     * listeners never hear from it.
+     */
+    const NOTE_ITEM = '.wfw-note';
+    const TERM_ITEM = '.wfw-nav[data-action="view"]:is( [data-type="category"], [data-type="tag"] )';
+
+    // The open menu: what it acts on, read as it opens, and the element it belongs to.
+    let contextMenu = null;
+
+    function contextMenuEl() {
+        return root.querySelector( '.wfw-menu--context' );
+    }
+
+    // A link to the app with `hash` (note=ID) open.
+    function appUrl( hash ) {
+        return window.location.origin + window.location.pathname + window.location.search + '#' + hash;
+    }
+
+    // The post's link with preview=true, the way WordPress builds its preview links.
+    function previewUrl( link ) {
+        const url = new URL( link, window.location.href );
+        url.searchParams.set( 'preview', 'true' );
+        return url.href;
+    }
+
+    // Items are { command } buttons or { href } links; null is a separator.
+    function noteMenuItems( note ) {
+        if ( note.status === 'trash' ) {
+            // The same actions, for the same people, as the note's own buttons.
+            return settings.canDelete ? [
+                { command: 'restore', icon: 'restore', label: __( 'Restore', 'wordpress-for-writers' ) },
+                { command: 'delete', icon: 'close', label: __( 'Delete permanently', 'wordpress-for-writers' ) },
+            ] : [];
+        }
+        const published = note.status === 'publish' || note.status === 'private';
+        const items = [
+            { command: 'open', icon: 'open', label: __( 'Open', 'wordpress-for-writers' ) },
+            { href: appUrl( 'note=' + note.id ), icon: 'external', label: __( 'Open in new tab', 'wordpress-for-writers' ) },
+        ];
+        if ( note.link ) {
+            items.push(
+                null,
+                published
+                    ? { href: note.link, icon: 'view', label: __( 'View post', 'wordpress-for-writers' ) }
+                    : { href: previewUrl( note.link ), icon: 'view', label: __( 'Preview', 'wordpress-for-writers' ) },
+                { command: 'copy-link', icon: 'link', label: __( 'Copy link', 'wordpress-for-writers' ) }
+            );
+        }
+        if ( settings.canDelete ) {
+            items.push( null, { command: 'trash', icon: 'trash', label: __( 'Move to trash', 'wordpress-for-writers' ) } );
+        }
+        return items;
+    }
+
+    function termMenuItems( view ) {
+        const term = ( view.type === 'category' ? state.categories : state.tags ).find( ( t ) => t.id === view.id );
+        return term?.link ? [ { href: term.link, icon: 'view', label: __( 'View on site', 'wordpress-for-writers' ) } ] : [];
+    }
+
+    // Links are real links, so they open in a new tab past any popup blocker, and Cmd-click works.
+    function contextItemHtml( item ) {
+        if ( ! item ) {
+            return '<div class="wfw-menu__separator" role="separator"></div>';
+        }
+        const content = `${ icon( item.icon ) }<span>${ esc( item.label ) }</span>`;
+        return item.href
+            ? `<a class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="context-item" href="${ esc( item.href ) }" target="_blank" rel="noopener">${ content }</a>`
+            : `<button class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="context-item" data-command="${ esc( item.command ) }">${ content }</button>`;
+    }
+
+    function describeContextTarget( el ) {
+        if ( el.matches( NOTE_ITEM ) ) {
+            const note = state.notes.find( ( n ) => n.id === Number( el.dataset.id ) );
+            return note && { kind: 'note', id: note.id, note, label: el.querySelector( '.wfw-note__title' )?.textContent, items: noteMenuItems( note ) };
+        }
+        const view = { type: el.dataset.type, id: Number( el.dataset.id ) };
+        return { kind: 'term', ...view, label: el.querySelector( '.wfw-nav__label' )?.textContent, items: termMenuItems( view ) };
+    }
+
+    // Opens the menu for a note or sidebar item at `point`, or below the item
+    // without one (keyboard, touch). From the keyboard focus goes to the first
+    // item; otherwise to the menu itself, so its keys work from the start.
+    function openContextMenu( el, { point = null, keyboard = false } = {} ) {
+        const menu = describeContextTarget( el );
+        if ( ! menu?.items.length ) {
+            return false;
+        }
+        closeContextMenu( { focus: false } );
+        const box = contextMenuEl();
+        const rect = el.getBoundingClientRect();
+        contextMenu = { ...menu, target: el, keyboard, top: rect.top, left: rect.left, index: [ ...root.querySelectorAll( NOTE_ITEM ) ].indexOf( el ) };
+        box.innerHTML = menu.items.map( contextItemHtml ).join( '' );
+        box.setAttribute( 'aria-label', menu.label || '' );
+        box.hidden = false;
+        el.classList.add( 'has-menu' );
+        placeContextMenu( box, point || { x: rect.left + 12, y: rect.top + Math.min( rect.height, 36 ) } );
+        ( keyboard ? box.querySelector( '[role="menuitem"]' ) : box ).focus( { preventScroll: true } );
+        return true;
+    }
+
+    // Like a native menu: right of and below the point, flipped to the other side
+    // where it would leave the window, and never past the window's edges.
+    function placeContextMenu( box, { x, y } ) {
+        const margin = 8;
+        const bounds = root.getBoundingClientRect();
+        box.style.maxHeight = bounds.height - margin * 2 + 'px';
+        box.style.left = '0px';
+        box.style.top = '0px';
+        const { width, height } = box.getBoundingClientRect();
+        const left = x + width > bounds.right - margin ? x - width : x;
+        const top = y + height > bounds.bottom - margin ? y - height : y;
+        box.style.left = Math.max( bounds.left + margin, Math.min( left, bounds.right - margin - width ) ) + 'px';
+        box.style.top = Math.max( bounds.top + margin, Math.min( top, bounds.bottom - margin - height ) ) + 'px';
+    }
+
+    // The element the open menu belongs to. Drafts' autosaves re-render the list
+    // and sidebar under it, so it's found again by what it shows, and ringed again.
+    function contextTarget() {
+        if ( contextMenu && ! contextMenu.target.isConnected ) {
+            const found = root.querySelector( contextMenu.kind === 'note'
+                ? `${ NOTE_ITEM }[data-id="${ contextMenu.id }"]`
+                : `.wfw-nav[data-action="view"][data-type="${ contextMenu.type }"][data-id="${ contextMenu.id }"]` );
+            if ( ! found ) {
+                return null;
+            }
+            found.classList.add( 'has-menu' );
+            contextMenu.target = found;
+        }
+        return contextMenu?.target || null;
+    }
+
+    function closeContextMenu( { focus = true } = {} ) {
+        if ( ! contextMenu ) {
+            return;
+        }
+        const target = contextTarget();
+        target?.classList.remove( 'has-menu' );
+        contextMenuEl().hidden = true;
+        contextMenu = null;
+        if ( focus ) {
+            target?.focus( { preventScroll: true } );
+        }
+    }
+
+    function runContextCommand( command ) {
+        const menu = contextMenu;
+        closeContextMenu();
+        switch ( command ) {
+            case 'open':
+                openNote( menu.id );
+                break;
+            case 'copy-link':
+                copyLink( menu.note.link );
+                break;
+            case 'trash':
+                refocusNotes( trashNote( menu.id ), menu );
+                break;
+            case 'restore':
+                refocusNotes( restoreNote( menu.id ), menu );
+                break;
+            case 'delete':
+                refocusNotes( deleteNote( menu.id ), menu );
+                break;
+        }
+    }
+
+    // When a note chosen from the keyboard leaves the list, focus moves to the note now in its place.
+    async function refocusNotes( action, menu ) {
+        await action;
+        const active = document.activeElement;
+        if ( menu.keyboard && ( ! active || active === document.body ) ) {
+            const notes = root.querySelectorAll( NOTE_ITEM );
+            notes[ Math.min( menu.index, notes.length - 1 ) ]?.focus();
+        }
+    }
+
+    async function copyLink( url ) {
+        try {
+            await writeClipboard( url );
+            showToast( __( 'Link copied', 'wordpress-for-writers' ) );
+        } catch ( e ) {
+            showToast( __( 'The link couldn’t be copied', 'wordpress-for-writers' ) );
+        }
+    }
+
+    // The async clipboard needs a secure context. Sites on plain http, other than localhost, copy the old way.
+    function writeClipboard( text ) {
+        if ( window.isSecureContext && navigator.clipboard ) {
+            return navigator.clipboard.writeText( text );
+        }
+        const field = document.createElement( 'textarea' );
+        const focused = document.activeElement;
+        field.value = text;
+        field.setAttribute( 'readonly', '' );
+        field.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild( field );
+        field.select();
+        field.setSelectionRange( 0, text.length );
+        const copied = document.execCommand( 'copy' );
+        field.remove();
+        focused?.focus( { preventScroll: true } );
+        return copied ? Promise.resolve() : Promise.reject( new Error( 'copy' ) );
+    }
+
+    // A short message at the foot of the window, also read out by screen readers.
+    let toastTimer = 0;
+
+    function showToast( message ) {
+        const toast = root.querySelector( '.wfw-toast' );
+        clearTimeout( toastTimer );
+        toast.textContent = message;
+        toast.classList.add( 'is-visible' );
+        toastTimer = setTimeout( () => {
+            toast.classList.remove( 'is-visible' );
+            toastTimer = setTimeout( () => ( toast.textContent = '' ), 200 );
+        }, 2000 );
+    }
+
+    // A long press on a sidebar item opens its menu on touch screens, which have
+    // no right-click. Lifting that finger is then not a tap: it would choose the
+    // item, and take focus from the menu.
+    let longPress = null;
+    let pressOpened = false;
+    let lastPointerType = '';
+
+    function cancelLongPress() {
+        clearTimeout( longPress?.timer );
+        longPress = null;
+    }
+
+    document.addEventListener( 'pointerdown', ( event ) => {
+        lastPointerType = event.pointerType;
+        pressOpened = false;
+    }, true );
+
+    root.addEventListener( 'pointerdown', ( event ) => {
+        cancelLongPress();
+        const el = event.pointerType === 'touch' ? event.target.closest( TERM_ITEM ) : null;
+        if ( el ) {
+            longPress = {
+                x: event.clientX,
+                y: event.clientY,
+                timer: setTimeout( () => {
+                    longPress = null;
+                    pressOpened = openContextMenu( el );
+                }, 500 ),
+            };
+        }
+    } );
+
+    root.addEventListener( 'pointermove', ( event ) => {
+        if ( longPress && Math.hypot( event.clientX - longPress.x, event.clientY - longPress.y ) > 10 ) {
+            cancelLongPress();
+        }
+    } );
+
+    root.addEventListener( 'pointerup', cancelLongPress );
+    root.addEventListener( 'pointercancel', cancelLongPress );
+
+    root.addEventListener( 'touchend', ( event ) => {
+        if ( pressOpened ) {
+            pressOpened = false;
+            event.preventDefault();
+        }
+    } );
+
+    root.addEventListener( 'contextmenu', ( event ) => {
+        // No browser menu over ours.
+        if ( contextMenuEl().contains( event.target ) ) {
+            event.preventDefault();
+            return;
+        }
+        const el = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        if ( ! el ) {
+            return;
+        }
+        // Text selected in a note keeps the browser's menu, to copy it. So does a long press on a note (Android).
+        const touch = ( event.pointerType || lastPointerType ) === 'touch';
+        const selection = window.getSelection();
+        if ( el.matches( NOTE_ITEM ) && ( touch || ( ! selection.isCollapsed && el.contains( selection.anchorNode ) ) ) ) {
+            return;
+        }
+        // Android's own long press may come after ours has opened the menu.
+        if ( contextMenu?.target === el ) {
+            event.preventDefault();
+            return;
+        }
+        cancelLongPress();
+        // With nothing to offer (a note in the Trash, for someone who can't delete), the browser's menu shows.
+        if ( openContextMenu( el, { point: touch ? null : { x: event.clientX, y: event.clientY } } ) ) {
+            event.preventDefault();
+            pressOpened = touch;
+        }
+    } );
+
+    root.addEventListener( 'keydown', ( event ) => {
+        if ( event.key !== 'ContextMenu' && ! ( event.key === 'F10' && event.shiftKey ) ) {
+            return;
+        }
+        const el = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        if ( contextMenuEl().contains( event.target ) || ( el && openContextMenu( el, { keyboard: true } ) ) ) {
+            event.preventDefault();
+        }
+    } );
+
+    // A click outside closes the menu without moving focus, and so does the window
+    // losing focus (a click into the editor). Resizing closes it, and so does a
+    // scroll that moves its note or item, but not a re-render that keeps it put.
+    document.addEventListener( 'pointerdown', ( event ) => {
+        if ( contextMenu && ! contextMenuEl().contains( event.target ) ) {
+            closeContextMenu( { focus: false } );
+        }
+    } );
+    window.addEventListener( 'blur', () => closeContextMenu( { focus: false } ) );
+    window.addEventListener( 'resize', () => closeContextMenu( { focus: contextMenuEl().contains( document.activeElement ) } ) );
+    document.addEventListener( 'scroll', ( event ) => {
+        if ( ! contextMenu || contextMenuEl().contains( event.target ) ) {
+            return;
+        }
+        const rect = contextTarget()?.getBoundingClientRect();
+        if ( ! rect || rect.top !== contextMenu.top || rect.left !== contextMenu.left ) {
+            closeContextMenu( { focus: contextMenuEl().contains( document.activeElement ) } );
+        }
+    }, true );
+
     // ---- Actions -----------------------------------------------------------
 
     function toggleFocus() {
@@ -1123,12 +1470,12 @@
             state.activeId = null;
             mountEditor( null );
         }
-        refresh();
+        await refresh();
     }
 
     async function restoreNote( id ) {
         await apiFetch( { path: '/wp/v2/posts/' + id, method: 'POST', data: { status: 'draft' } } );
-        refresh();
+        await refresh();
     }
 
     async function deleteNote( id ) {
@@ -1140,7 +1487,7 @@
             state.activeId = null;
             mountEditor( null );
         }
-        refresh();
+        await refresh();
     }
 
     function onClick( event ) {
@@ -1226,6 +1573,13 @@
                 break;
             case 'menu-item':
                 closeUserMenu();
+                break;
+            case 'context-item':
+                if ( target.dataset.command ) {
+                    runContextCommand( target.dataset.command );
+                } else {
+                    closeContextMenu(); // A link, which the browser goes on to follow.
+                }
                 break;
             case 'set-appearance':
                 setAppearance( target.dataset.key, target.dataset.value );

@@ -15,6 +15,7 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
 - **Takeover:** writers land in the Writer app instead of the dashboard, both after logging in and when opening `/wp-admin/`.
 - **Library sidebar:** Notes, Drafts, Published, Scheduled and Trash with counts, nested categories, and `#tags`.
 - **Note list:** title, excerpt, last-modified date and status, plus search and infinite scroll. You can trash, restore or delete permanently from the list.
+- **Context menus:** right-click a note to open it (here or in a new tab), view or preview the post, copy its link or move it to the trash. In the Trash, the menu restores or deletes permanently instead. Right-click a category or tag to view its archive on the site. The context-menu key and Shift+F10 open the same menus from the keyboard, and on touch screens a long press opens a category's or tag's.
 - **Editor:**
   - It's the real block editor with the wp-admin chrome removed.
   - Theme styles are dropped in favour of a clean default writing surface.
