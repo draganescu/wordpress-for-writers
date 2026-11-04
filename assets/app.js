@@ -24,6 +24,8 @@
         external: '<path d="M19.5 4.5h-7V6h4.44l-5.97 5.97 1.06 1.06L18 7.06v4.44h1.5v-7Zm-13 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3H17v3a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h3V5.5h-3Z"/>', // external
         palette: '<path fill-rule="evenodd" clip-rule="evenodd" d="M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 0 1-6.5 6.5v-13a6.5 6.5 0 0 1 6.5 6.5Z"/>', // styles
         dashboard: '<path d="M12 5a8 8 0 0 1 3.842.984L14.726 7.1a6.502 6.502 0 0 0-7.323 1.303 6.5 6.5 0 0 0 0 9.194l-1.06 1.06A8 8 0 0 1 12 5Zm7.021 4.168a8 8 0 0 1-1.364 9.49l-1.06-1.061a6.5 6.5 0 0 0 1.307-7.312l1.117-1.117ZM17.47 6.47a.75.75 0 1 1 1.06 1.06l-5.083 5.082a1.5 1.5 0 1 1-1.06-1.06L17.47 6.47Z"/>', // dashboard
+        image: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"/>', // image
+        upload: '<path d="M18.5 15v3.5H13V6.7l4.5 4.1 1-1.1-6.2-5.8-5.8 5.8 1 1.1 4-4v11.7h-6V15H4v5h16v-5z"/>', // upload
         check: '<path d="M16.7 7.1l-6.3 8.5-3.3-2.5-.9 1.2 4.5 3.4L17.9 8z"/>', // check
         chevronDown: '<path d="M17.5 11.6L12 16l-5.5-4.4.9-1.2L12 14l4.5-3.6 1 1.2z"/>', // chevron-down
         logout: '<path d="M16.8 5h-7c-1.1 0-2 .9-2 2v1.5h1.5V7c0-.3.2-.5.5-.5h7c.3 0 .5.2.5.5v10c0 .3-.2.5-.5.5h-7c-.3 0-.5-.2-.5-.5v-1.5H7.8V17c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2z" transform="matrix(-1 0 0 1 22.8 0)"/><path d="M11 14.5l1.1 1.1 3-3 .5-.5-.6-.6-3-3-1 1 1.7 1.7H5v1.5h7.7L11 14.5z" transform="translate(4.4 0)"/>', // login, flipped
@@ -77,6 +79,8 @@
         list: { ...LIST_DEFAULTS, ...loadPref( 'list', {} ) },
         total: 0,
         listMenu: false,
+        // Featured image panel shown in the editor pane: { id, title, current, library, page, totalPages, busy, error }.
+        featured: null,
     };
 
     const APPEARANCE_CHOICES = {
@@ -485,18 +489,19 @@
         const sizes = media?.media_details?.sizes || {};
         const thumb = state.list.images && media?.media_type === 'image' ? ( sizes.thumbnail || sizes.medium || media ).source_url : '';
         const date = state.list.orderby === 'date' ? note.date_gmt : note.modified_gmt;
-        const actions = isTrash
+        const actions = isTrash && settings.canDelete
             ? `<span class="wfw-icon-btn" role="button" data-action="restore" data-id="${ note.id }" title="${ esc( __( 'Restore', 'wordpress-for-writers' ) ) }">${ icon( 'restore' ) }</span>
                <span class="wfw-icon-btn" role="button" data-action="delete" data-id="${ note.id }" title="${ esc( __( 'Delete permanently', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</span>`
-            : `<span class="wfw-icon-btn" role="button" data-action="trash" data-id="${ note.id }" title="${ esc( __( 'Move to trash', 'wordpress-for-writers' ) ) }">${ icon( 'trash' ) }</span>`;
+            : isTrash ? '' : `<span class="wfw-icon-btn" role="button" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Featured image', 'wordpress-for-writers' ) ) }">${ icon( 'image' ) }</span>
+               ${ settings.canDelete ? `<span class="wfw-icon-btn" role="button" data-action="trash" data-id="${ note.id }" title="${ esc( __( 'Move to trash', 'wordpress-for-writers' ) ) }">${ icon( 'trash' ) }</span>` : '' }`;
 
         return `
             <div class="wfw-note${ note.id === state.activeId ? ' is-active' : '' }" role="listitem" tabindex="0" data-action="open" data-id="${ note.id }">
                 <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || __( 'Untitled', 'wordpress-for-writers' ) ) }</div>
                 ${ excerpt ? `<div class="wfw-note__excerpt">${ esc( excerpt ) }</div>` : '' }
-                ${ thumb ? `<img class="wfw-note__thumb" src="${ esc( thumb ) }" alt="" width="64" height="64" loading="lazy" />` : '' }
+                ${ thumb ? `<button class="wfw-note__thumb-btn" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Change featured image', 'wordpress-for-writers' ) ) }"><img class="wfw-note__thumb" src="${ esc( thumb ) }" alt="" width="64" height="64" loading="lazy" /></button>` : '' }
                 <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ statusIcon }</div>
-                ${ settings.canDelete ? `<div class="wfw-note__actions">${ actions }</div>` : '' }
+                <div class="wfw-note__actions">${ actions }</div>
             </div>`;
     }
 
@@ -573,7 +578,8 @@
 
     function mountEditor( src ) {
         const editor = root.querySelector( '.wfw-editor' );
-        editor.querySelectorAll( 'iframe, .wfw-editor__placeholder, .wfw-editor__loading, .wfw-editor__skeleton' ).forEach( ( el ) => el.remove() );
+        editor.querySelectorAll( 'iframe, .wfw-editor__placeholder, .wfw-editor__loading, .wfw-editor__skeleton, .wfw-media' ).forEach( ( el ) => el.remove() );
+        state.featured = null;
         clearTimeout( revealTimer );
         frameReady = false;
         root.classList.toggle( 'has-note', !! src );
@@ -664,6 +670,218 @@
                 }
                 break;
             }
+        }
+    } );
+
+    // ---- Featured image ----------------------------------------------------
+
+    /*
+     * The note's featured image is picked in the editor pane, in place of the
+     * editor: the current image large, Upload and Remove, and the site's images
+     * as a grid to choose from. Changes save straight to the note.
+     */
+    const LIBRARY_PAGE = 24;
+
+    function mediaUrl( media, prefer ) {
+        const sizes = media?.media_details?.sizes || {};
+        for ( const size of prefer ) {
+            if ( sizes[ size ] ) {
+                return sizes[ size ].source_url;
+            }
+        }
+        return media?.source_url || '';
+    }
+
+    async function openFeatured( id ) {
+        if ( ! ( await canLeaveEditor() ) ) {
+            return;
+        }
+        state.activeId = id;
+        markActive();
+        window.history.replaceState( null, '', '#image=' + id );
+        mountEditor( null );
+        root.classList.add( 'has-note' );
+        root.querySelector( '.wfw-editor__placeholder' )?.remove();
+        const listed = state.notes.find( ( n ) => n.id === id );
+        state.featured = {
+            id,
+            title: listed ? listed.title.raw || htmlToText( listed.title.rendered ) : '',
+            current: null,
+            library: [],
+            page: 0,
+            totalPages: 1,
+            busy: 'load',
+            error: '',
+        };
+        renderFeatured();
+        try {
+            const note = await apiFetch( { path: `/wp/v2/posts/${ id }?context=edit&_fields=id,title,featured_media` } );
+            const current = note.featured_media ? await apiFetch( { path: `/wp/v2/media/${ note.featured_media }?_fields=id,source_url,media_details,alt_text` } ).catch( () => null ) : null;
+            if ( state.featured?.id !== id ) {
+                return;
+            }
+            Object.assign( state.featured, { title: note.title.raw, current, busy: '' } );
+        } catch ( e ) {
+            if ( state.featured?.id === id ) {
+                Object.assign( state.featured, { busy: '', error: __( 'This note could not be loaded.', 'wordpress-for-writers' ) } );
+            }
+        }
+        renderFeatured();
+        loadLibrary();
+    }
+
+    async function loadLibrary() {
+        const panel = state.featured;
+        if ( ! panel || panel.loadingLibrary || panel.page >= panel.totalPages ) {
+            return;
+        }
+        panel.loadingLibrary = true;
+        try {
+            const response = await apiFetch( {
+                path: '/wp/v2/media?' + new URLSearchParams( { media_type: 'image', per_page: LIBRARY_PAGE, page: panel.page + 1, _fields: 'id,source_url,media_details,alt_text' } ),
+                parse: false,
+            } );
+            const items = await response.json();
+            panel.totalPages = parseInt( response.headers.get( 'X-WP-TotalPages' ), 10 ) || 1;
+            panel.page += 1;
+            panel.library = panel.library.concat( items );
+        } catch ( e ) {
+            panel.totalPages = panel.page;
+        }
+        panel.loadingLibrary = false;
+        if ( state.featured === panel ) {
+            renderFeatured();
+        }
+    }
+
+    function renderFeatured() {
+        const panel = state.featured;
+        const editor = root.querySelector( '.wfw-editor' );
+        let el = editor.querySelector( '.wfw-media' );
+        if ( ! panel ) {
+            el?.remove();
+            return;
+        }
+        if ( ! el ) {
+            el = document.createElement( 'div' );
+            el.className = 'wfw-media';
+            el.setAttribute( 'role', 'region' );
+            el.setAttribute( 'aria-label', __( 'Featured image', 'wordpress-for-writers' ) );
+            editor.appendChild( el );
+        }
+        const { current, busy } = panel;
+        const currentId = current?.id || 0;
+        const preview = current
+            ? `<img src="${ esc( mediaUrl( current, [ 'large', 'medium_large', 'medium' ] ) ) }" alt="${ esc( current.alt_text || '' ) }" />`
+            : `<div class="wfw-media__empty">${ icon( 'image' ) }<span>${ esc( busy === 'load' ? '' : settings.canUpload ? __( 'No featured image. Upload one, drop it here, or pick from your images below.', 'wordpress-for-writers' ) : __( 'No featured image. Pick one from your images below.', 'wordpress-for-writers' ) ) }</span></div>`;
+        const library = panel.library.map( ( m ) => `
+            <button class="wfw-media__tile${ m.id === currentId ? ' is-selected' : '' }" data-action="featured-set" data-media="${ m.id }" aria-pressed="${ m.id === currentId }" ${ busy ? 'disabled' : '' }>
+                <img src="${ esc( mediaUrl( m, [ 'thumbnail', 'medium' ] ) ) }" alt="${ esc( m.alt_text || '' ) }" loading="lazy" />
+            </button>` ).join( '' );
+        const status = {
+            upload: __( 'Uploading…', 'wordpress-for-writers' ),
+            save: __( 'Saving…', 'wordpress-for-writers' ),
+        }[ busy ] || '';
+
+        el.classList.toggle( 'is-busy', !! busy );
+        el.innerHTML = `
+            <div class="wfw-media__column">
+                <div class="wfw-media__head">
+                    <div class="wfw-media__heading">
+                        <div class="wfw-media__eyebrow">${ esc( __( 'Featured image', 'wordpress-for-writers' ) ) }</div>
+                        <h2 class="wfw-media__title${ panel.title ? '' : ' is-empty' }">${ esc( panel.title || ( busy === 'load' ? '' : __( 'Untitled', 'wordpress-for-writers' ) ) ) }&nbsp;</h2>
+                    </div>
+                    <button class="wfw-pill" data-action="open" data-id="${ panel.id }">${ esc( __( 'Back to note', 'wordpress-for-writers' ) ) }</button>
+                </div>
+                <div class="wfw-media__current${ current ? '' : ' is-empty' }">${ preview }</div>
+                <div class="wfw-media__actions"${ busy === 'load' ? ' hidden' : '' }>
+                    ${ settings.canUpload ? `<label class="wfw-pill wfw-pill--accent${ busy ? ' is-disabled' : '' }">${ icon( 'upload' ) }<span>${ esc( current ? __( 'Upload new', 'wordpress-for-writers' ) : __( 'Upload', 'wordpress-for-writers' ) ) }</span><input type="file" accept="image/*" hidden ${ busy ? 'disabled' : '' } /></label>` : '' }
+                    ${ current ? `<button class="wfw-pill" data-action="featured-remove" ${ busy ? 'disabled' : '' }>${ esc( __( 'Remove', 'wordpress-for-writers' ) ) }</button>` : '' }
+                    <span class="wfw-media__status" role="status">${ esc( panel.error || status ) }</span>
+                </div>
+                ${ panel.library.length ? `<div class="wfw-media__label">${ esc( __( 'Your images', 'wordpress-for-writers' ) ) }</div><div class="wfw-media__grid">${ library }</div>` : '' }
+                ${ panel.page < panel.totalPages && panel.page > 0 ? `<button class="wfw-pill wfw-media__more" data-action="featured-more">${ esc( __( 'Show more', 'wordpress-for-writers' ) ) }</button>` : '' }
+            </div>`;
+    }
+
+    async function setFeatured( mediaId, media ) {
+        const panel = state.featured;
+        if ( ! panel || panel.busy ) {
+            return;
+        }
+        panel.busy = 'save';
+        panel.error = '';
+        renderFeatured();
+        try {
+            await apiFetch( { path: '/wp/v2/posts/' + panel.id, method: 'POST', data: { featured_media: mediaId } } );
+            panel.current = mediaId ? media || panel.library.find( ( m ) => m.id === mediaId ) || null : null;
+            loadNotes();
+        } catch ( e ) {
+            panel.error = e?.message || __( 'The image could not be saved.', 'wordpress-for-writers' );
+        }
+        panel.busy = '';
+        if ( state.featured === panel ) {
+            renderFeatured();
+        }
+    }
+
+    async function uploadFeatured( file ) {
+        const panel = state.featured;
+        if ( ! panel || panel.busy || ! settings.canUpload || ! file ) {
+            return;
+        }
+        if ( ! file.type.startsWith( 'image/' ) ) {
+            panel.error = __( 'That file is not an image.', 'wordpress-for-writers' );
+            renderFeatured();
+            return;
+        }
+        panel.busy = 'upload';
+        panel.error = '';
+        renderFeatured();
+        let media = null;
+        try {
+            const body = new window.FormData();
+            body.append( 'file', file, file.name );
+            body.append( 'post', panel.id );
+            media = await apiFetch( { path: '/wp/v2/media?_fields=id,source_url,media_details,alt_text', method: 'POST', body } );
+            panel.library = [ media ].concat( panel.library );
+        } catch ( e ) {
+            panel.error = e?.message || __( 'The upload failed.', 'wordpress-for-writers' );
+        }
+        panel.busy = '';
+        if ( media ) {
+            await setFeatured( media.id, media );
+        } else if ( state.featured === panel ) {
+            renderFeatured();
+        }
+    }
+
+    root.addEventListener( 'change', ( event ) => {
+        if ( event.target.matches( '.wfw-media input[type="file"]' ) ) {
+            uploadFeatured( event.target.files[ 0 ] );
+        }
+    } );
+
+    // Dropping an image anywhere on the panel uploads it.
+    root.addEventListener( 'dragover', ( event ) => {
+        const panel = event.target.closest( '.wfw-media' );
+        if ( panel && settings.canUpload && event.dataTransfer?.types.includes( 'Files' ) ) {
+            event.preventDefault();
+            panel.classList.add( 'is-dropping' );
+        }
+    } );
+    root.addEventListener( 'dragleave', ( event ) => {
+        const panel = event.target.closest( '.wfw-media' );
+        if ( panel && ! panel.contains( event.relatedTarget ) ) {
+            panel.classList.remove( 'is-dropping' );
+        }
+    } );
+    root.addEventListener( 'drop', ( event ) => {
+        const panel = event.target.closest( '.wfw-media' );
+        if ( panel && event.dataTransfer?.files.length ) {
+            event.preventDefault();
+            panel.classList.remove( 'is-dropping' );
+            uploadFeatured( event.dataTransfer.files[ 0 ] );
         }
     } );
 
@@ -804,6 +1022,23 @@
             case 'open':
                 openNote( id );
                 break;
+            case 'featured':
+                event.stopPropagation();
+                openFeatured( id );
+                break;
+            case 'featured-set': {
+                const mediaId = Number( target.dataset.media );
+                if ( mediaId !== state.featured?.current?.id ) {
+                    setFeatured( mediaId );
+                }
+                break;
+            }
+            case 'featured-remove':
+                setFeatured( 0 );
+                break;
+            case 'featured-more':
+                loadLibrary();
+                break;
             case 'new':
                 newNote();
                 break;
@@ -883,6 +1118,8 @@
             toggleListMenu( false );
         } else if ( event.key === 'Escape' && root.querySelector( '.wfw-sheet' ) ) {
             closeAppearance();
+        } else if ( event.key === 'Escape' && state.featured && ! state.featured.busy ) {
+            openNote( state.featured.id );
         } else if ( event.key === 'Escape' && state.focus ) {
             toggleFocus();
         }
@@ -934,8 +1171,8 @@
     renderListHeader();
     refresh();
 
-    const hashMatch = window.location.hash.match( /note=(\d+)/ );
+    const hashMatch = window.location.hash.match( /(note|image)=(\d+)/ );
     if ( hashMatch ) {
-        openNote( Number( hashMatch[ 1 ] ) );
+        ( hashMatch[ 1 ] === 'image' ? openFeatured : openNote )( Number( hashMatch[ 2 ] ) );
     }
 } )();

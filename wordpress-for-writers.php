@@ -103,6 +103,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'avatarUrl'   => get_option( 'show_avatars' ) ? get_avatar_url( $user->ID, array( 'size' => 48 ) ) : '',
             'canManage'   => current_user_can( 'manage_options' ),
             'canDelete'   => current_user_can( 'delete_posts' ),
+            'canUpload'   => current_user_can( 'upload_files' ),
             'logoutUrl'   => wp_logout_url(),
             'appearance'  => wfw_appearance_client_data(),
         ) );
@@ -112,7 +113,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( wfw_is_frame() && in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
         wp_enqueue_style( 'wfw-frame', WFW_URL . 'assets/frame.css', array(), wfw_asset_version( 'assets/frame.css' ) );
         wp_add_inline_style( 'wfw-frame', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
+        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post' ), wfw_asset_version( 'assets/frame.js' ), true );
         wp_localize_script( 'wfw-frame', 'wfwFrame', array( 'appearance' => wfw_get_appearance() ) );
     }
 } );
