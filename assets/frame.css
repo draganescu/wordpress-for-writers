@@ -137,6 +137,16 @@ body.wfw-frame .block-editor-block-contextual-toolbar .components-toolbar {
     border: 0 !important;
 }
 
+/*
+ * Docked in the header, core draws the toolbar's bottom hairline as a shadow
+ * (`.block-editor-block-contextual-toolbar.is-unstyled { box-shadow: 0 1px 0 }`),
+ * which lands inside the pill as a line across its foot. The pill carries its
+ * own border and shadow, so the inner toolbar needs none.
+ */
+body.wfw-frame .editor-collapsible-block-toolbar .block-editor-block-contextual-toolbar {
+    box-shadow: none !important;
+}
+
 /* No inline "+" on empty paragraphs (rendered as a popover outside the canvas). */
 body.wfw-frame .block-editor-block-list__empty-block-inserter,
 body.wfw-frame .block-editor-block-list__insertion-point,
