@@ -355,10 +355,6 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-list-fg ) !important;
 }
 
-.wfw-icon-btn--accent {
-    color: var( --wfw-accent ) !important;
-}
-
 .wfw-search {
     flex: 1;
     display: flex;
