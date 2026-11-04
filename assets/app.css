@@ -132,6 +132,11 @@ body.wfw-takeover #wpbody-content {
     padding: 0 8px 16px;
 }
 
+/* Categories and tags pinned to the main menu, set apart from the built-in views above them. */
+.wfw-sidebar__pins {
+    margin-top: 12px;
+}
+
 /* Categories and Tags headings: nav items (.wfw-nav) that fold the list below them. */
 .wfw-sidebar__section {
     margin-top: 12px;

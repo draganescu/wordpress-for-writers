@@ -16,6 +16,7 @@ define( 'WFW_VERSION', '0.1.0' );
 define( 'WFW_URL', plugin_dir_url( __FILE__ ) );
 define( 'WFW_PAGE', 'wfw' );
 
+require_once __DIR__ . '/includes/pinned-terms.php';
 require_once __DIR__ . '/includes/appearance.php';
 
 /**
@@ -110,6 +111,9 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),
             'appearance'        => wfw_appearance_client_data(),
+            // Categories and tags pinned to the main menu, and the user meta key that stores them.
+            'pinnedTerms'       => wfw_pinned_terms_client_data(),
+            'pinnedTermsKey'    => wfw_pinned_terms_key(),
         ) );
         return;
     }
