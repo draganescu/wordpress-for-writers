@@ -113,13 +113,24 @@ body.wfw-takeover #wpbody-content {
     padding: 0 8px 16px;
 }
 
+/* Categories and Tags headings: nav items (.wfw-nav) that fold the list below them. */
 .wfw-sidebar__section {
-    margin: 18px 8px 6px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var( --wfw-sidebar-muted );
+    margin-top: 12px;
+}
+
+/* ICONS.back points left: turned to point right while folded, down while open. */
+.wfw-sidebar__chevron {
+    transform: rotate( 180deg );
+    transition: transform 0.15s ease;
+}
+
+.wfw-sidebar__section[aria-expanded="true"] .wfw-sidebar__chevron {
+    transform: rotate( 270deg );
+}
+
+/* Folded, a section still shows the active view. */
+.wfw-sidebar__section[aria-expanded="false"] + .wfw-sidebar__items > :not( .is-active ) {
+    display: none;
 }
 
 .wfw-nav {

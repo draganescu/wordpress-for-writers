@@ -42,6 +42,7 @@
         categories: [],
         tags: [],
         sidebarHidden: loadPref( 'sidebarHidden', false ),
+        collapsed: loadPref( 'collapsed', {} ),
         focus: false,
     };
 
@@ -277,6 +278,18 @@
             .join( '' );
     }
 
+    // Categories and Tags fold away under a heading that works like a nav item.
+    // Folded, a section still shows the active view, so you never lose your place.
+    function sidebarSection( key, label, items ) {
+        const open = ! state.collapsed[ key ];
+        return `
+            <button class="wfw-nav wfw-sidebar__section" data-action="toggle-section" data-section="${ esc( key ) }" aria-expanded="${ open ? 'true' : 'false' }" aria-controls="wfw-section-${ esc( key ) }">
+                <span class="wfw-nav__icon wfw-sidebar__chevron">${ icon( 'back' ) }</span>
+                <span class="wfw-nav__label">${ esc( label ) }</span>
+            </button>
+            <div class="wfw-sidebar__items" id="wfw-section-${ esc( key ) }">${ items }</div>`;
+    }
+
     function renderSidebar() {
         const sidebar = root.querySelector( '.wfw-sidebar' );
         const statusNav = STATUS_VIEWS.map( ( v ) => navButton( { type: v.type }, v.label, icon( v.icon ), state.counts[ v.type ] ) ).join( '' );
@@ -288,8 +301,8 @@
             <div class="wfw-sidebar__head">${ esc( settings.siteName ) }</div>
             <div class="wfw-sidebar__scroll">
                 ${ statusNav }
-                ${ state.categories.length ? `<div class="wfw-sidebar__section">${ esc( __( 'Categories', 'wordpress-for-writers' ) ) }</div>${ categoryTree( 0, 0 ) }` : '' }
-                ${ state.tags.length ? `<div class="wfw-sidebar__section">${ esc( __( 'Tags', 'wordpress-for-writers' ) ) }</div>${ tags }` : '' }
+                ${ state.categories.length ? sidebarSection( 'categories', __( 'Categories', 'wordpress-for-writers' ), categoryTree( 0, 0 ) ) : '' }
+                ${ state.tags.length ? sidebarSection( 'tags', __( 'Tags', 'wordpress-for-writers' ), tags ) : '' }
             </div>
             <div class="wfw-sidebar__foot">
                 <button data-action="appearance">${ esc( __( 'Appearance', 'wordpress-for-writers' ) ) }</button>
@@ -610,6 +623,14 @@
                 renderListHeader();
                 loadNotes();
                 break;
+            case 'toggle-section': {
+                // Flipped in place rather than re-rendered, so keyboard focus stays on the heading.
+                const key = target.dataset.section;
+                state.collapsed[ key ] = ! state.collapsed[ key ];
+                savePref( 'collapsed', state.collapsed );
+                target.setAttribute( 'aria-expanded', state.collapsed[ key ] ? 'false' : 'true' );
+                break;
+            }
             case 'open':
                 openNote( id );
                 break;
