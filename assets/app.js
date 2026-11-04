@@ -510,8 +510,7 @@
         const actions = isTrash && settings.canDelete
             ? `<span class="wfw-icon-btn" role="button" data-action="restore" data-id="${ note.id }" title="${ esc( __( 'Restore', 'wordpress-for-writers' ) ) }">${ icon( 'restore' ) }</span>
                <span class="wfw-icon-btn" role="button" data-action="delete" data-id="${ note.id }" title="${ esc( __( 'Delete permanently', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</span>`
-            : isTrash ? '' : `${ FEATURED ? `<span class="wfw-icon-btn" role="button" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Featured image', 'wordpress-for-writers' ) ) }">${ icon( 'image' ) }</span>` : '' }
-               ${ settings.canDelete ? `<span class="wfw-icon-btn" role="button" data-action="trash" data-id="${ note.id }" title="${ esc( __( 'Move to trash', 'wordpress-for-writers' ) ) }">${ icon( 'trash' ) }</span>` : '' }`;
+            : isTrash || ! settings.canDelete ? '' : `<span class="wfw-icon-btn" role="button" data-action="trash" data-id="${ note.id }" title="${ esc( __( 'Move to trash', 'wordpress-for-writers' ) ) }">${ icon( 'trash' ) }</span>`;
 
         return `
             <div class="wfw-note${ note.id === state.activeId ? ' is-active' : '' }" role="listitem" tabindex="0" data-action="open" data-id="${ note.id }">
@@ -683,6 +682,12 @@
                 loadCounts();
                 break;
             }
+            case 'featured-image': {
+                if ( FEATURED && data.id ) {
+                    openFeatured( data.id );
+                }
+                break;
+            }
             case 'escape': {
                 if ( state.focus ) {
                     toggleFocus();
@@ -731,6 +736,9 @@
             const [ searchInput, setSearchInput ] = useState( '' );
             const [ search, setSearch ] = useState( '' );
             const sentinelRef = useRef( null );
+            // The last pages read and the list made from them, so the selector returns
+            // the same array until a page changes (useSelect compares by reference).
+            const libraryRef = useRef( { pages: [], items: [] } );
             const [ busy, setBusy ] = useState( '' );
             const [ error, setError ] = useState( '' );
             const uploadedRef = useRef( false );
@@ -740,7 +748,7 @@
                 const core = select( coreStore );
                 const record = core.getEntityRecord( 'postType', 'post', postId );
                 const mediaId = record?.featured_media;
-                let items = [];
+                const pageRecords = [];
                 let loading = false;
                 let totalPages = 1;
                 for ( let page = 1; page <= pages; page++ ) {
@@ -750,13 +758,17 @@
                     }
                     const records = core.getEntityRecords( 'postType', 'attachment', query );
                     loading = loading || records === null;
-                    items = items.concat( records || [] );
+                    pageRecords.push( records );
                     totalPages = core.getEntityRecordsTotalPages?.( 'postType', 'attachment', query ) ?? totalPages;
+                }
+                const last = libraryRef.current;
+                if ( pageRecords.length !== last.pages.length || pageRecords.some( ( records, i ) => records !== last.pages[ i ] ) ) {
+                    libraryRef.current = { pages: pageRecords, items: pageRecords.flatMap( ( records ) => records || [] ) };
                 }
                 return {
                     post: record,
                     current: mediaId ? core.getEntityRecord( 'postType', 'attachment', mediaId ) : null,
-                    library: items,
+                    library: libraryRef.current.items,
                     libraryLoading: loading,
                     hasMore: pages < totalPages,
                 };
