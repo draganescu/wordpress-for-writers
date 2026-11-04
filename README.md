@@ -42,7 +42,7 @@ These live in `plugins/` and are separate plugins. Install each by copying its f
 
 - [Writer Subscribe](plugins/writer-subscribe/README.md): a scroll-triggered subscribe popup, an inline form block, double opt-in and a streamed CSV export that handles very large lists.
 
-Companion plugins can add links to the Writer sidebar footer with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '' )`.
+Companion plugins can add links to the user menu in the Writer sidebar with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '', 'icon' => '' )`; `icon` is optional and names one of the app's icons.
 
 ## Development
 
