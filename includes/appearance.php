@@ -15,9 +15,9 @@ defined( 'ABSPATH' ) || exit;
  * A sidebar that doesn't share the list's tones (a dark sidebar beside a white
  * list) can set its own: `sidebarDark` next to `dark`, and in `colors`
  * `sidebarBorder`, `sidebarCurrent`, `sidebarCurrentFg` and `sidebarCurrentIcon`
- * (the current item's background, text and icon) and `listHover` (the search field
- * and the list's buttons). Left out, they follow `dark`, `border`, `hover`, `text`,
- * `accent` and `hover`.
+ * (the current item's background, text and icon), `sidebarButton` (the footer's
+ * icon buttons) and `listHover` (the search field and the list's buttons). Left
+ * out, they follow `dark`, `border`, `hover`, `text`, `accent`, `muted` and `hover`.
  */
 function wfw_themes() {
     return array(
@@ -102,7 +102,8 @@ function wfw_themes() {
                 'sidebar' => '#1e1e1e', 'sidebarFg' => '#ffffff', 'sidebarMuted' => 'rgba(255,255,255,.7)', 'hover' => '#2f2f2f',
                 'list' => '#ffffff', 'active' => '#f0f0f0', 'border' => '#e0e0e0', 'bg' => '#ffffff',
                 'text' => '#1e1e1e', 'muted' => '#757575', 'accent' => '#3858e9', 'code' => '#f0f0f0', 'mark' => '#fbe7a1',
-                'sidebarBorder' => '#2f2f2f', 'sidebarCurrent' => '#3858e9', 'sidebarCurrentFg' => '#ffffff', 'sidebarCurrentIcon' => '#ffffff', 'listHover' => '#f0f0f0',
+                'sidebarBorder' => '#2f2f2f', 'sidebarCurrent' => '#3858e9', 'sidebarCurrentFg' => '#ffffff', 'sidebarCurrentIcon' => '#ffffff',
+                'sidebarButton' => 'rgba(255,255,255,.7)', 'listHover' => '#f0f0f0',
             ),
         ),
     );
@@ -204,6 +205,7 @@ function wfw_appearance_css() {
         'sidebarCurrent'     => 'sidebar-current',
         'sidebarCurrentFg'   => 'sidebar-current-fg',
         'sidebarCurrentIcon' => 'sidebar-current-icon',
+        'sidebarButton'      => 'sidebar-button',
         'listHover'          => 'list-hover',
     );
 
@@ -212,6 +214,7 @@ function wfw_appearance_css() {
         'sidebarCurrent'     => 'var(--wfw-sidebar-active)',
         'sidebarCurrentFg'   => 'var(--wfw-list-fg)',
         'sidebarCurrentIcon' => 'var(--wfw-accent)',
+        'sidebarButton'      => 'var(--wfw-list-muted)',
         'listHover'          => 'var(--wfw-sidebar-active)',
     );
 
