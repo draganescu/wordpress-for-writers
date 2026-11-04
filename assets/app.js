@@ -56,6 +56,7 @@
         categories: [],
         tags: [],
         sidebarHidden: loadPref( 'sidebarHidden', false ),
+        collapsed: loadPref( 'collapsed', {} ),
         focus: false,
     };
 
@@ -293,6 +294,17 @@
             .join( '' );
     }
 
+    // Categories and Tags fold away under a heading that works like a nav item.
+    function sidebarSection( key, label, items ) {
+        const open = ! state.collapsed[ key ];
+        return `
+            <button class="wfw-nav wfw-sidebar__section" data-action="toggle-section" data-section="${ esc( key ) }" aria-expanded="${ open ? 'true' : 'false' }" aria-controls="wfw-section-${ esc( key ) }">
+                <span class="wfw-nav__icon wfw-sidebar__chevron">${ icon( 'back' ) }</span>
+                <span class="wfw-nav__label">${ esc( label ) }</span>
+            </button>
+            <div class="wfw-sidebar__items" id="wfw-section-${ esc( key ) }">${ items }</div>`;
+    }
+
     function renderSidebar() {
         const sidebar = root.querySelector( '.wfw-sidebar' );
         const avatar = settings.avatarUrl
@@ -308,8 +320,8 @@
             <div class="wfw-sidebar__head">${ esc( settings.siteName ) }</div>
             <div class="wfw-sidebar__scroll">
                 ${ statusNav }
-                ${ state.categories.length ? `<div class="wfw-sidebar__section">${ esc( __( 'Categories', 'wordpress-for-writers' ) ) }</div>${ categoryTree( 0, 0 ) }` : '' }
-                ${ state.tags.length ? `<div class="wfw-sidebar__section">${ esc( __( 'Tags', 'wordpress-for-writers' ) ) }</div>${ tags }` : '' }
+                ${ state.categories.length ? sidebarSection( 'categories', __( 'Categories', 'wordpress-for-writers' ), categoryTree( 0, 0 ) ) : '' }
+                ${ state.tags.length ? sidebarSection( 'tags', __( 'Tags', 'wordpress-for-writers' ), tags ) : '' }
             </div>
             <div class="wfw-sidebar__foot">
                 <span class="wfw-user">${ avatar }<span class="wfw-user__name" title="${ esc( settings.userName ) }">${ esc( settings.userName ) }</span></span>
@@ -639,6 +651,14 @@
                 renderListHeader();
                 loadNotes();
                 break;
+            case 'toggle-section': {
+                // Flipped in place rather than re-rendered, so keyboard focus stays on the heading.
+                const key = target.dataset.section;
+                state.collapsed[ key ] = ! state.collapsed[ key ];
+                savePref( 'collapsed', state.collapsed );
+                target.setAttribute( 'aria-expanded', state.collapsed[ key ] ? 'false' : 'true' );
+                break;
+            }
             case 'open':
                 openNote( id );
                 break;
@@ -735,6 +755,14 @@
     }
 
     // ---- Boot --------------------------------------------------------------
+
+    // Reopen a folded section that holds the restored category or tag view, so
+    // the active item is in sight. Folding it later in the session is left alone.
+    const activeSection = { category: 'categories', tag: 'tags' }[ state.view.type ];
+    if ( activeSection && state.collapsed[ activeSection ] ) {
+        state.collapsed[ activeSection ] = false;
+        savePref( 'collapsed', state.collapsed );
+    }
 
     renderShell();
     renderSidebar();
