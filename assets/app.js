@@ -107,9 +107,13 @@
      * The open editors, listed under Editing now: the one in view, and those
      * opened with "Open in new tab", which keep running out of sight so each
      * keeps its place, undo history and unsaved changes. Each is
-     * { key, id, title, frame, ready, revealTimer }: id is null for a new note
-     * until it's first saved, and frame is null until the tab is first shown
+     * { key, id, title, frame, ready, stale, revealTimer }: id is null for a new
+     * note until it's first saved, and frame is null until the tab is first shown
      * (tabs come back after a reload without loading every editor at once).
+     *
+     * A note can be open in several tabs. Only the tab in view is edited, so
+     * leaving one of them saves a draft's changes, and a twin that missed a save
+     * (stale) loads the note again when it next comes into view.
      */
     let tabs = [];
     let current = null;
@@ -430,13 +434,12 @@
     }
 
     /*
-     * Editing now: the open editors as vertical tabs, first in the sidebar. It
-     * shows once there's an editor besides the one in view, so a single open note
-     * doesn't repeat what the list already highlights. Each tab has a close
-     * button, and a middle click closes it too.
+     * Editing now: the open editors as vertical tabs, first in the sidebar,
+     * shown whenever a note is open, even just one, so the list doesn't come and
+     * go. Each tab has a close button, and a middle click closes it too.
      */
     function editingNowHtml() {
-        if ( ! tabs.some( ( t ) => t !== current ) ) {
+        if ( ! tabs.length ) {
             return '';
         }
         const items = tabs.map( ( tab ) => {
@@ -704,6 +707,7 @@
     // Loads the tab's note into a fresh editor, in place of the one it had.
     function loadTab( tab ) {
         dropFrame( tab );
+        tab.stale = false;
         tab.frame = document.createElement( 'iframe' );
         // aria-label rather than title: Safari shows an iframe's title as a hover tooltip.
         tab.frame.setAttribute( 'aria-label', __( 'Editor', 'wordpress-for-writers' ) );
@@ -714,8 +718,31 @@
         tab.revealTimer = setTimeout( () => revealEditor( tab ), 8000 );
     }
 
+    // Other tabs with the same note open.
+    function twinsOf( tab ) {
+        return tab?.id ? tabs.filter( ( t ) => t !== tab && t.id === tab.id ) : [];
+    }
+
     // Puts the tab in view. The others stay loaded behind it, hidden.
-    function showTab( tab ) {
+    async function showTab( tab ) {
+        const previous = current;
+        // A draft's changes are saved on the way out when its note is open in
+        // another tab, so that tab picks them up (the save marks it stale).
+        if ( previous && previous !== tab && previous.ready && twinsOf( previous ).length ) {
+            await ask( { type: 'flush' }, 8000, previous );
+        }
+        // A tab whose note was saved from another tab since it loaded starts over
+        // from the saved note, unless it holds unsaved changes of its own (a
+        // published note's), which stay, with a word about the other tab.
+        if ( tab?.stale && tab.frame ) {
+            tab.stale = false;
+            const reply = tab.ready ? await ask( { type: 'flush' }, 8000, tab ) : null;
+            if ( ! reply || reply.ok ) {
+                dropFrame( tab );
+            } else {
+                showToast( __( 'This note was changed in another tab', 'wordpress-for-writers' ) );
+            }
+        }
         const editor = clearEditorPane();
         current = tab;
         state.activeId = tab ? tab.id : null;
@@ -745,7 +772,7 @@
     }
 
     function addTab( id, title = noteTitle( id ) ) {
-        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, revealTimer: 0 };
+        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, stale: false, revealTimer: 0 };
         // Next to the tab in view, like a browser's new tab from a link.
         const at = tabs.indexOf( current );
         tabs.splice( at < 0 ? tabs.length : at + 1, 0, tab );
@@ -753,9 +780,10 @@
     }
 
     // Opens the note in the tab in view, as a click on it in the list does. A note
-    // that already has a tab is shown there instead, so it's never open twice.
+    // that already has a tab is shown there instead (the one in view, if it's one
+    // of them): "Open in new tab" is the way to open a note twice.
     async function openNote( id ) {
-        const open = tabFor( id );
+        const open = current?.id === id ? current : tabFor( id );
         if ( open ) {
             if ( open !== current || ! open.frame || state.featured ) {
                 showTab( open );
@@ -776,9 +804,10 @@
         showTab( addTab( id ) );
     }
 
-    // "Open in new tab": the note gets an editor of its own under Editing now, and comes into view.
+    // "Open in new tab": the note gets another editor of its own under Editing now,
+    // even when it's open already, and comes into view.
     function openNoteInTab( id ) {
-        showTab( tabFor( id ) || addTab( id ) );
+        showTab( addTab( id ) );
     }
 
     async function newNote() {
@@ -823,11 +852,7 @@
         if ( ! saved.length ) {
             return;
         }
-        saved.forEach( ( t ) => {
-            if ( ! tabFor( Number( t.id ) ) ) {
-                addTab( Number( t.id ), String( t.title || '' ) );
-            }
-        } );
+        saved.forEach( ( t ) => addTab( Number( t.id ), String( t.title || '' ) ) );
         renderSidebar();
         const ids = tabs.map( ( t ) => t.id ).filter( Boolean );
         const notes = await apiFetch( {
@@ -847,12 +872,9 @@
         renderSidebar();
     }
 
-    // A note that went to the trash or was deleted closes its tab, with nothing to save.
+    // A note that went to the trash or was deleted closes its tabs, with nothing to save.
     function closeNoteTab( id ) {
-        const tab = tabFor( id );
-        if ( tab ) {
-            closeTab( tab, { save: false } );
-        }
+        tabs.filter( ( t ) => t.id === id ).forEach( ( t ) => closeTab( t, { save: false } ) );
     }
 
     function setTabTitle( tab, title ) {
@@ -903,11 +925,12 @@
                     el.textContent = data.title || __( 'Untitled', 'wordpress-for-writers' );
                     el.classList.toggle( 'is-empty', ! data.title );
                 }
-                setTabTitle( tab, data.title || '' );
+                [ tab, ...twinsOf( tab ) ].forEach( ( t ) => setTabTitle( t, data.title || '' ) );
                 break;
             }
             case 'saved': {
                 tab.id = data.id;
+                twinsOf( tab ).forEach( ( t ) => ( t.stale = true ) );
                 if ( tab === current ) {
                     state.activeId = data.id;
                     window.history.replaceState( null, '', '#note=' + data.id );
@@ -1174,16 +1197,18 @@
         if ( ! FEATURED ) {
             return;
         }
-        // The panel saves the image straight to the note, so the note's own editor
-        // saves first and goes, and loads again (with the new image) on the way back.
+        // The panel saves the image straight to the note, so the note's own editors
+        // save first and go, and load again (with the new image) when next shown.
         // Other tabs keep running behind the panel.
-        const tab = tabFor( id );
-        if ( tab ) {
+        const open = tabs.filter( ( t ) => t.id === id );
+        for ( const tab of open ) {
             if ( ! ( await canLeaveEditor( tab ) ) ) {
                 return;
             }
-            dropFrame( tab );
-            current = tab;
+        }
+        open.forEach( dropFrame );
+        if ( open.length && ! open.includes( current ) ) {
+            current = open[ 0 ];
         }
         state.activeId = id;
         markActive();
