@@ -546,13 +546,171 @@ body.wfw-frame .components-snackbar-list {
 }
 
 /*
- * Top notices (e.g. "There is an autosave…") and the sidebar toggle are hidden.
- * Errors still show so failed saves aren't silent. The settings sidebar is
- * still reachable with the editor shortcut (Cmd/Ctrl + Shift + ,).
+ * The sidebar toggle is hidden. The settings sidebar is still reachable with the
+ * editor shortcut (Cmd/Ctrl + Shift + ,).
  */
-body.wfw-frame .editor-notices :is( .components-notices__dismissible, .components-notices__pinned, .editor-notices__dismissible, .editor-notices__pinned ) .components-notice:not( .is-error ),
 body.wfw-frame .editor-header__settings .interface-pinned-items {
     display: none !important;
+}
+
+/*
+ * Top notices (e.g. "There is an autosave…") as a card in the theme's colors,
+ * centered on the writing column like the formatting pill, instead of core's
+ * full-width tinted admin banner. They float over the top of the canvas rather
+ * than pushing it down. A dot carries the status.
+ */
+body.wfw-frame .editor-notices {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 30;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    background: none !important;
+    border: 0 !important;
+}
+
+body.wfw-frame .editor-notices:has( .components-notice ) {
+    padding-top: 12px;
+}
+
+body.wfw-frame .editor-notices :is( .components-notice-list, [class*="notices__pinned"], [class*="notices__dismissible"] ) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: var( --wfw-measure, 720px );
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+body.wfw-frame .editor-notices .components-notice {
+    --wfw-notice-dot: var( --wfw-accent );
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    width: 100%;
+    margin: 0 !important;
+    padding: 10px 8px 10px 34px !important;
+    pointer-events: auto;
+    box-sizing: border-box;
+    background: var( --wfw-editor-bg ) !important;
+    color: var( --wfw-text ) !important;
+    border: 1px solid var( --wfw-border ) !important;
+    border-radius: 12px;
+    box-shadow: var( --wfw-pill-shadow );
+    font-family: var( --wfw-font-ui );
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+body.wfw-frame .editor-notices .components-notice::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    width: 8px;
+    height: 8px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: var( --wfw-notice-dot );
+}
+
+body.wfw-frame .editor-notices .components-notice.is-warning {
+    --wfw-notice-dot: var( --wfw-status-draft );
+}
+
+body.wfw-frame .editor-notices .components-notice.is-success {
+    --wfw-notice-dot: var( --wfw-status-publish );
+}
+
+body.wfw-frame .editor-notices .components-notice.is-error {
+    --wfw-notice-dot: #d63638;
+    border-color: color-mix( in srgb, #d63638 40%, var( --wfw-border ) ) !important;
+}
+
+/* Core's own status icon, where it draws one; the dot replaces it. */
+body.wfw-frame .editor-notices .components-notice > svg,
+body.wfw-frame .editor-notices .components-notice__icon {
+    display: none;
+}
+
+body.wfw-frame .editor-notices .components-notice__content {
+    flex: 1 1 240px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    margin: 0 !important;
+    color: inherit;
+}
+
+body.wfw-frame .editor-notices .components-notice__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 !important;
+}
+
+/* Actions as quiet capsules, like the Save button. */
+body.wfw-frame .editor-notices .components-notice__actions .components-button {
+    height: 28px;
+    margin: 0 !important;
+    padding: 0 12px !important;
+    background: transparent !important;
+    color: var( --wfw-text ) !important;
+    border: 1px solid var( --wfw-border ) !important;
+    border-radius: 999px;
+    box-shadow: none !important;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none !important;
+    white-space: nowrap;
+}
+
+body.wfw-frame .editor-notices .components-notice__actions .components-button:hover {
+    background: var( --wfw-code-bg ) !important;
+}
+
+body.wfw-frame .editor-notices .components-notice__actions .components-button.is-primary {
+    background: var( --wfw-accent ) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+}
+
+body.wfw-frame .editor-notices .components-notice__actions .components-button:focus-visible,
+body.wfw-frame .editor-notices .components-notice__dismiss:focus-visible {
+    outline: 2px solid var( --wfw-accent );
+    outline-offset: 1px;
+    box-shadow: none !important;
+}
+
+body.wfw-frame .editor-notices .components-notice__dismiss {
+    align-self: center;
+    margin: 0 !important;
+    color: var( --wfw-muted ) !important;
+    border-radius: 8px;
+}
+
+body.wfw-frame .editor-notices .components-notice__dismiss:hover {
+    color: var( --wfw-text ) !important;
+    background: var( --wfw-code-bg ) !important;
+}
+
+/* Clear the floating Save pill when the column reaches under it. */
+@media ( max-width: 960px ) {
+    body.wfw-frame .editor-notices:has( .components-notice ) {
+        padding-top: 60px;
+    }
 }
 
 /* Narrow editors (phones): the formatting pill scrolls sideways rather than overflowing. */
@@ -602,6 +760,12 @@ body.wfw-frame .editor-header__settings .interface-pinned-items {
         body.wfw-frame .components-popover__content,
         body.wfw-frame .components-modal__frame {
             border-radius: 16px !important;
+            corner-shape: squircle;
+        }
+
+        /* Top notices, was 12px. */
+        body.wfw-frame .editor-notices .components-notice {
+            border-radius: 20px;
             corner-shape: squircle;
         }
 
