@@ -239,9 +239,11 @@ function wfw_appearance_css() {
     }
 
     $css .= ':root{--wfw-font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}';
-    $css .= ':root,:root[data-wfw-font="serif"]{--wfw-font-body:ui-serif,"New York","Iowan Old Style",Charter,"Bitstream Charter",Georgia,serif;}';
-    $css .= ':root[data-wfw-font="sans"]{--wfw-font-body:"Avenir Next",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}';
-    $css .= ':root[data-wfw-font="mono"]{--wfw-font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}';
+    // Each stack leads with a self-hosted family (includes/fonts.php); the rest stand in while it loads and for characters it lacks.
+    // Geist Serif has one weight, so its title and large headings stay regular rather than synthesized in bold.
+    $css .= ':root,:root[data-wfw-font="serif"]{--wfw-font-body:"Geist Serif",ui-serif,"New York","Iowan Old Style",Charter,"Bitstream Charter",Georgia,serif;--wfw-heading-weight:400;}';
+    $css .= ':root[data-wfw-font="sans"]{--wfw-font-body:"Geist Sans","Avenir Next",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--wfw-heading-weight:700;}';
+    $css .= ':root[data-wfw-font="mono"]{--wfw-font-body:"Roboto Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;--wfw-heading-weight:700;}';
     $css .= ':root[data-wfw-size="small"]{--wfw-size:16px;}';
     $css .= ':root,:root[data-wfw-size="medium"]{--wfw-size:18px;}';
     $css .= ':root[data-wfw-size="large"]{--wfw-size:20px;}';

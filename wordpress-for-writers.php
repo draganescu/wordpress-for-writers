@@ -16,6 +16,7 @@ define( 'WFW_VERSION', '0.1.0' );
 define( 'WFW_URL', plugin_dir_url( __FILE__ ) );
 define( 'WFW_PAGE', 'wfw' );
 
+require_once __DIR__ . '/includes/fonts.php';
 require_once __DIR__ . '/includes/appearance.php';
 require_once __DIR__ . '/includes/thumbnails.php';
 require_once __DIR__ . '/includes/site-scheme.php';
