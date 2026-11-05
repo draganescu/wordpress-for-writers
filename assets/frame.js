@@ -317,6 +317,10 @@
      * anyone who hasn't closed it there. Setting the preference itself didn't
      * stick for a new user: with nothing saved yet, their preferences load
      * late, from a REST request, and replace whatever was set before them.
+     *
+     * The guide is closed whenever it comes on, including on purpose: the app
+     * hides the editor's options menu (frame.css), so the only way left to open
+     * it here is the command palette, and the app has no use for it.
      */
     const preferences = select( 'core/preferences' );
     let closingGuide = false;
