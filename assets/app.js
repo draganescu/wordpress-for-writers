@@ -107,9 +107,11 @@
      * The open editors, listed under Editing now: the one in view, and those
      * opened with "Open in new tab", which keep running out of sight so each
      * keeps its place, undo history and unsaved changes. Each is
-     * { key, id, title, frame, ready, stale, revealTimer }: id is null for a new
-     * note until it's first saved, and frame is null until the tab is first shown
-     * (tabs come back after a reload without loading every editor at once).
+     * { key, id, title, frame, ready, stale, revealTimer, hiddenSince }: id is
+     * null for a new note until it's first saved, and frame is null until the tab
+     * is first shown (tabs come back after a reload without loading every editor
+     * at once). hiddenSince is when the tab last went out of view, for
+     * unloadIdleTabs.
      *
      * A note can be open in several tabs. Only the tab in view is edited, so
      * leaving one of them saves a draft's changes, and a twin that missed a save
@@ -705,7 +707,49 @@
         tab.frame?.remove();
         tab.frame = null;
         tab.ready = false;
+        tab.hiddenSince = 0;
     }
+
+    /*
+     * Hides or shows a tab's editor. Out of view, an editor keeps running (its
+     * place, undo history and unsaved changes stay), so it's told, and slows its
+     * heartbeat; and the time it went out of view is kept, so an editor idle
+     * for long enough is unloaded (unloadIdleTabs).
+     */
+    function setHidden( tab, hidden ) {
+        if ( ! tab.frame ) {
+            return;
+        }
+        tab.frame.classList.toggle( 'is-hidden', hidden );
+        tab.hiddenSince = hidden ? tab.hiddenSince || Date.now() : 0;
+        postVisibility( tab );
+    }
+
+    function postVisibility( tab ) {
+        tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'visibility', hidden: tab.frame.classList.contains( 'is-hidden' ) }, window.location.origin );
+    }
+
+    // How long an editor stays loaded out of view.
+    const IDLE_UNLOAD = 10 * 60 * 1000;
+
+    /*
+     * Editors out of view for a while are unloaded, giving back their memory and
+     * their heartbeat requests; the tab loads its note again when next shown. A
+     * draft's last changes were saved on the way out of its tab, and are saved
+     * again here to be sure. A published note's unsaved changes keep their
+     * editor, since nothing else holds them.
+     */
+    async function unloadIdleTabs() {
+        const idle = tabs.filter( ( t ) => t !== current && t.frame && t.hiddenSince && Date.now() - t.hiddenSince > IDLE_UNLOAD );
+        for ( const tab of idle ) {
+            // The tab may have come into view, or gone, while the save ran.
+            if ( ( await canLeaveEditor( tab ) ) && tab !== current && tab.frame && tabs.includes( tab ) ) {
+                dropFrame( tab );
+            }
+        }
+    }
+
+    setInterval( unloadIdleTabs, 60 * 1000 );
 
     // Loads the tab's note into a fresh editor, in place of the one it had.
     function loadTab( tab ) {
@@ -716,6 +760,7 @@
         tab.frame.setAttribute( 'aria-label', __( 'Editor', 'wordpress-for-writers' ) );
         tab.frame.classList.add( 'is-loading' );
         tab.frame.classList.toggle( 'is-hidden', tab !== current );
+        tab.hiddenSince = tab !== current ? Date.now() : 0;
         tab.frame.src = editorSrc( tab.id );
         root.querySelector( '.wfw-editor' ).appendChild( tab.frame );
         tab.revealTimer = setTimeout( () => revealEditor( tab ), 8000 );
@@ -749,7 +794,7 @@
         const editor = clearEditorPane();
         current = tab;
         state.activeId = tab ? tab.id : null;
-        tabs.forEach( ( t ) => t.frame?.classList.toggle( 'is-hidden', t !== tab ) );
+        tabs.forEach( ( t ) => setHidden( t, t !== tab ) );
         root.classList.toggle( 'has-note', !! tab );
         if ( ! tab ) {
             editor.insertAdjacentHTML( 'beforeend', `<div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>` );
@@ -775,7 +820,7 @@
     }
 
     function addTab( id, title = noteTitle( id ) ) {
-        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, stale: false, revealTimer: 0 };
+        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, stale: false, revealTimer: 0, hiddenSince: 0 };
         // Next to the tab in view, like a browser's new tab from a link.
         const at = tabs.indexOf( current );
         tabs.splice( at < 0 ? tabs.length : at + 1, 0, tab );
@@ -865,6 +910,9 @@
         savePref( 'tabs', tabs.filter( ( t ) => t.id ).map( ( t ) => ( { id: t.id, title: t.title } ) ) );
     }
 
+    // A title changes with every keystroke in it: those are saved once typing pauses.
+    const saveTabTitles = debounce( saveTabs, 500 );
+
     // Tabs restored from the last visit, minus notes that have since been trashed or deleted.
     async function restoreTabs() {
         const saved = ( loadPref( 'tabs', [] ) || [] ).filter( ( t ) => t && Number( t.id ) > 0 );
@@ -903,7 +951,7 @@
             label.textContent = title || __( 'Untitled', 'wordpress-for-writers' );
             label.classList.toggle( 'is-empty', ! title );
         }
-        saveTabs();
+        saveTabTitles();
     }
 
     window.addEventListener( 'message', ( event ) => {
@@ -925,6 +973,7 @@
             case 'ready': {
                 tab.ready = true;
                 postAppearance( tab );
+                postVisibility( tab ); // An editor that loaded behind the featured image panel starts out hidden.
                 if ( data.id && tab.id !== data.id ) {
                     tab.id = data.id;
                     if ( tab === current ) {
@@ -1233,7 +1282,7 @@
         markActive();
         window.history.replaceState( null, '', '#image=' + id );
         const editor = clearEditorPane();
-        tabs.forEach( ( t ) => t.frame?.classList.add( 'is-hidden' ) );
+        tabs.forEach( ( t ) => setHidden( t, true ) );
         root.classList.add( 'has-note' );
         renderSidebar();
         const host = document.createElement( 'div' );

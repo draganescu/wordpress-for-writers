@@ -410,6 +410,29 @@
         }
     } );
 
+    /*
+     * In a tab behind another, the editor keeps running with nothing to show, so
+     * its heartbeat slows to every two minutes, as core's does in a window
+     * without focus: the post lock (150 seconds) still holds, with a fraction of
+     * the requests. Back in view, the interval goes back to what it was.
+     */
+    const HIDDEN_HEARTBEAT = 120;
+    let shownInterval = 0;
+
+    function setHidden( hidden ) {
+        const heartbeat = window.wp && window.wp.heartbeat;
+        if ( ! heartbeat ) {
+            return;
+        }
+        if ( hidden && ! shownInterval ) {
+            shownInterval = heartbeat.interval() || 60;
+            heartbeat.interval( HIDDEN_HEARTBEAT );
+        } else if ( ! hidden && shownInterval ) {
+            heartbeat.interval( shownInterval );
+            shownInterval = 0;
+        }
+    }
+
     window.addEventListener( 'message', async ( event ) => {
         if ( event.origin !== window.location.origin || event.source !== window.parent || ! event.data || event.data.source !== 'wfw' ) {
             return;
@@ -419,6 +442,10 @@
             appearance = event.data.appearance || appearance;
             stamp( document );
             stampCanvas();
+            return;
+        }
+        if ( type === 'visibility' ) {
+            setHidden( !! event.data.hidden );
             return;
         }
         if ( type !== 'flush' ) {
