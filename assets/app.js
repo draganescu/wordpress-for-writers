@@ -117,6 +117,8 @@
      */
     let tabs = [];
     let current = null;
+    // Each tab is a whole block editor, so only so many stay open.
+    const MAX_TABS = 6;
     let tabSeq = 0;
     let pendingReplies = {};
     let replySeq = 0;
@@ -792,30 +794,46 @@
             root.classList.add( 'has-note' );
             return;
         }
-        if ( current ) {
-            if ( ! ( await canLeaveEditor() ) ) {
+        const here = tabToReuse();
+        if ( here ) {
+            if ( ! ( await canLeaveEditor( here ) ) ) {
                 return;
             }
-            current.id = id;
-            current.title = noteTitle( id );
-            dropFrame( current );
-            showTab( current );
+            here.id = id;
+            here.title = noteTitle( id );
+            dropFrame( here );
+            showTab( here );
             return;
         }
         showTab( addTab( id ) );
+    }
+
+    // The tab a note opens in when it isn't opened in a new one: the tab in view,
+    // or, with none in view and every tab taken, the last one.
+    function tabToReuse() {
+        return current || ( tabs.length >= MAX_TABS ? tabs[ tabs.length - 1 ] : null );
     }
 
     // "Open in new tab": the note gets another editor of its own under Editing now,
     // even when it's open already, and comes into view.
     function openNoteInTab( id ) {
+        if ( tabs.length >= MAX_TABS ) {
+            showToast( sprintf(
+                /* translators: %d: how many notes can be open in tabs at once. */
+                __( 'Up to %d notes can be open at once. Close one to open another.', 'wordpress-for-writers' ),
+                MAX_TABS
+            ) );
+            return;
+        }
         showTab( addTab( id ) );
     }
 
     async function newNote() {
-        if ( current && ! ( await canLeaveEditor() ) ) {
+        const reuse = tabToReuse();
+        if ( reuse && ! ( await canLeaveEditor( reuse ) ) ) {
             return;
         }
-        const tab = current || addTab( null, '' );
+        const tab = reuse || addTab( null, '' );
         tab.id = null;
         tab.title = '';
         dropFrame( tab );
@@ -853,7 +871,7 @@
         if ( ! saved.length ) {
             return;
         }
-        saved.forEach( ( t ) => addTab( Number( t.id ), String( t.title || '' ) ) );
+        saved.slice( 0, MAX_TABS ).forEach( ( t ) => addTab( Number( t.id ), String( t.title || '' ) ) );
         renderSidebar();
         const ids = tabs.map( ( t ) => t.id ).filter( Boolean );
         const notes = await apiFetch( {
