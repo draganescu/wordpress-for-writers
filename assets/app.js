@@ -1163,9 +1163,14 @@
      * the sidebar. Each is the account menu's .wfw-menu, with its keys (above),
      * in one element at the app's root, outside the panes that re-render. It opens
      * at the pointer and stays inside the window. The context-menu key and
-     * Shift+F10 open it for the focused note or item, and on touch screens a long
-     * press does for sidebar items. A long press on a note is left to the browser
-     * for selecting text, since the note's own buttons are the touch path. The
+     * Shift+F10 open it for the focused note or item. On touch screens a two-finger
+     * tap opens it for notes and sidebar items alike, and a long press does for
+     * sidebar items. A long press on a note is left to the browser for selecting
+     * text, since the note's own buttons are the touch path. Like the block
+     * editor's List View, everything goes through the one opener that the
+     * browser's contextmenu event uses: a trackpad's two-finger tap and Android's
+     * long press already arrive as that event, but no browser sends it for two
+     * fingers on a touch screen, so that gesture is recognized here. The
      * editor keeps the browser's menu: its canvas is another document, so these
      * listeners never hear from it.
      */
@@ -1450,6 +1455,69 @@
             event.preventDefault();
         }
     } );
+
+    /*
+     * A two-finger tap: a second finger lands soon after the first, neither moves,
+     * and both lift soon after. The menu is for the item under the first finger
+     * (or the second, when the first missed), and opens when the last one lifts.
+     * Neither finger's tap chooses the item, and three fingers are no tap at all.
+     */
+    const TWO_FINGER_GAP = 250; // ms between the two fingers landing
+    const TWO_FINGER_TAP = 500; // ms from the first landing to the last lifting
+    const touches = new Map();
+    let twoFinger = null;
+    let suppressClick = false;
+
+    root.addEventListener( 'pointerdown', ( event ) => {
+        if ( event.pointerType !== 'touch' ) {
+            return;
+        }
+        touches.set( event.pointerId, { x: event.clientX, y: event.clientY } );
+        const el = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        if ( touches.size === 1 ) {
+            suppressClick = false;
+            twoFinger = { el, start: event.timeStamp, both: false };
+        } else if ( touches.size === 2 && twoFinger && event.timeStamp - twoFinger.start < TWO_FINGER_GAP ) {
+            twoFinger.both = true;
+            twoFinger.el = twoFinger.el || el;
+            suppressClick = true;
+        } else {
+            twoFinger = null;
+        }
+    } );
+
+    root.addEventListener( 'pointermove', ( event ) => {
+        const from = touches.get( event.pointerId );
+        if ( twoFinger && from && Math.hypot( event.clientX - from.x, event.clientY - from.y ) > 10 ) {
+            twoFinger = null;
+        }
+    } );
+
+    root.addEventListener( 'pointerup', ( event ) => {
+        if ( ! touches.delete( event.pointerId ) || touches.size ) {
+            return;
+        }
+        const tap = twoFinger;
+        twoFinger = null;
+        if ( tap?.both && tap.el && event.timeStamp - tap.start < TWO_FINGER_TAP ) {
+            cancelLongPress();
+            pressOpened = openContextMenu( tap.el );
+        }
+    } );
+
+    root.addEventListener( 'pointercancel', ( event ) => {
+        touches.delete( event.pointerId );
+        twoFinger = null;
+    } );
+
+    // Where a browser still makes a click of one of the fingers, it doesn't open the note or view.
+    root.addEventListener( 'click', ( event ) => {
+        if ( suppressClick ) {
+            suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }, true );
 
     root.addEventListener( 'contextmenu', ( event ) => {
         // No browser menu over ours.
