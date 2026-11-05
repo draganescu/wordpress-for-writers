@@ -1119,7 +1119,7 @@ body.wfw-takeover #wpbody-content {
  * more tightly than an arc of the same radius, so each radius below is about 1.7x
  * the one it overrides, which keeps every shape about as round as before.
  *
- * Switch: set --wfw-corner-shape to round (here and at the end of frame.css) and
+ * Switch: set --wfw-corner-shape to round (here and at the end of editor.css) and
  * none of this applies. Browsers without corner-shape keep the plain arcs as well.
  * Circles stay circles. Capsules keep their radius, already half their height, and
  * only take the squircle's flatter ends.
@@ -1208,7 +1208,7 @@ body.wfw-takeover #wpbody-content {
 /*
  * Panels that replace the editor while a note's featured image is chosen
  * (.wfw-media__*) or its categories and tags are set (.wfw-terms__*). Built from
- * @wordpress/components, themed with the app's tokens the same way frame.css
+ * @wordpress/components, themed with the app's tokens the same way editor.css
  * themes the editor's own components. .wfw-panel holds what they share.
  */
 .wfw-note__thumb-btn {

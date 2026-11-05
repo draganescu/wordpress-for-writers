@@ -701,7 +701,7 @@
     }
 
     function editorSrc( id ) {
-        return id ? settings.adminUrl + 'post.php?post=' + id + '&action=edit&wfw_frame=1' : settings.adminUrl + 'post-new.php?wfw_frame=1';
+        return id ? settings.editorUrl + '&post=' + id : settings.editorUrl;
     }
 
     function dropFrame( tab ) {

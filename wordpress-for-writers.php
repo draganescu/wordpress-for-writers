@@ -20,6 +20,7 @@ require_once __DIR__ . '/includes/pinned-terms.php';
 require_once __DIR__ . '/includes/appearance.php';
 require_once __DIR__ . '/includes/thumbnails.php';
 require_once __DIR__ . '/includes/site-scheme.php';
+require_once __DIR__ . '/includes/editor.php';
 
 /**
  * Cache-busting version for a plugin asset.
@@ -27,13 +28,6 @@ require_once __DIR__ . '/includes/site-scheme.php';
 function wfw_asset_version( $path ) {
     $file = __DIR__ . '/' . $path;
     return file_exists( $file ) ? WFW_VERSION . '.' . filemtime( $file ) : WFW_VERSION;
-}
-
-/**
- * Whether the current request is the editor loaded inside the app's iframe.
- */
-function wfw_is_frame() {
-    return isset( $_GET['wfw_frame'] ); // phpcs:ignore WordPress.Security.NonceVerification
 }
 
 /**
@@ -139,6 +133,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'maxUploadFileSize' => wp_max_upload_size(),
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),
+            // The Writer editor's page; each tab loads it for its note (see includes/editor.php).
+            'editorUrl'         => wfw_editor_url(),
             // Core's update notices are hidden on the app page, so the account menu shows the
             // pending count instead, to the same people core shows it to (zero for everyone else).
             'updatesCount'      => current_user_can( 'update_core' ) || current_user_can( 'update_plugins' ) || current_user_can( 'update_themes' )
@@ -158,23 +154,6 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
                     return is_array( $link ) && ! empty( $link['label'] ) && ! empty( $link['url'] );
                 }
             ) ),
-        ) );
-        return;
-    }
-
-    if ( wfw_is_frame() && in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
-        wp_enqueue_style( 'wfw-frame', WFW_URL . 'assets/frame.css', array(), wfw_asset_version( 'assets/frame.css' ) );
-        wp_add_inline_style( 'wfw-frame', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-html-entities', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
-        $terms = wfw_terms_settings();
-        wp_localize_script( 'wfw-frame', 'wfwFrame', array(
-            'appearance'     => wfw_get_appearance(),
-            // Same checks as the app's featured image panel, which the link above the title opens.
-            'featuredImages' => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
-            // The links above the title for categories and tags, which open the app's form for them.
-            'categories'     => $terms['categories'],
-            'tags'           => $terms['tags'],
-            'visibility'     => wfw_visibility(),
         ) );
     }
 } );
@@ -197,56 +176,10 @@ function wfw_terms_settings() {
 }
 
 /**
- * Stamp appearance attributes on <html> before first paint, for the app and the embedded editor.
+ * Stamp appearance attributes on <html> before first paint. The editor page does its own (includes/editor.php).
  */
-add_action( 'admin_head', function () {
-    $screen = get_current_screen();
-    if ( ( $screen && 'toplevel_page_' . WFW_PAGE === $screen->id ) || wfw_is_frame() ) {
-        echo '<script>' . wfw_appearance_bootstrap_script() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput
-    }
-} );
-
-/**
- * The editor canvas ignores the theme: drop theme and user global styles and the
- * theme's editor styles, keeping only presets so color/size classes still resolve.
- */
-add_filter( 'block_editor_settings_all', function ( $settings ) {
-    if ( ! wfw_is_frame() || empty( $settings['styles'] ) ) {
-        return $settings;
-    }
-    $settings['styles'] = array_values( array_filter( $settings['styles'], function ( $style ) {
-        return ! in_array( $style['__unstableType'] ?? '', array( 'theme', 'user' ), true );
-    } ) );
-    return $settings;
-}, 99 );
-
-/**
- * Our own default styling inside the canvas iframe. Assets enqueued on
- * enqueue_block_assets in the editor are loaded into the canvas unscoped.
- */
-add_action( 'enqueue_block_assets', function () {
-    if ( ! is_admin() || ! wfw_is_frame() ) {
-        return;
-    }
-
-    // Drop theme stylesheets that would otherwise load into the canvas.
-    $theme_urls = array_unique( array( get_stylesheet_directory_uri(), get_template_directory_uri() ) );
-    foreach ( wp_styles()->queue as $handle ) {
-        $src = wp_styles()->registered[ $handle ]->src ?? '';
-        if ( 'wp-theme' === $handle || ( $src && array_filter( $theme_urls, fn( $url ) => str_starts_with( $src, $url ) ) ) ) {
-            wp_dequeue_style( $handle );
-        }
-    }
-
-    wp_enqueue_style( 'wfw-canvas', WFW_URL . 'assets/editor-content.css', array(), wfw_asset_version( 'assets/editor-content.css' ) );
-    wp_add_inline_style( 'wfw-canvas', wfw_appearance_css() );
-}, 99 );
-
-/**
- * Keep the frame marker on the editor's body so its styles survive the editor rewriting the URL.
- */
-add_filter( 'admin_body_class', function ( $classes ) {
-    return wfw_is_frame() ? $classes . ' wfw-frame' : $classes;
+add_action( 'admin_head-toplevel_page_' . WFW_PAGE, function () {
+    echo '<script>' . wfw_appearance_bootstrap_script() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput
 } );
 
 /**

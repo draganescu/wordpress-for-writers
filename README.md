@@ -18,7 +18,7 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
 - **Editing now:** open a note in a new tab (from its context menu, or with a Cmd/Ctrl-click or middle click) and it gets an editor of its own inside the app. Open notes are listed as vertical tabs under Editing now, at the top of the sidebar, and each keeps its place and unsaved changes while you switch. A note can be open in more than one tab: leaving one saves a draft's changes, and its other tabs load them when you switch to them. Close a tab with its × or a middle click. Up to six notes can be open at once. An editor that has been out of view for ten minutes is unloaded, and loads its note again when you switch back to it; a published note with unsaved changes keeps its editor. Open tabs come back after a reload, per device.
 - **Context menus:** right-click a note to open it (here or in a new tab), view or preview the post, copy its link or move it to the trash. In the Trash, the menu restores or deletes permanently instead. Right-click a category or tag to pin it to the main menu or view its archive on the site. The context-menu key and Shift+F10 open the same menus from the keyboard. On touch screens a two-finger tap opens them for notes, categories and tags, and a long press also opens a category's or tag's.
 - **Editor:**
-  - It's the real block editor with the wp-admin chrome removed.
+  - It's the block editor, put together from its public parts (`EditorProvider`, `BlockCanvas`, `BlockToolbar`, `PostTitle`, `PostPublishButton` and friends) on a page of its own, rather than wp-admin's post editor with its chrome hidden. Meta boxes, plugin sidebars, the command palette and list view aren't part of it; **Open in the full editor**, in the note's settings, opens the note in wp-admin's editor for those.
   - Theme styles are dropped in favour of a clean default writing surface.
   - The formatting toolbar floats at the bottom, and save/publish sits at the top right.
   - No block inserters or "Type / to choose a block" coaching.
@@ -41,7 +41,7 @@ The setup lives in `blueprint.json`, the demo posts in `playground/demo-content.
 
 Copy or clone this folder into `wp-content/plugins/` and activate **WordPress for Writers**. Requires WordPress 6.5+ and PHP 7.4+.
 
-To reach the classic dashboard, use **Classic dashboard** in the sidebar footer (`/wp-admin/index.php?wfw_classic=1`). The settings sidebar (categories, tags, status, excerpt) opens with **Cmd/Ctrl + Shift + ,**.
+To reach the classic dashboard, use **Classic dashboard** in the sidebar footer (`/wp-admin/index.php?wfw_classic=1`). The note's settings (excerpt, categories, tags, plugins' panels, and the selected block's settings) open in a sheet with **Cmd/Ctrl + Shift + ,**.
 
 Deleting the plugin from the Plugins screen removes each user's appearance preferences (the `wfw_appearance` user meta). Your posts, tags and categories stay, and so do any site global styles set from the app's colour scheme, since they are the site's look.
 
@@ -90,12 +90,13 @@ npx wp-env stop
 
 ### Layout
 
-- `wordpress-for-writers.php`: admin takeover, redirects, asset loading, and editor-frame settings (theme styles stripped, canvas CSS injected).
+- `wordpress-for-writers.php`: admin takeover, redirects and the app's assets.
+- `includes/editor.php`: the Writer editor's page (`admin.php?page=wfw-editor&post=ID`), which each tab loads: post lock, REST preloading, editor settings (theme styles left out) and assets.
 - `includes/appearance.php`: theme palettes, font/size/width options, user meta, and generated CSS tokens.
 - `includes/pinned-terms.php`: the user meta for categories and tags pinned to the main menu.
 - `includes/site-scheme.php`: applies the chosen colour scheme to themes that support `wfw-color-schemes`.
 - `assets/app.js`, `assets/app.css`: the three-pane app.
-- `assets/frame.js`, `assets/frame.css`: run inside the embedded block editor. They handle messaging with the app, draft autosave, the fixed bottom toolbar, and theming of the editor UI.
+- `assets/editor.js`, `assets/editor.css`: the Writer editor. Its layout (save and publish, the formatting pill, notices, the settings and publish sheets), messaging with the app, draft autosave and the iOS keyboard handling.
 - `assets/editor-content.css`: the default writing surface inside the editor canvas.
 - `blueprint.json`, `playground/demo-content.php`: the Playground demo.
 - `themes/`: the three reading themes. wp-env mounts them, so `npx wp-env run cli wp theme activate writer-essay` switches between them.
