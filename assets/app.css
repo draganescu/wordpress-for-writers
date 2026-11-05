@@ -132,6 +132,63 @@ body.wfw-takeover #wpbody-content {
     padding: 0 8px 16px;
 }
 
+/* Editing now: the open editors as vertical tabs, above the built-in views. */
+.wfw-sidebar__tabs {
+    margin-bottom: 12px;
+}
+
+.wfw-sidebar__heading {
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var( --wfw-sidebar-muted );
+}
+
+/* A tab is its nav item with a close button over its right end. */
+.wfw-tab {
+    position: relative;
+}
+
+.wfw-tab .wfw-nav {
+    padding-right: 36px;
+}
+
+.wfw-tab .wfw-nav__label.is-empty {
+    color: var( --wfw-sidebar-muted );
+}
+
+.wfw-tab .wfw-tab__close {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    transform: translateY( -50% );
+    /* !important against .wfw-icon-btn's list colours, as in the sidebar's footer. */
+    color: var( --wfw-sidebar-button ) !important;
+}
+
+.wfw-tab.is-active .wfw-tab__close {
+    color: var( --wfw-sidebar-current-fg ) !important;
+}
+
+.wfw-tab .wfw-tab__close svg {
+    width: 18px;
+    height: 18px;
+}
+
+.wfw-tab .wfw-tab__close:hover {
+    color: var( --wfw-sidebar-fg ) !important;
+    background: var( --wfw-sidebar-active ) !important;
+}
+
+/* With a mouse, the close button shows on the tab in view and the one pointed at; touch screens always show it. */
+@media ( hover: hover ) {
+    .wfw-tab:not( .is-active, :hover, :focus-within ) .wfw-tab__close {
+        opacity: 0;
+    }
+}
+
 /* Categories and tags pinned to the main menu, set apart from the built-in views above them. */
 .wfw-sidebar__pins {
     margin-top: 12px;
@@ -702,6 +759,12 @@ body.wfw-takeover #wpbody-content {
     border: 0;
     background: var( --wfw-editor-bg );
     transition: opacity 0.18s ease;
+}
+
+/* Tabs out of view keep their editors running, laid out but unseen and out of reach of focus. */
+.wfw-editor iframe.is-hidden {
+    visibility: hidden;
+    pointer-events: none;
 }
 
 /* Hidden until its canvas has painted, so a loading frame never flashes white. */
