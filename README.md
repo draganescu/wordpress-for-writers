@@ -95,7 +95,7 @@ npx wp-env stop
 - `assets/app.js`, `assets/app.css`: the three-pane app.
 - `assets/frame.js`, `assets/frame.css`: run inside the embedded block editor. They handle messaging with the app, draft autosave, the fixed bottom toolbar, and theming of the editor UI.
 - `assets/editor-content.css`: the default writing surface inside the editor canvas.
-- `assets/fonts.css`, `assets/fonts/`: the writing fonts (Geist Serif, Geist Sans, Roboto Mono), self-hosted and loaded into both the app and the editor canvas.
+- `includes/fonts.php`, `assets/fonts/`: the writing fonts (Geist Serif, Geist Sans, Roboto Mono), self-hosted and registered as default fonts in the site's theme.json data. WordPress loads them in the app, the editor canvas and the front end, and any theme can use them from the font controls in the editor and Styles.
 - `blueprint.json`, `playground/demo-content.php`: the Playground demo.
 - `themes/`: the three reading themes. wp-env mounts them, so `npx wp-env run cli wp theme activate writer-essay` switches between them.
 
