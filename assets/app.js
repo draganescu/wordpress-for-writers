@@ -89,8 +89,9 @@
         list: { ...LIST_DEFAULTS, ...loadPref( 'list', {} ) },
         total: 0,
         listMenu: false,
-        // Featured image panel shown in the editor pane: { id, title, current, library, page, totalPages, busy, error }.
-        featured: null,
+        // The panel shown in the editor pane in place of a note's editor (its featured image, or its
+        // categories and tags): { id, root }.
+        panel: null,
         // Categories and tags pinned to the main menu, in pin order: { taxonomy, id, name, link }.
         pins: settings.pinnedTerms || [],
     };
@@ -448,7 +449,7 @@
             return '';
         }
         const items = tabs.map( ( tab ) => {
-            // The featured image panel counts as its note's tab, which stays marked while the panel is open.
+            // A panel (featured image, categories and tags) counts as its note's tab, which stays marked while it's open.
             const active = tab === current;
             const title = tab.title || __( 'Untitled', 'wordpress-for-writers' );
             return `
@@ -676,9 +677,9 @@
 
     function clearEditorPane() {
         const editor = root.querySelector( '.wfw-editor' );
-        state.featured?.root.unmount();
-        state.featured = null;
-        editor.querySelectorAll( '.wfw-editor__placeholder, .wfw-editor__loading, .wfw-editor__skeleton, .wfw-media' ).forEach( ( el ) => el.remove() );
+        state.panel?.root.unmount();
+        state.panel = null;
+        editor.querySelectorAll( '.wfw-editor__placeholder, .wfw-editor__loading, .wfw-editor__skeleton, .wfw-panel' ).forEach( ( el ) => el.remove() );
         return editor;
     }
 
@@ -834,7 +835,7 @@
     async function openNote( id ) {
         const open = current?.id === id ? current : tabFor( id );
         if ( open ) {
-            if ( open !== current || ! open.frame || state.featured ) {
+            if ( open !== current || ! open.frame || state.panel ) {
                 showTab( open );
             }
             root.classList.add( 'has-note' );
@@ -974,7 +975,7 @@
             case 'ready': {
                 tab.ready = true;
                 postAppearance( tab );
-                postVisibility( tab ); // An editor that loaded behind the featured image panel starts out hidden.
+                postVisibility( tab ); // An editor that loaded behind a panel starts out hidden.
                 if ( data.id && tab.id !== data.id ) {
                     tab.id = data.id;
                     if ( tab === current ) {
@@ -1012,6 +1013,12 @@
             case 'featured-image': {
                 if ( FEATURED && data.id && tab === current ) {
                     openFeatured( data.id );
+                }
+                break;
+            }
+            case 'terms': {
+                if ( TERMS && data.id && tab === current ) {
+                    openTerms( data.id, data.focus );
                 }
                 break;
             }
@@ -1123,7 +1130,7 @@
                     if ( entry.isIntersecting ) {
                         setPages( ( count ) => count + 1 );
                     }
-                }, { root: sentinel.closest( '.wfw-media' ), rootMargin: '0px 0px 400px 0px' } );
+                }, { root: sentinel.closest( '.wfw-panel' ), rootMargin: '0px 0px 400px 0px' } );
                 observer.observe( sentinel );
                 return () => observer.disconnect();
             }, [ hasMore, libraryLoading ] );
@@ -1184,19 +1191,19 @@
                 ? __( 'No featured image. Upload one, drop it here, or pick from your images below.', 'wordpress-for-writers' )
                 : __( 'No featured image. Pick one from your images below.', 'wordpress-for-writers' );
 
-            return el( 'div', { className: 'wfw-media__column' },
-                el( 'div', { className: 'wfw-media__head' },
-                    el( 'div', { className: 'wfw-media__heading' },
-                        el( 'div', { className: 'wfw-media__eyebrow' }, __( 'Featured image', 'wordpress-for-writers' ) ),
-                        el( 'h2', { className: 'wfw-media__title' + ( post?.title?.raw ? '' : ' is-empty' ) }, title || ' ' )
+            return el( 'div', { className: 'wfw-panel__column' },
+                el( 'div', { className: 'wfw-panel__head' },
+                    el( 'div', { className: 'wfw-panel__heading' },
+                        el( 'div', { className: 'wfw-panel__eyebrow' }, __( 'Featured image', 'wordpress-for-writers' ) ),
+                        el( 'h2', { className: 'wfw-panel__title' + ( post?.title?.raw ? '' : ' is-empty' ) }, title || ' ' )
                     ),
-                    el( Button, { variant: 'secondary', className: 'wfw-media__back', onClick: onBack }, __( 'Back to note', 'wordpress-for-writers' ) )
+                    el( Button, { variant: 'secondary', className: 'wfw-panel__back', onClick: onBack }, __( 'Back to note', 'wordpress-for-writers' ) )
                 ),
-                lockedBy && el( Notice, { status: 'warning', isDismissible: false, className: 'wfw-media__notice' },
+                lockedBy && el( Notice, { status: 'warning', isDismissible: false, className: 'wfw-panel__notice' },
                     /* translators: %s: name of the user editing the note. */
                     sprintf( __( '%s is editing this note, so its featured image can’t be changed right now.', 'wordpress-for-writers' ), lockedBy )
                 ),
-                error && el( Notice, { status: 'error', onRemove: () => setError( '' ), className: 'wfw-media__notice' }, error ),
+                error && el( Notice, { status: 'error', onRemove: () => setError( '' ), className: 'wfw-panel__notice' }, error ),
                 el( 'div', { className: 'wfw-media__current' + ( current ? '' : ' is-empty' ) },
                     ! post && el( Spinner ),
                     post && current && el( 'img', { src: mediaUrl( current, [ 'large', 'medium_large', 'medium' ] ), alt: current.alt_text || '' } ),
@@ -1212,7 +1219,7 @@
                             currentId ? __( 'Upload new', 'wordpress-for-writers' ) : __( 'Upload', 'wordpress-for-writers' ) ),
                     } ),
                     !! currentId && el( Button, { variant: 'tertiary', isDestructive: true, onClick: () => setImage( 0 ), disabled, __next40pxDefaultSize: true }, __( 'Remove', 'wordpress-for-writers' ) ),
-                    status && el( 'span', { className: 'wfw-media__status', role: 'status' }, el( Spinner ), status )
+                    status && el( 'span', { className: 'wfw-panel__status', role: 'status' }, el( Spinner ), status )
                 ),
                 el( 'div', {
                     className: 'wfw-media__library-head',
@@ -1224,7 +1231,7 @@
                         }
                     },
                 },
-                    el( 'h3', { className: 'wfw-media__label', id: 'wfw-media-library' }, __( 'Your images', 'wordpress-for-writers' ) ),
+                    el( 'h3', { className: 'wfw-panel__label', id: 'wfw-media-library' }, __( 'Your images', 'wordpress-for-writers' ) ),
                     el( SearchControl, {
                         className: 'wfw-media__search',
                         value: searchInput,
@@ -1262,13 +1269,358 @@
         return { el, Panel };
     } )();
 
-    async function openFeatured( id ) {
-        if ( ! FEATURED ) {
+    // ---- Categories and tags -----------------------------------------------
+
+    /*
+     * The note's categories and tags are set in the editor pane, in place of
+     * the editor, in a form built from @wordpress/components that reads and
+     * saves through core-data, like the editor's own panels: a checklist of the
+     * site's categories, with room to add one, and a token field for tags, with
+     * the most used ones offered below it. Each change saves straight to the
+     * note, so the form stays read-only while someone else has the note open
+     * (the editor's post lock).
+     */
+    const TERMS = ( () => {
+        const terms = settings.terms || {};
+        if ( ! ( terms.categories || terms.tags ) || ! wp.element?.createRoot || ! wp.components || ! wp.coreData ) {
+            return null;
+        }
+        const { createElement: el, useState, useRef, useEffect, useMemo, Fragment } = wp.element;
+        const { Button, CheckboxControl, FormTokenField, Notice, SelectControl, SearchControl, Spinner, TextControl } = wp.components;
+        const { useSelect, useDispatch } = wp.data;
+        const coreStore = wp.coreData.store;
+        // Same queries as the editor's own panels, so the lists are shared with them.
+        const CATEGORY_QUERY = { per_page: -1, orderby: 'name', order: 'asc', context: 'view', _fields: 'id,name,parent' };
+        const POPULAR_TAGS_QUERY = { per_page: 20, orderby: 'count', order: 'desc', hide_empty: true, context: 'view', _fields: 'id,name,count' };
+        const SUGGESTIONS = 20;
+        // Past this many categories the checklist gets a filter, as the editor's panel does.
+        const FILTER_FROM = 8;
+
+        // Term names come HTML-escaped from the REST API.
+        const name = ( term ) => htmlToText( term.name );
+        const sameIds = ( a, b ) => a.length === b.length && a.every( ( id ) => b.includes( id ) );
+
+        function Panel( { postId, focus, onBack, onSaved } ) {
+            const [ filter, setFilter ] = useState( '' );
+            const [ newName, setNewName ] = useState( '' );
+            const [ newParent, setNewParent ] = useState( 0 );
+            const [ tagInput, setTagInput ] = useState( '' );
+            const [ tagSearch, setTagSearch ] = useState( '' );
+            const [ saving, setSaving ] = useState( 0 );
+            const pendingRef = useRef( 0 );
+            const [ adding, setAdding ] = useState( false );
+            const [ error, setError ] = useState( '' );
+            const columnRef = useRef( null );
+            const focusedRef = useRef( false );
+            // Every tag seen so far, by id, so the note's tags keep their names while a list reloads.
+            const knownRef = useRef( new Map() );
+            const { editEntityRecord, saveEditedEntityRecord, saveEntityRecord } = useDispatch( coreStore );
+
+            const { post, stored, categories, noteTags, popularTags, matchingTags } = useSelect( ( select ) => {
+                const core = select( coreStore );
+                const stored = core.getEntityRecord( 'postType', 'post', postId );
+                // The record with this form's unsaved edits on top, so a change shows at once.
+                const edited = stored ? core.getEditedEntityRecord( 'postType', 'post', postId ) : null;
+                const tagIds = edited?.tags || [];
+                return {
+                    post: edited,
+                    stored, // The edited record's title is a plain string; the heading reads the stored one.
+                    categories: terms.categories ? core.getEntityRecords( 'taxonomy', 'category', CATEGORY_QUERY ) : [],
+                    noteTags: terms.tags && tagIds.length
+                        ? core.getEntityRecords( 'taxonomy', 'post_tag', { include: tagIds, per_page: tagIds.length, context: 'view', _fields: 'id,name' } )
+                        : [],
+                    popularTags: terms.tags ? core.getEntityRecords( 'taxonomy', 'post_tag', POPULAR_TAGS_QUERY ) : [],
+                    matchingTags: terms.tags && tagSearch
+                        ? core.getEntityRecords( 'taxonomy', 'post_tag', { search: tagSearch, per_page: SUGGESTIONS, orderby: 'count', order: 'desc', context: 'view', _fields: 'id,name' } )
+                        : null,
+                };
+            }, [ postId, tagSearch ] );
+
+            [ noteTags, popularTags, matchingTags ].forEach( ( list ) => ( list || [] ).forEach( ( t ) => knownRef.current.set( t.id, name( t ) ) ) );
+
+            // Tags are looked up as you type, a moment after typing stops.
+            useEffect( () => {
+                const value = tagInput.trim();
+                const timer = setTimeout( () => setTagSearch( value ), 300 );
+                return () => clearTimeout( timer );
+            }, [ tagInput ] );
+
+            // The categories in tree order, each with its depth, walked once per list.
+            const categoryRows = useMemo( () => {
+                const children = new Map();
+                ( categories || [] ).forEach( ( c ) => children.set( c.parent, [ ...( children.get( c.parent ) || [] ), c ] ) );
+                const walk = ( parent, depth ) => ( children.get( parent ) || [] ).flatMap( ( term ) => [ { term, depth }, ...walk( term.id, depth + 1 ) ] );
+                return walk( 0, 0 );
+            }, [ categories ] );
+
+            const lockedBy = post?.wfw_locked_by || '';
+            const disabled = ! post || !! lockedBy;
+            const categoryIds = post?.categories || [];
+            const tagIds = post?.tags || [];
+
+            // The part of the form the link above the title was for gets focus once it has loaded.
+            useEffect( () => {
+                if ( focusedRef.current || ! post || ! columnRef.current || ( focus !== 'tags' && ! categories ) ) {
+                    return;
+                }
+                const target = focus === 'tags'
+                    ? columnRef.current.querySelector( '.components-form-token-field__input' )
+                    : columnRef.current.querySelector( '.wfw-terms__choice input, .wfw-terms__add input' );
+                if ( target ) {
+                    focusedRef.current = true;
+                    target.focus();
+                }
+            } );
+
+            // Saves a change to the note's terms. Changes made while one saves are
+            // kept as edits and go with the next save (core-data serializes them).
+            async function save( edits ) {
+                editEntityRecord( 'postType', 'post', postId, edits );
+                pendingRef.current += 1;
+                setSaving( pendingRef.current );
+                setError( '' );
+                let failed = false;
+                try {
+                    await saveEditedEntityRecord( 'postType', 'post', postId, { throwOnError: true } );
+                    onSaved();
+                } catch ( e ) {
+                    failed = true;
+                    setError( e?.message || __( 'The change could not be saved.', 'wordpress-for-writers' ) );
+                }
+                pendingRef.current -= 1;
+                // Once every save is through, the form shows what is really stored: a failed
+                // change is dropped, and a note left with no category gets the default one.
+                if ( ! pendingRef.current && ( failed || edits.categories ) ) {
+                    const stored = wp.data.select( coreStore ).getEntityRecord( 'postType', 'post', postId );
+                    if ( stored ) {
+                        editEntityRecord( 'postType', 'post', postId, { categories: stored.categories, tags: stored.tags } );
+                    }
+                }
+                setSaving( pendingRef.current );
+            }
+
+            function toggleCategory( id, checked ) {
+                save( { categories: checked ? [ ...categoryIds, id ] : categoryIds.filter( ( c ) => c !== id ) } );
+            }
+
+            // Makes a term, or finds the one that already has that name.
+            async function createTerm( taxonomy, data ) {
+                try {
+                    return await saveEntityRecord( 'taxonomy', taxonomy, data, { throwOnError: true } );
+                } catch ( e ) {
+                    if ( e?.code === 'term_exists' && e.data?.term_id ) {
+                        return { id: e.data.term_id, ...data };
+                    }
+                    throw e;
+                }
+            }
+
+            async function addCategory( event ) {
+                event.preventDefault();
+                const value = newName.trim();
+                if ( ! value || adding || disabled ) {
+                    return;
+                }
+                setAdding( true );
+                setError( '' );
+                try {
+                    const term = await createTerm( 'category', { name: value, parent: newParent || 0 } );
+                    setNewName( '' );
+                    setNewParent( 0 );
+                    if ( ! categoryIds.includes( term.id ) ) {
+                        save( { categories: [ ...categoryIds, term.id ] } );
+                    }
+                } catch ( e ) {
+                    setError( e?.message || __( 'The category could not be added.', 'wordpress-for-writers' ) );
+                }
+                setAdding( false );
+            }
+
+            // The token field hands back names; unknown ones become new tags.
+            async function changeTags( tokens ) {
+                if ( disabled ) {
+                    return;
+                }
+                const byName = new Map( [ ...knownRef.current ].map( ( [ id, n ] ) => [ n.toLowerCase(), id ] ) );
+                const ids = [];
+                const missing = [];
+                tokens.forEach( ( token ) => {
+                    const value = String( typeof token === 'string' ? token : token?.value || '' ).trim();
+                    const id = value && byName.get( value.toLowerCase() );
+                    if ( id ) {
+                        if ( ! ids.includes( id ) ) {
+                            ids.push( id );
+                        }
+                    } else if ( value ) {
+                        missing.push( value );
+                    }
+                } );
+                if ( missing.length && ! terms.canAddTags ) {
+                    setError( __( 'Only existing tags can be used on this site.', 'wordpress-for-writers' ) );
+                } else if ( missing.length ) {
+                    setAdding( true );
+                    for ( const value of missing ) {
+                        try {
+                            const term = await createTerm( 'post_tag', { name: value } );
+                            knownRef.current.set( term.id, name( term ) );
+                            if ( ! ids.includes( term.id ) ) {
+                                ids.push( term.id );
+                            }
+                        } catch ( e ) {
+                            setError( e?.message || __( 'The tag could not be added.', 'wordpress-for-writers' ) );
+                        }
+                    }
+                    setAdding( false );
+                }
+                if ( ! sameIds( ids, tagIds ) ) {
+                    save( { tags: ids } );
+                }
+            }
+
+            function choice( term, depth ) {
+                return el( 'div', { key: term.id, className: 'wfw-terms__choice', style: { paddingLeft: depth * 24 } },
+                    el( CheckboxControl, {
+                        label: name( term ),
+                        checked: categoryIds.includes( term.id ),
+                        onChange: ( checked ) => toggleCategory( term.id, checked ),
+                        disabled,
+                        __nextHasNoMarginBottom: true,
+                    } )
+                );
+            }
+
+            // The checklist follows the categories' tree; while filtering, it's the matches, flat.
+            const query = filter.trim().toLowerCase();
+            const choices = query
+                ? ( categories || [] ).filter( ( c ) => name( c ).toLowerCase().includes( query ) ).map( ( c ) => choice( c, 0 ) )
+                : categoryRows.map( ( { term, depth } ) => choice( term, depth ) );
+            const parentOptions = categoryRows.map( ( { term, depth } ) => ( { value: String( term.id ), label: ' '.repeat( depth * 3 ) + name( term ) } ) );
+
+            const tagNames = tagIds.map( ( id ) => knownRef.current.get( id ) ).filter( Boolean );
+            const suggestions = ( ( tagSearch ? matchingTags : popularTags ) || [] ).map( name ).filter( ( n ) => ! tagNames.includes( n ) );
+            const popular = ( popularTags || [] ).filter( ( t ) => ! tagIds.includes( t.id ) );
+
+            const title = stored ? stored.title?.raw || __( 'Untitled', 'wordpress-for-writers' ) : '';
+            const eyebrow = terms.categories && terms.tags
+                ? __( 'Categories and tags', 'wordpress-for-writers' )
+                : terms.categories ? __( 'Categories', 'wordpress-for-writers' ) : __( 'Tags', 'wordpress-for-writers' );
+            const status = adding ? __( 'Adding…', 'wordpress-for-writers' ) : saving ? __( 'Saving…', 'wordpress-for-writers' ) : '';
+
+            return el( 'div', { className: 'wfw-panel__column', ref: columnRef },
+                el( 'div', { className: 'wfw-panel__head' },
+                    el( 'div', { className: 'wfw-panel__heading' },
+                        el( 'div', { className: 'wfw-panel__eyebrow' }, eyebrow ),
+                        el( 'h2', { className: 'wfw-panel__title' + ( stored?.title?.raw ? '' : ' is-empty' ) }, title || ' ' )
+                    ),
+                    el( Button, { variant: 'secondary', className: 'wfw-panel__back', onClick: onBack }, __( 'Back to note', 'wordpress-for-writers' ) )
+                ),
+                lockedBy && el( Notice, { status: 'warning', isDismissible: false, className: 'wfw-panel__notice' },
+                    /* translators: %s: name of the user editing the note. */
+                    sprintf( __( '%s is editing this note, so its categories and tags can’t be changed right now.', 'wordpress-for-writers' ), lockedBy )
+                ),
+                error && el( Notice, { status: 'error', onRemove: () => setError( '' ), className: 'wfw-panel__notice' }, error ),
+                ! post && el( 'div', { className: 'wfw-terms__loading' }, el( Spinner ) ),
+                post && terms.categories && el( 'section', { className: 'wfw-terms__section' },
+                    el( 'div', { className: 'wfw-terms__section-head' },
+                        el( 'h3', { className: 'wfw-panel__label', id: 'wfw-terms-categories' }, __( 'Categories', 'wordpress-for-writers' ) ),
+                        categories && categories.length > FILTER_FROM && el( SearchControl, {
+                            className: 'wfw-terms__filter',
+                            value: filter,
+                            onChange: setFilter,
+                            label: __( 'Search categories', 'wordpress-for-writers' ),
+                            placeholder: __( 'Search categories', 'wordpress-for-writers' ),
+                            size: 'compact',
+                            __nextHasNoMarginBottom: true,
+                        } )
+                    ),
+                    ! categories && el( 'div', { className: 'wfw-terms__loading' }, el( Spinner ) ),
+                    categories && ! categories.length && el( 'p', { className: 'wfw-terms__none' }, __( 'No categories yet.', 'wordpress-for-writers' ) ),
+                    choices.length > 0 && el( 'div', { className: 'wfw-terms__choices', role: 'group', 'aria-labelledby': 'wfw-terms-categories' }, choices ),
+                    query && categories?.length > 0 && ! choices.length && el( 'p', { className: 'wfw-terms__none' },
+                        /* translators: %s: the search terms. */
+                        sprintf( __( 'No categories match “%s”.', 'wordpress-for-writers' ), filter.trim() )
+                    ),
+                    terms.canAddCategories && ! lockedBy && el( 'form', { className: 'wfw-terms__add', onSubmit: addCategory },
+                        el( TextControl, {
+                            className: 'wfw-terms__add-name',
+                            label: __( 'New category', 'wordpress-for-writers' ),
+                            hideLabelFromVision: true,
+                            placeholder: __( 'New category', 'wordpress-for-writers' ),
+                            value: newName,
+                            onChange: setNewName,
+                            disabled: disabled || adding,
+                            __next40pxDefaultSize: true,
+                            __nextHasNoMarginBottom: true,
+                        } ),
+                        categories?.length > 0 && el( SelectControl, {
+                            className: 'wfw-terms__add-parent',
+                            label: __( 'Parent category', 'wordpress-for-writers' ),
+                            hideLabelFromVision: true,
+                            value: String( newParent ),
+                            options: [ { value: '0', label: __( '— Parent category —', 'wordpress-for-writers' ) }, ...parentOptions ],
+                            onChange: ( value ) => setNewParent( Number( value ) ),
+                            disabled: disabled || adding,
+                            __next40pxDefaultSize: true,
+                            __nextHasNoMarginBottom: true,
+                        } ),
+                        el( Button, { type: 'submit', variant: 'secondary', disabled: disabled || adding || ! newName.trim(), __next40pxDefaultSize: true },
+                            __( 'Add category', 'wordpress-for-writers' ) )
+                    )
+                ),
+                post && terms.tags && el( 'section', { className: 'wfw-terms__section' },
+                    el( FormTokenField, {
+                        className: 'wfw-terms__tags',
+                        label: __( 'Tags', 'wordpress-for-writers' ),
+                        value: tagNames,
+                        suggestions,
+                        maxSuggestions: SUGGESTIONS,
+                        onChange: changeTags,
+                        onInputChange: setTagInput,
+                        placeholder: __( 'Add a tag', 'wordpress-for-writers' ),
+                        disabled,
+                        __experimentalShowHowTo: false,
+                        __next40pxDefaultSize: true,
+                        __nextHasNoMarginBottom: true,
+                        messages: {
+                            added: __( 'Tag added.', 'wordpress-for-writers' ),
+                            removed: __( 'Tag removed.', 'wordpress-for-writers' ),
+                            remove: __( 'Remove tag', 'wordpress-for-writers' ),
+                            __experimentalInvalid: __( 'Invalid tag', 'wordpress-for-writers' ),
+                        },
+                    } ),
+                    popular.length > 0 && el( Fragment, null,
+                        el( 'h3', { className: 'wfw-panel__label wfw-terms__popular-label', id: 'wfw-terms-popular' }, __( 'Your tags', 'wordpress-for-writers' ) ),
+                        el( 'div', { className: 'wfw-terms__chips', role: 'group', 'aria-labelledby': 'wfw-terms-popular' },
+                            popular.map( ( t ) => el( Button, {
+                                key: t.id,
+                                className: 'wfw-terms__chip',
+                                variant: 'tertiary',
+                                size: 'compact',
+                                disabled,
+                                onClick: () => save( { tags: [ ...tagIds, t.id ] } ),
+                            }, '# ' + name( t ) ) )
+                        )
+                    )
+                ),
+                status && el( 'div', { className: 'wfw-panel__status wfw-terms__status', role: 'status' }, el( Spinner ), status )
+            );
+        }
+
+        return { el, Panel };
+    } )();
+
+    /*
+     * Shows a panel in the editor pane in place of the note's editor: its
+     * featured image ('image') or its categories and tags ('terms'). The panel
+     * saves straight to the note, so the note's own editors save first and go,
+     * and load again (with the changes) when next shown. Other tabs keep
+     * running behind the panel.
+     */
+    async function openPanel( id, kind, props = {} ) {
+        const module = kind === 'image' ? FEATURED : TERMS;
+        if ( ! module ) {
             return;
         }
-        // The panel saves the image straight to the note, so the note's own editors
-        // save first and go, and load again (with the new image) when next shown.
-        // Other tabs keep running behind the panel.
         const open = tabs.filter( ( t ) => t.id === id );
         for ( const tab of open ) {
             if ( ! ( await canLeaveEditor( tab ) ) ) {
@@ -1281,19 +1633,28 @@
         }
         state.activeId = id;
         markActive();
-        window.history.replaceState( null, '', '#image=' + id );
+        window.history.replaceState( null, '', '#' + kind + '=' + id );
         const editor = clearEditorPane();
         tabs.forEach( ( t ) => setHidden( t, true ) );
         root.classList.add( 'has-note' );
         renderSidebar();
         const host = document.createElement( 'div' );
-        host.className = 'wfw-media';
+        host.className = 'wfw-panel';
         host.setAttribute( 'role', 'region' );
-        host.setAttribute( 'aria-label', __( 'Featured image', 'wordpress-for-writers' ) );
+        host.setAttribute( 'aria-label', kind === 'image' ? __( 'Featured image', 'wordpress-for-writers' ) : __( 'Categories and tags', 'wordpress-for-writers' ) );
         editor.appendChild( host );
         const panelRoot = wp.element.createRoot( host );
-        panelRoot.render( FEATURED.el( FEATURED.Panel, { postId: id, onBack: () => openNote( id ), onSaved: () => loadNotes() } ) );
-        state.featured = { id, root: panelRoot };
+        panelRoot.render( module.el( module.Panel, { ...props, postId: id, onBack: () => openNote( id ), onSaved: () => { loadNotes(); if ( kind === 'terms' ) { loadTerms(); } } } ) );
+        state.panel = { id, root: panelRoot };
+    }
+
+    function openFeatured( id ) {
+        return openPanel( id, 'image' );
+    }
+
+    // focus: 'categories' or 'tags', the part of the form to start in.
+    function openTerms( id, focus ) {
+        return openPanel( id, 'terms', { focus } );
     }
 
     // ---- Appearance --------------------------------------------------------
@@ -2173,8 +2534,8 @@
             toggleListMenu( false );
         } else if ( event.key === 'Escape' && root.querySelector( '.wfw-sheet' ) ) {
             closeAppearance();
-        } else if ( event.key === 'Escape' && state.featured && ! event.defaultPrevented ) {
-            openNote( state.featured.id );
+        } else if ( event.key === 'Escape' && state.panel && ! event.defaultPrevented ) {
+            openNote( state.panel.id );
         } else if ( event.key === 'Escape' && state.focus ) {
             toggleFocus();
         }
@@ -2229,8 +2590,8 @@
 
     restoreTabs();
 
-    const hashMatch = window.location.hash.match( /(note|image)=(\d+)/ );
+    const hashMatch = window.location.hash.match( /(note|image|terms)=(\d+)/ );
     if ( hashMatch ) {
-        ( hashMatch[ 1 ] === 'image' ? openFeatured : openNote )( Number( hashMatch[ 2 ] ) );
+        ( { image: openFeatured, terms: openTerms, note: openNote }[ hashMatch[ 1 ] ] )( Number( hashMatch[ 2 ] ) );
     }
 } )();
