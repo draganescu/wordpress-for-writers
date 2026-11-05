@@ -34,6 +34,7 @@
         open: '<path d="m19 7-3-3-8.5 8.5-1 4 4-1L19 7Zm-7 11.5H5V20h7v-1.5Z"/>', // pencil
         view: '<path d="M3.99961 13C4.67043 13.3354 4.6703 13.3357 4.67017 13.3359L4.67298 13.3305C4.67621 13.3242 4.68184 13.3135 4.68988 13.2985C4.70595 13.2686 4.7316 13.2218 4.76695 13.1608C4.8377 13.0385 4.94692 12.8592 5.09541 12.6419C5.39312 12.2062 5.84436 11.624 6.45435 11.0431C7.67308 9.88241 9.49719 8.75 11.9996 8.75C14.502 8.75 16.3261 9.88241 17.5449 11.0431C18.1549 11.624 18.6061 12.2062 18.9038 12.6419C19.0523 12.8592 19.1615 13.0385 19.2323 13.1608C19.2676 13.2218 19.2933 13.2686 19.3093 13.2985C19.3174 13.3135 19.323 13.3242 19.3262 13.3305L19.3291 13.3359C19.3289 13.3357 19.3288 13.3354 19.9996 13C20.6704 12.6646 20.6703 12.6643 20.6701 12.664L20.6697 12.6632L20.6688 12.6614L20.6662 12.6563L20.6583 12.6408C20.6517 12.6282 20.6427 12.6108 20.631 12.5892C20.6078 12.5459 20.5744 12.4852 20.5306 12.4096C20.4432 12.2584 20.3141 12.0471 20.1423 11.7956C19.7994 11.2938 19.2819 10.626 18.5794 9.9569C17.1731 8.61759 14.9972 7.25 11.9996 7.25C9.00203 7.25 6.82614 8.61759 5.41987 9.9569C4.71736 10.626 4.19984 11.2938 3.85694 11.7956C3.68511 12.0471 3.55605 12.2584 3.4686 12.4096C3.42484 12.4852 3.39142 12.5459 3.36818 12.5892C3.35656 12.6108 3.34748 12.6282 3.34092 12.6408L3.33297 12.6563L3.33041 12.6614L3.32948 12.6632L3.32911 12.664C3.32894 12.6643 3.32879 12.6646 3.99961 13ZM11.9996 16C13.9326 16 15.4996 14.433 15.4996 12.5C15.4996 10.567 13.9326 9 11.9996 9C10.0666 9 8.49961 10.567 8.49961 12.5C8.49961 14.433 10.0666 16 11.9996 16Z"/>', // seen
         link: '<path d="M10 17.389H8.444A5.194 5.194 0 1 1 8.444 7H10v1.5H8.444a3.694 3.694 0 0 0 0 7.389H10v1.5ZM14 7h1.556a5.194 5.194 0 0 1 0 10.39H14v-1.5h1.556a3.694 3.694 0 0 0 0-7.39H14V7Zm-4.5 6h5v-1.5h-5V13Z"/>', // link
+        duplicate: '<path fill-rule="evenodd" clip-rule="evenodd" d="M5 4.5h11a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5ZM3 5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm17 3v10.75c0 .69-.56 1.25-1.25 1.25H6v1.5h12.75a2.75 2.75 0 0 0 2.75-2.75V8H20Z"/>', // copy
         pin: '<path d="m21.5 9.1-6.6-6.6-4.2 5.6c-1.2-.1-2.4.1-3.6.7-.1 0-.1.1-.2.1-.5.3-.9.6-1.2.9l3.7 3.7-5.7 5.7v1.1h1.1l5.7-5.7 3.7 3.7c.4-.4.7-.8.9-1.2.1-.1.1-.2.2-.3.6-1.1.8-2.4.6-3.6l5.6-4.1zm-7.3 3.5.1.9c.1.9 0 1.8-.4 2.6l-6-6c.8-.4 1.7-.5 2.6-.4l.9.1L15 4.9 19.1 9l-4.9 3.6z"/>', // pin
     };
 
@@ -1511,6 +1512,7 @@
             { command: 'open', icon: 'open', label: __( 'Open', 'wordpress-for-writers' ) },
             // A tab of the app's own, under Editing now, rather than another browser tab.
             { command: 'open-tab', icon: 'external', label: __( 'Open in new tab', 'wordpress-for-writers' ) },
+            { command: 'duplicate', icon: 'duplicate', label: __( 'Duplicate', 'wordpress-for-writers' ) },
         ];
         if ( note.link ) {
             items.push(
@@ -1636,6 +1638,9 @@
                 break;
             case 'open-tab':
                 openNoteInTab( menu.id );
+                break;
+            case 'duplicate':
+                duplicateNote( menu.id );
                 break;
             case 'copy-link':
                 copyLink( menu.note.link );
@@ -1940,6 +1945,39 @@
         await apiFetch( { path: '/wp/v2/posts/' + id, method: 'DELETE' } );
         closeNoteTab( id );
         await refresh();
+    }
+
+    /*
+     * A copy of the note as a new draft: its title (marked as a copy), content,
+     * excerpt, categories, tags, featured image and format. Sticky, the date and
+     * the password stay with the original. The copy opens in the tab in view.
+     */
+    async function duplicateNote( id ) {
+        try {
+            const note = await apiFetch( { path: '/wp/v2/posts/' + id + '?context=edit' } );
+            const title = note.title.raw.trim();
+            const copy = await apiFetch( {
+                path: '/wp/v2/posts',
+                method: 'POST',
+                data: {
+                    status: 'draft',
+                    title: title
+                        /* translators: %s: the title of the note being duplicated. */
+                        ? sprintf( __( '%s (copy)', 'wordpress-for-writers' ), title )
+                        : '',
+                    content: note.content.raw,
+                    excerpt: note.excerpt.raw,
+                    categories: note.categories,
+                    tags: note.tags,
+                    featured_media: note.featured_media,
+                    format: note.format,
+                },
+            } );
+            await refresh();
+            openNote( copy.id );
+        } catch ( e ) {
+            showToast( __( 'The note couldn’t be duplicated', 'wordpress-for-writers' ) );
+        }
     }
 
     async function restoreNote( id ) {
