@@ -286,6 +286,9 @@
         }
 
         // The names of the note's terms, comma separated; a count while they load.
+        // The stores hand back the same arrays until they change, so the last
+        // result is kept per attribute and reused while they stay the same.
+        const named = {};
         function termNames( attribute, taxonomy, empty, count ) {
             const ids = editor().getEditedPostAttribute( attribute ) || [];
             if ( ! ids.length ) {
@@ -295,19 +298,19 @@
             if ( ! terms ) {
                 return count( ids.length );
             }
-            const names = ids.map( ( id ) => terms.find( ( t ) => t.id === id ) ).filter( Boolean ).map( ( t ) => decode( t.name ) );
-            return names.length ? names.join( ', ' ) : count( ids.length );
-        }
-
-        // Term names come HTML-escaped from the REST API.
-        const decoder = document.createElement( 'textarea' );
-        function decode( html ) {
-            decoder.innerHTML = html || '';
-            return decoder.value;
+            const last = named[ attribute ];
+            if ( last && last.ids === ids && last.terms === terms ) {
+                return last.text;
+            }
+            // Term names come HTML-escaped from the REST API.
+            const names = ids.map( ( id ) => terms.find( ( t ) => t.id === id ) ).filter( Boolean ).map( ( t ) => wp.htmlEntities.decodeEntities( t.name || '' ) );
+            const text = names.length ? names.join( ', ' ) : count( ids.length );
+            named[ attribute ] = { ids, terms, text };
+            return text;
         }
 
         let row = null;
-        const labels = {};
+        let labels = {};
 
         function label() {
             if ( ! row ) {
@@ -368,7 +371,7 @@
                     } );
                     row.appendChild( link );
                 } );
-                Object.keys( labels ).forEach( ( key ) => delete labels[ key ] );
+                labels = {};
             }
             wrapper.prepend( row );
             label();

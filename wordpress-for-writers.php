@@ -165,14 +165,15 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( wfw_is_frame() && in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
         wp_enqueue_style( 'wfw-frame', WFW_URL . 'assets/frame.css', array(), wfw_asset_version( 'assets/frame.css' ) );
         wp_add_inline_style( 'wfw-frame', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
+        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-html-entities', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
+        $terms = wfw_terms_settings();
         wp_localize_script( 'wfw-frame', 'wfwFrame', array(
             'appearance'     => wfw_get_appearance(),
             // Same checks as the app's featured image panel, which the link above the title opens.
             'featuredImages' => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
             // The links above the title for categories and tags, which open the app's form for them.
-            'categories'     => is_object_in_taxonomy( 'post', 'category' ),
-            'tags'           => is_object_in_taxonomy( 'post', 'post_tag' ),
+            'categories'     => $terms['categories'],
+            'tags'           => $terms['tags'],
             'visibility'     => wfw_visibility(),
         ) );
     }
@@ -188,8 +189,8 @@ function wfw_terms_settings() {
     $category = get_taxonomy( 'category' );
     $tag      = get_taxonomy( 'post_tag' );
     return array(
-        'categories'       => $category && is_object_in_taxonomy( 'post', 'category' ),
-        'tags'             => $tag && is_object_in_taxonomy( 'post', 'post_tag' ),
+        'categories'       => is_object_in_taxonomy( 'post', 'category' ),
+        'tags'             => is_object_in_taxonomy( 'post', 'post_tag' ),
         'canAddCategories' => $category && current_user_can( $category->cap->edit_terms ),
         'canAddTags'       => $tag && current_user_can( $tag->cap->assign_terms ),
     );

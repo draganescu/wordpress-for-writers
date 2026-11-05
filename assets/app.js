@@ -89,7 +89,7 @@
         total: 0,
         listMenu: false,
         // The panel shown in the editor pane in place of a note's editor (its featured image, or its
-        // categories and tags): { id, kind, root }, with kind 'image' or 'terms'.
+        // categories and tags): { id, root }.
         panel: null,
         // Categories and tags pinned to the main menu, in pin order: { taxonomy, id, name, link }.
         pins: settings.pinnedTerms || [],
@@ -1284,7 +1284,7 @@
         if ( ! ( terms.categories || terms.tags ) || ! wp.element?.createRoot || ! wp.components || ! wp.coreData ) {
             return null;
         }
-        const { createElement: el, useState, useRef, useEffect, Fragment } = wp.element;
+        const { createElement: el, useState, useRef, useEffect, useMemo, Fragment } = wp.element;
         const { Button, CheckboxControl, FormTokenField, Notice, SelectControl, SearchControl, Spinner, TextControl } = wp.components;
         const { useSelect, useDispatch } = wp.data;
         const coreStore = wp.coreData.store;
@@ -1343,6 +1343,14 @@
                 const timer = setTimeout( () => setTagSearch( value ), 300 );
                 return () => clearTimeout( timer );
             }, [ tagInput ] );
+
+            // The categories in tree order, each with its depth, walked once per list.
+            const categoryRows = useMemo( () => {
+                const children = new Map();
+                ( categories || [] ).forEach( ( c ) => children.set( c.parent, [ ...( children.get( c.parent ) || [] ), c ] ) );
+                const walk = ( parent, depth ) => ( children.get( parent ) || [] ).flatMap( ( term ) => [ { term, depth }, ...walk( term.id, depth + 1 ) ] );
+                return walk( 0, 0 );
+            }, [ categories ] );
 
             const lockedBy = post?.wfw_locked_by || '';
             const disabled = ! post || !! lockedBy;
@@ -1481,20 +1489,11 @@
             }
 
             // The checklist follows the categories' tree; while filtering, it's the matches, flat.
-            function tree( parent, depth ) {
-                return ( categories || [] ).filter( ( c ) => c.parent === parent ).flatMap( ( c ) => [ choice( c, depth ), ...tree( c.id, depth + 1 ) ] );
-            }
             const query = filter.trim().toLowerCase();
             const choices = query
                 ? ( categories || [] ).filter( ( c ) => name( c ).toLowerCase().includes( query ) ).map( ( c ) => choice( c, 0 ) )
-                : tree( 0, 0 );
-
-            function parentOptions( parent, depth ) {
-                return ( categories || [] ).filter( ( c ) => c.parent === parent ).flatMap( ( c ) => [
-                    { value: String( c.id ), label: ' '.repeat( depth * 3 ) + name( c ) },
-                    ...parentOptions( c.id, depth + 1 ),
-                ] );
-            }
+                : categoryRows.map( ( { term, depth } ) => choice( term, depth ) );
+            const parentOptions = categoryRows.map( ( { term, depth } ) => ( { value: String( term.id ), label: ' '.repeat( depth * 3 ) + name( term ) } ) );
 
             const tagNames = tagIds.map( ( id ) => knownRef.current.get( id ) ).filter( Boolean );
             const suggestions = ( ( tagSearch ? matchingTags : popularTags ) || [] ).map( name ).filter( ( n ) => ! tagNames.includes( n ) );
@@ -1557,7 +1556,7 @@
                             label: __( 'Parent category', 'wordpress-for-writers' ),
                             hideLabelFromVision: true,
                             value: String( newParent ),
-                            options: [ { value: '0', label: __( '— Parent category —', 'wordpress-for-writers' ) }, ...parentOptions( 0, 0 ) ],
+                            options: [ { value: '0', label: __( '— Parent category —', 'wordpress-for-writers' ) }, ...parentOptions ],
                             onChange: ( value ) => setNewParent( Number( value ) ),
                             disabled: disabled || adding,
                             __next40pxDefaultSize: true,
@@ -1639,13 +1638,13 @@
         root.classList.add( 'has-note' );
         renderSidebar();
         const host = document.createElement( 'div' );
-        host.className = 'wfw-panel wfw-panel--' + kind + ( kind === 'image' ? ' wfw-media' : ' wfw-terms' );
+        host.className = 'wfw-panel';
         host.setAttribute( 'role', 'region' );
         host.setAttribute( 'aria-label', kind === 'image' ? __( 'Featured image', 'wordpress-for-writers' ) : __( 'Categories and tags', 'wordpress-for-writers' ) );
         editor.appendChild( host );
         const panelRoot = wp.element.createRoot( host );
         panelRoot.render( module.el( module.Panel, { ...props, postId: id, onBack: () => openNote( id ), onSaved: () => { loadNotes(); if ( kind === 'terms' ) { loadTerms(); } } } ) );
-        state.panel = { id, kind, root: panelRoot };
+        state.panel = { id, root: panelRoot };
     }
 
     function openFeatured( id ) {

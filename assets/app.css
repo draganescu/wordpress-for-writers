@@ -1207,7 +1207,7 @@ body.wfw-takeover #wpbody-content {
 
 /*
  * Panels that replace the editor while a note's featured image is chosen
- * (.wfw-media) or its categories and tags are set (.wfw-terms). Built from
+ * (.wfw-media__*) or its categories and tags are set (.wfw-terms__*). Built from
  * @wordpress/components, themed with the app's tokens the same way frame.css
  * themes the editor's own components. .wfw-panel holds what they share.
  */
@@ -1308,7 +1308,8 @@ body.wfw-takeover #wpbody-content {
 }
 
 .wfw-panel__eyebrow,
-.wfw-panel .wfw-panel__label {
+.wfw-panel .wfw-panel__label,
+.wfw-panel .wfw-terms__tags .components-form-token-field__label {
     margin: 0;
     font-size: 11px;
     font-weight: 600;
@@ -1545,11 +1546,6 @@ body.wfw-takeover #wpbody-content {
 
 .wfw-panel .wfw-terms__tags .components-form-token-field__label {
     margin: 0 0 var( --wpds-dimension-gap-md, 12px );
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var( --wfw-muted );
 }
 
 .wfw-panel .wfw-terms__tags .components-form-token-field__input-container {
@@ -1606,7 +1602,9 @@ body.wfw-takeover #wpbody-content {
         padding: 56px 16px 32px;
     }
 
-    .wfw-terms__section-head {
+    .wfw-panel__head,
+    .wfw-terms__section-head,
+    .wfw-media__library-head {
         flex-direction: column;
         align-items: stretch;
     }
@@ -1615,18 +1613,8 @@ body.wfw-takeover #wpbody-content {
         flex-basis: auto;
     }
 
-    .wfw-panel__head {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
     .wfw-panel__head .components-button {
         align-self: flex-start;
-    }
-
-    .wfw-media__library-head {
-        flex-direction: column;
-        align-items: stretch;
     }
 
     .wfw-media__search {
