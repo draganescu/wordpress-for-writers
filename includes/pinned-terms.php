@@ -31,8 +31,20 @@ const WFW_MAX_PINNED_TERMS = 50;
  * than WFW_MAX_PINNED_TERMS of them.
  */
 function wfw_sanitize_pinned_terms( $value ) {
+    $value = is_array( $value ) ? $value : array();
+    // Every pinned term that isn't cached yet in one query, rather than one each as the loop checks it.
+    $ids = array();
+    foreach ( $value as $pin ) {
+        $id = is_array( $pin ) && isset( $pin['id'] ) ? absint( $pin['id'] ) : 0;
+        if ( $id ) {
+            $ids[] = $id;
+        }
+    }
+    if ( $ids ) {
+        _prime_term_caches( array_unique( $ids ), false );
+    }
     $pins = array();
-    foreach ( is_array( $value ) ? $value : array() as $pin ) {
+    foreach ( $value as $pin ) {
         if ( count( $pins ) >= WFW_MAX_PINNED_TERMS ) {
             break;
         }
