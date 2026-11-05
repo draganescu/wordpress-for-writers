@@ -31,7 +31,14 @@
         dropdown: '<path d="m15.99 10.889-3.988 3.418-3.988-3.418.976-1.14 3.012 2.582 3.012-2.581.976 1.139Z"/>', // chevron-down-small
         check: '<path d="M16.7 7.1l-6.3 8.5-3.3-2.5-.9 1.2 4.5 3.4L17.9 8z"/>', // check
         image: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"/>', // image
+        open: '<path d="m19 7-3-3-8.5 8.5-1 4 4-1L19 7Zm-7 11.5H5V20h7v-1.5Z"/>', // pencil
+        view: '<path d="M3.99961 13C4.67043 13.3354 4.6703 13.3357 4.67017 13.3359L4.67298 13.3305C4.67621 13.3242 4.68184 13.3135 4.68988 13.2985C4.70595 13.2686 4.7316 13.2218 4.76695 13.1608C4.8377 13.0385 4.94692 12.8592 5.09541 12.6419C5.39312 12.2062 5.84436 11.624 6.45435 11.0431C7.67308 9.88241 9.49719 8.75 11.9996 8.75C14.502 8.75 16.3261 9.88241 17.5449 11.0431C18.1549 11.624 18.6061 12.2062 18.9038 12.6419C19.0523 12.8592 19.1615 13.0385 19.2323 13.1608C19.2676 13.2218 19.2933 13.2686 19.3093 13.2985C19.3174 13.3135 19.323 13.3242 19.3262 13.3305L19.3291 13.3359C19.3289 13.3357 19.3288 13.3354 19.9996 13C20.6704 12.6646 20.6703 12.6643 20.6701 12.664L20.6697 12.6632L20.6688 12.6614L20.6662 12.6563L20.6583 12.6408C20.6517 12.6282 20.6427 12.6108 20.631 12.5892C20.6078 12.5459 20.5744 12.4852 20.5306 12.4096C20.4432 12.2584 20.3141 12.0471 20.1423 11.7956C19.7994 11.2938 19.2819 10.626 18.5794 9.9569C17.1731 8.61759 14.9972 7.25 11.9996 7.25C9.00203 7.25 6.82614 8.61759 5.41987 9.9569C4.71736 10.626 4.19984 11.2938 3.85694 11.7956C3.68511 12.0471 3.55605 12.2584 3.4686 12.4096C3.42484 12.4852 3.39142 12.5459 3.36818 12.5892C3.35656 12.6108 3.34748 12.6282 3.34092 12.6408L3.33297 12.6563L3.33041 12.6614L3.32948 12.6632L3.32911 12.664C3.32894 12.6643 3.32879 12.6646 3.99961 13ZM11.9996 16C13.9326 16 15.4996 14.433 15.4996 12.5C15.4996 10.567 13.9326 9 11.9996 9C10.0666 9 8.49961 10.567 8.49961 12.5C8.49961 14.433 10.0666 16 11.9996 16Z"/>', // seen
+        link: '<path d="M10 17.389H8.444A5.194 5.194 0 1 1 8.444 7H10v1.5H8.444a3.694 3.694 0 0 0 0 7.389H10v1.5ZM14 7h1.556a5.194 5.194 0 0 1 0 10.39H14v-1.5h1.556a3.694 3.694 0 0 0 0-7.39H14V7Zm-4.5 6h5v-1.5h-5V13Z"/>', // link
+        pin: '<path d="m21.5 9.1-6.6-6.6-4.2 5.6c-1.2-.1-2.4.1-3.6.7-.1 0-.1.1-.2.1-.5.3-.9.6-1.2.9l3.7 3.7-5.7 5.7v1.1h1.1l5.7-5.7 3.7 3.7c.4-.4.7-.8.9-1.2.1-.1.1-.2.2-.3.6-1.1.8-2.4.6-3.6l5.6-4.1zm-7.3 3.5.1.9c.1.9 0 1.8-.4 2.6l-6-6c.8-.4 1.7-.5 2.6-.4l.9.1L15 4.9 19.1 9l-4.9 3.6z"/>', // pin
     };
+
+    // A tag's icon in the sidebar, like the # its list title starts with.
+    const TAG_ICON = '<span class="wfw-nav__hash">#</span>';
 
     const STATUS_VIEWS = [
         { type: 'all', label: __( 'Notes', 'wordpress-for-writers' ), icon: 'notes', status: 'publish,future,draft,pending,private' },
@@ -83,6 +90,8 @@
         listMenu: false,
         // Featured image panel shown in the editor pane: { id, title, current, library, page, totalPages, busy, error }.
         featured: null,
+        // Categories and tags pinned to the main menu, in pin order: { taxonomy, id, name, link }.
+        pins: settings.pinnedTerms || [],
     };
 
     const APPEARANCE_CHOICES = {
@@ -171,13 +180,12 @@
             return view.label;
         }
         const isCategory = state.view.type === 'category';
-        const list = isCategory ? state.categories : state.tags;
-        const term = list.find( ( t ) => t.id === state.view.id );
-        if ( ! term ) {
+        const { name } = termFor( state.view );
+        if ( ! name ) {
             return '';
         }
         // Match the sidebar: tags are marked with a #, categories with a folder icon.
-        return isCategory ? term.name : '# ' + term.name;
+        return isCategory ? name : '# ' + name;
     }
 
     // ---- Data --------------------------------------------------------------
@@ -200,8 +208,8 @@
 
     async function loadTerms() {
         const [ categories, tags ] = await Promise.all( [
-            apiFetch( { path: '/wp/v2/categories?per_page=100&orderby=name&_fields=id,name,parent,count' } ).catch( () => [] ),
-            apiFetch( { path: '/wp/v2/tags?per_page=100&orderby=name&_fields=id,name,count' } ).catch( () => [] ),
+            apiFetch( { path: '/wp/v2/categories?per_page=100&orderby=name&_fields=id,name,parent,count,link' } ).catch( () => [] ),
+            apiFetch( { path: '/wp/v2/tags?per_page=100&orderby=name&_fields=id,name,count,link' } ).catch( () => [] ),
         ] );
         state.categories = categories;
         state.tags = tags;
@@ -231,6 +239,8 @@
         if ( state.search ) {
             params.search = state.search;
         }
+        // Each note's permalink, for View post and Copy link in its context menu.
+        params._fields += ',link';
         if ( ! append ) {
             renderListItems();
         }
@@ -253,13 +263,12 @@
             state.loading = false;
             renderListItems();
             renderListMenu();
+            contextTarget(); // Rings the note an open context menu is for again.
         }
     }
 
     function refresh() {
-        loadNotes();
-        loadCounts();
-        loadTerms();
+        return Promise.all( [ loadNotes(), loadCounts(), loadTerms() ] );
     }
 
     // ---- Rendering ---------------------------------------------------------
@@ -284,6 +293,8 @@
                 <button class="wfw-icon-btn wfw-focus-toggle" data-action="toggle-focus" title="${ esc( __( 'Focus mode', 'wordpress-for-writers' ) ) }">${ icon( 'focus' ) }</button>
                 <div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>
             </main>
+            <div class="wfw-menu wfw-menu--context" id="wfw-context-menu" role="menu" tabindex="-1" hidden></div>
+            <div class="wfw-toast" role="status"></div>
         `;
 
         root.addEventListener( 'click', onClick );
@@ -350,13 +361,24 @@
         const updates = Number( settings.updatesCount ) || 0;
         const updatesText = sprintf( _n( '%d update available', '%d updates available', updates, 'wordpress-for-writers' ), updates );
         const updatesDot = updates ? `<span class="wfw-user__dot" title="${ esc( updatesText ) }"></span>` : '';
-        // Drafts' autosaves re-render the sidebar every few seconds: keep focus on
-        // the same footer control (the open menu itself survives via userMenuOpen).
-        const footControls = () => [ ...sidebar.querySelectorAll( '.wfw-sidebar__foot :is( a, button )' ) ];
-        const focusedControl = footControls().indexOf( document.activeElement );
+        // Drafts' autosaves re-render the sidebar every few seconds, and pinning
+        // does too. Keep its scroll position, and focus on the same control or, when
+        // that's gone (an item just unpinned), the one now in its place. The open
+        // account menu itself survives via userMenuOpen.
+        const controls = () => [ ...sidebar.querySelectorAll( 'a, button' ) ];
+        const focusedControl = controls().indexOf( document.activeElement );
+        const focusedKey = focusedControl >= 0 ? controlKey( document.activeElement ) : '';
+        const scrollTop = sidebar.querySelector( '.wfw-sidebar__scroll' )?.scrollTop || 0;
         const statusNav = STATUS_VIEWS.map( ( v ) => navButton( { type: v.type }, v.label, icon( v.icon ), state.counts[ v.type ] ) ).join( '' );
+        // Pinned categories and tags, which also stay in their sections, look as they do there.
+        const pinned = state.pins
+            .map( ( pin ) => {
+                const view = viewOf( pin );
+                return navButton( view, termFor( view ).name, view.type === 'category' ? icon( 'folder' ) : TAG_ICON );
+            } )
+            .join( '' );
         const tags = state.tags
-            .map( ( t ) => navButton( { type: 'tag', id: t.id }, t.name, '<span class="wfw-nav__hash">#</span>' ) )
+            .map( ( t ) => navButton( { type: 'tag', id: t.id }, t.name, TAG_ICON ) )
             .join( '' );
         const siteIcon = settings.siteIcon ? `<img class="wfw-sidebar__icon" src="${ esc( settings.siteIcon ) }" alt="" />` : '';
 
@@ -364,6 +386,7 @@
             <div class="wfw-sidebar__head">${ siteIcon }<span class="wfw-sidebar__name">${ esc( settings.siteName ) }</span></div>
             <div class="wfw-sidebar__scroll">
                 ${ statusNav }
+                ${ pinned ? `<div class="wfw-sidebar__pins" role="group" aria-label="${ esc( __( 'Pinned', 'wordpress-for-writers' ) ) }">${ pinned }</div>` : '' }
                 ${ state.categories.length ? sidebarSection( 'categories', __( 'Categories', 'wordpress-for-writers' ), categoryTree( 0, 0 ) ) : '' }
                 ${ state.tags.length ? sidebarSection( 'tags', __( 'Tags', 'wordpress-for-writers' ), tags ) : '' }
             </div>
@@ -382,9 +405,18 @@
             </div>
         `;
         revealSiteIcon( sidebar.querySelector( '.wfw-sidebar__icon' ) );
+        sidebar.querySelector( '.wfw-sidebar__scroll' ).scrollTop = scrollTop;
         if ( focusedControl >= 0 ) {
-            footControls()[ focusedControl ].focus();
+            const after = controls();
+            ( after.find( ( el ) => controlKey( el ) === focusedKey ) || after[ Math.min( focusedControl, after.length - 1 ) ] ).focus( { preventScroll: true } );
         }
+        contextTarget(); // Rings the item an open context menu is for again.
+    }
+
+    // Tells the sidebar's controls apart across renders: what they do and to
+    // what, and whether they're the pinned copy of a category or tag.
+    function controlKey( el ) {
+        return [ el.dataset.action, el.dataset.type, el.dataset.id, el.dataset.section, el.getAttribute( 'href' ), !! el.closest( '.wfw-sidebar__pins' ) ].join( '|' );
     }
 
     // The site icon stays invisible until it has loaded, and is dropped if it fails, so an empty box never shows.
@@ -1068,16 +1100,20 @@
         }
     }
 
+    // Keys for both kinds of .wfw-menu: this one and the context menus below.
     root.addEventListener( 'keydown', ( event ) => {
         const onButton = event.target.closest( '.wfw-user' );
         const menu = event.target.closest( '.wfw-menu' );
         if ( ! onButton && ! menu ) {
             return;
         }
-        if ( event.key === 'Escape' && userMenuOpen ) {
+        // Each closes back to where it opened: this one to its button, a context menu to its note or item.
+        const isContext = !! menu?.classList.contains( 'wfw-menu--context' );
+        const close = isContext ? () => closeContextMenu() : () => closeUserMenu();
+        if ( event.key === 'Escape' && ( isContext || userMenuOpen ) ) {
             event.preventDefault();
             event.stopPropagation();
-            closeUserMenu();
+            close();
             return;
         }
         if ( onButton ) {
@@ -1095,13 +1131,14 @@
             case 'Home':
             case 'End': {
                 event.preventDefault();
-                const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: -1 }[ event.key ];
+                // A context menu opened by pointer has focus itself, with no item picked yet: ArrowUp starts from the end.
+                const next = { ArrowDown: index + 1, ArrowUp: index < 0 ? -1 : index - 1, Home: 0, End: -1 }[ event.key ];
                 items[ ( next + items.length ) % items.length ].focus();
                 break;
             }
             case 'Tab':
-                // Focus goes back to the button, and the browser's Tab then moves on from there.
-                closeUserMenu();
+                // Focus goes back to the button (or note), and the browser's Tab then moves on from there.
+                close();
                 break;
             case ' ':
                 event.preventDefault();
@@ -1119,6 +1156,479 @@
     } );
     window.addEventListener( 'blur', () => closeUserMenu( false ) );
 
+    // ---- Context menus -----------------------------------------------------
+
+    /*
+     * Right-click menus for the notes in the list and the categories and tags in
+     * the sidebar. Each is the account menu's .wfw-menu, with its keys (above),
+     * in one element at the app's root, outside the panes that re-render. It opens
+     * at the pointer and stays inside the window. The context-menu key and
+     * Shift+F10 open it for the focused note or item. On touch screens a two-finger
+     * tap opens it for notes and sidebar items alike, and a long press does for
+     * sidebar items. A long press on a note is left to the browser for selecting
+     * text, since the note's own buttons are the touch path. Like the block
+     * editor's List View, everything goes through the one opener that the
+     * browser's contextmenu event uses: a trackpad's two-finger tap and Android's
+     * long press already arrive as that event, but no browser sends it for two
+     * fingers on a touch screen, so that gesture is recognized here. The
+     * editor keeps the browser's menu: its canvas is another document, so these
+     * listeners never hear from it.
+     */
+    const NOTE_ITEM = '.wfw-note';
+    const TERM_ITEM = '.wfw-nav[data-action="view"]:is( [data-type="category"], [data-type="tag"] )';
+
+    // The open menu: what it acts on, read as it opens, and the element it belongs to.
+    let contextMenu = null;
+
+    function contextMenuEl() {
+        return root.querySelector( '.wfw-menu--context' );
+    }
+
+    // A link to the app with `hash` (note=ID) open.
+    function appUrl( hash ) {
+        return window.location.origin + window.location.pathname + window.location.search + '#' + hash;
+    }
+
+    /*
+     * The post's link with preview=true, the way get_preview_post_link() builds it.
+     * The editor's own preview goes through an autosave instead, but only notes
+     * that aren't published get this item, and the app saves those as drafts
+     * while they're written, so the preview shows what the list does.
+     */
+    function previewUrl( link ) {
+        const url = new URL( link, window.location.href );
+        url.searchParams.set( 'preview', 'true' );
+        return url.href;
+    }
+
+    // Items are { command } buttons or { href } links; null is a separator.
+    function noteMenuItems( note ) {
+        if ( note.status === 'trash' ) {
+            // The same actions, for the same people, as the note's own buttons.
+            return settings.canDelete ? [
+                { command: 'restore', icon: 'restore', label: __( 'Restore', 'wordpress-for-writers' ) },
+                { command: 'delete', icon: 'close', label: __( 'Delete permanently', 'wordpress-for-writers' ) },
+            ] : [];
+        }
+        const published = note.status === 'publish' || note.status === 'private';
+        const items = [
+            { command: 'open', icon: 'open', label: __( 'Open', 'wordpress-for-writers' ) },
+            { href: appUrl( 'note=' + note.id ), icon: 'external', label: __( 'Open in new tab', 'wordpress-for-writers' ) },
+        ];
+        if ( note.link ) {
+            items.push(
+                null,
+                published
+                    ? { href: note.link, icon: 'view', label: __( 'View post', 'wordpress-for-writers' ) }
+                    : { href: previewUrl( note.link ), icon: 'view', label: __( 'Preview', 'wordpress-for-writers' ) },
+                { command: 'copy-link', icon: 'link', label: __( 'Copy link', 'wordpress-for-writers' ) }
+            );
+        }
+        if ( settings.canDelete ) {
+            items.push( null, { command: 'trash', icon: 'trash', label: __( 'Move to trash', 'wordpress-for-writers' ) } );
+        }
+        return items;
+    }
+
+    // The same for a category or tag, whether it's the one in the main menu or in its section.
+    function termMenuItems( view ) {
+        const { link } = termFor( view );
+        const items = [ pinFor( view )
+            ? { command: 'unpin', icon: 'pin', label: __( 'Unpin from main menu', 'wordpress-for-writers' ) }
+            : { command: 'pin', icon: 'pin', label: __( 'Pin to main menu', 'wordpress-for-writers' ) } ];
+        if ( link ) {
+            items.push( { href: link, icon: 'view', label: __( 'View on site', 'wordpress-for-writers' ) } );
+        }
+        return items;
+    }
+
+    // Links are real links, so they open in a new tab past any popup blocker, and Cmd-click works.
+    function contextItemHtml( item ) {
+        if ( ! item ) {
+            return '<div class="wfw-menu__separator" role="separator"></div>';
+        }
+        const content = `${ icon( item.icon ) }<span>${ esc( item.label ) }</span>`;
+        return item.href
+            ? `<a class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="context-item" href="${ esc( item.href ) }" target="_blank" rel="noopener">${ content }</a>`
+            : `<button class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="context-item" data-command="${ esc( item.command ) }">${ content }</button>`;
+    }
+
+    function describeContextTarget( el ) {
+        if ( el.matches( NOTE_ITEM ) ) {
+            const note = state.notes.find( ( n ) => n.id === Number( el.dataset.id ) );
+            return note && { kind: 'note', id: note.id, note, label: el.querySelector( '.wfw-note__title' )?.textContent, items: noteMenuItems( note ) };
+        }
+        const view = { type: el.dataset.type, id: Number( el.dataset.id ) };
+        const inPins = !! el.closest( '.wfw-sidebar__pins' );
+        return { kind: 'term', ...view, inPins, label: el.querySelector( '.wfw-nav__label' )?.textContent, items: termMenuItems( view ) };
+    }
+
+    // Opens the menu for a note or sidebar item at `point`, or below the item
+    // without one (keyboard, touch). From the keyboard focus goes to the first
+    // item; otherwise to the menu itself, so its keys work from the start.
+    function openContextMenu( el, { point = null, keyboard = false } = {} ) {
+        const menu = describeContextTarget( el );
+        if ( ! menu?.items.length ) {
+            return false;
+        }
+        closeContextMenu( { focus: false } );
+        const box = contextMenuEl();
+        const rect = el.getBoundingClientRect();
+        contextMenu = { ...menu, target: el, keyboard, top: rect.top, left: rect.left, index: [ ...root.querySelectorAll( NOTE_ITEM ) ].indexOf( el ) };
+        box.innerHTML = menu.items.map( contextItemHtml ).join( '' );
+        box.setAttribute( 'aria-label', menu.label || '' );
+        box.hidden = false;
+        el.classList.add( 'has-menu' );
+        placeContextMenu( box, point || { x: rect.left + 12, y: rect.top + Math.min( rect.height, 36 ) } );
+        ( keyboard ? box.querySelector( '[role="menuitem"]' ) : box ).focus( { preventScroll: true } );
+        return true;
+    }
+
+    // Like a native menu: right of and below the point, flipped to the other side
+    // where it would leave the window, and never past the window's edges.
+    function placeContextMenu( box, { x, y } ) {
+        const margin = 8;
+        const bounds = root.getBoundingClientRect();
+        box.style.maxHeight = bounds.height - margin * 2 + 'px';
+        box.style.left = '0px';
+        box.style.top = '0px';
+        const { width, height } = box.getBoundingClientRect();
+        const left = x + width > bounds.right - margin ? x - width : x;
+        const top = y + height > bounds.bottom - margin ? y - height : y;
+        box.style.left = Math.max( bounds.left + margin, Math.min( left, bounds.right - margin - width ) ) + 'px';
+        box.style.top = Math.max( bounds.top + margin, Math.min( top, bounds.bottom - margin - height ) ) + 'px';
+    }
+
+    // The element the open menu belongs to. Drafts' autosaves re-render the list
+    // and sidebar under it, so it's found again by what it shows (and for a
+    // pinned category or tag, by which of its two copies it was), and ringed again.
+    function contextTarget() {
+        if ( contextMenu && ! contextMenu.target.isConnected ) {
+            const selector = contextMenu.kind === 'note'
+                ? `${ NOTE_ITEM }[data-id="${ contextMenu.id }"]`
+                : `.wfw-nav[data-action="view"][data-type="${ contextMenu.type }"][data-id="${ contextMenu.id }"]`;
+            const found = [ ...root.querySelectorAll( selector ) ].find( ( el ) => !! el.closest( '.wfw-sidebar__pins' ) === !! contextMenu.inPins );
+            if ( ! found ) {
+                return null;
+            }
+            found.classList.add( 'has-menu' );
+            contextMenu.target = found;
+        }
+        return contextMenu?.target || null;
+    }
+
+    function closeContextMenu( { focus = true } = {} ) {
+        if ( ! contextMenu ) {
+            return;
+        }
+        const target = contextTarget();
+        target?.classList.remove( 'has-menu' );
+        contextMenuEl().hidden = true;
+        contextMenu = null;
+        if ( focus ) {
+            target?.focus( { preventScroll: true } );
+        }
+    }
+
+    function runContextCommand( command ) {
+        const menu = contextMenu;
+        closeContextMenu();
+        switch ( command ) {
+            case 'open':
+                openNote( menu.id );
+                break;
+            case 'copy-link':
+                copyLink( menu.note.link );
+                break;
+            case 'trash':
+                refocusNotes( trashNote( menu.id ), menu );
+                break;
+            case 'restore':
+                refocusNotes( restoreNote( menu.id ), menu );
+                break;
+            case 'delete':
+                refocusNotes( deleteNote( menu.id ), menu );
+                break;
+            case 'pin':
+            case 'unpin':
+                setPinned( menu, command === 'pin' );
+                break;
+        }
+    }
+
+    // When a note chosen from the keyboard leaves the list, focus moves to the note now in its place.
+    async function refocusNotes( action, menu ) {
+        await action;
+        const active = document.activeElement;
+        if ( menu.keyboard && ( ! active || active === document.body ) ) {
+            const notes = root.querySelectorAll( NOTE_ITEM );
+            notes[ Math.min( menu.index, notes.length - 1 ) ]?.focus();
+        }
+    }
+
+    async function copyLink( url ) {
+        try {
+            await writeClipboard( url );
+            showToast( __( 'Link copied', 'wordpress-for-writers' ) );
+        } catch ( e ) {
+            showToast( __( 'The link couldn’t be copied', 'wordpress-for-writers' ) );
+        }
+    }
+
+    // The async clipboard needs a secure context. Sites on plain http, other than localhost, copy the old way.
+    function writeClipboard( text ) {
+        if ( window.isSecureContext && navigator.clipboard ) {
+            return navigator.clipboard.writeText( text );
+        }
+        const field = document.createElement( 'textarea' );
+        const focused = document.activeElement;
+        field.value = text;
+        field.setAttribute( 'readonly', '' );
+        field.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild( field );
+        field.select();
+        field.setSelectionRange( 0, text.length );
+        const copied = document.execCommand( 'copy' );
+        field.remove();
+        focused?.focus( { preventScroll: true } );
+        return copied ? Promise.resolve() : Promise.reject( new Error( 'copy' ) );
+    }
+
+    // A short message at the foot of the window, also read out by screen readers.
+    let toastTimer = 0;
+
+    function showToast( message ) {
+        const toast = root.querySelector( '.wfw-toast' );
+        clearTimeout( toastTimer );
+        toast.textContent = message;
+        toast.classList.add( 'is-visible' );
+        toastTimer = setTimeout( () => {
+            toast.classList.remove( 'is-visible' );
+            toastTimer = setTimeout( () => ( toast.textContent = '' ), 200 );
+        }, 2000 );
+    }
+
+    // A long press on a sidebar item opens its menu on touch screens, which have
+    // no right-click. Lifting that finger is then not a tap: it would choose the
+    // item, and take focus from the menu.
+    let longPress = null;
+    let pressOpened = false;
+    let lastPointerType = '';
+
+    function cancelLongPress() {
+        clearTimeout( longPress?.timer );
+        longPress = null;
+    }
+
+    document.addEventListener( 'pointerdown', ( event ) => {
+        lastPointerType = event.pointerType;
+        pressOpened = false;
+    }, true );
+
+    root.addEventListener( 'pointerdown', ( event ) => {
+        cancelLongPress();
+        const el = event.pointerType === 'touch' ? event.target.closest( TERM_ITEM ) : null;
+        if ( el ) {
+            longPress = {
+                x: event.clientX,
+                y: event.clientY,
+                timer: setTimeout( () => {
+                    longPress = null;
+                    pressOpened = openContextMenu( el );
+                }, 500 ),
+            };
+        }
+    } );
+
+    root.addEventListener( 'pointermove', ( event ) => {
+        if ( longPress && Math.hypot( event.clientX - longPress.x, event.clientY - longPress.y ) > 10 ) {
+            cancelLongPress();
+        }
+    } );
+
+    root.addEventListener( 'pointerup', cancelLongPress );
+    root.addEventListener( 'pointercancel', cancelLongPress );
+
+    root.addEventListener( 'touchend', ( event ) => {
+        if ( pressOpened ) {
+            pressOpened = false;
+            event.preventDefault();
+        }
+    } );
+
+    /*
+     * A two-finger tap: a second finger lands soon after the first, neither moves,
+     * and both lift soon after. The menu is for the item under the first finger
+     * (or the second, when the first missed), and opens when the last one lifts.
+     * Neither finger's tap chooses the item, and three fingers are no tap at all.
+     */
+    const TWO_FINGER_GAP = 250; // ms between the two fingers landing
+    const TWO_FINGER_TAP = 500; // ms from the first landing to the last lifting
+    const touches = new Map();
+    let twoFinger = null;
+    let suppressClick = false;
+
+    root.addEventListener( 'pointerdown', ( event ) => {
+        if ( event.pointerType !== 'touch' ) {
+            return;
+        }
+        touches.set( event.pointerId, { x: event.clientX, y: event.clientY } );
+        const el = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        if ( touches.size === 1 ) {
+            suppressClick = false;
+            twoFinger = { el, start: event.timeStamp, both: false };
+        } else if ( touches.size === 2 && twoFinger && event.timeStamp - twoFinger.start < TWO_FINGER_GAP ) {
+            twoFinger.both = true;
+            twoFinger.el = twoFinger.el || el;
+            suppressClick = true;
+        } else {
+            twoFinger = null;
+        }
+    } );
+
+    root.addEventListener( 'pointermove', ( event ) => {
+        const from = touches.get( event.pointerId );
+        if ( twoFinger && from && Math.hypot( event.clientX - from.x, event.clientY - from.y ) > 10 ) {
+            twoFinger = null;
+        }
+    } );
+
+    root.addEventListener( 'pointerup', ( event ) => {
+        if ( ! touches.delete( event.pointerId ) || touches.size ) {
+            return;
+        }
+        const tap = twoFinger;
+        twoFinger = null;
+        if ( tap?.both && tap.el && event.timeStamp - tap.start < TWO_FINGER_TAP ) {
+            cancelLongPress();
+            pressOpened = openContextMenu( tap.el );
+        }
+    } );
+
+    root.addEventListener( 'pointercancel', ( event ) => {
+        touches.delete( event.pointerId );
+        twoFinger = null;
+    } );
+
+    // Where a browser still makes a click of one of the fingers, it doesn't open the note or view.
+    root.addEventListener( 'click', ( event ) => {
+        if ( suppressClick ) {
+            suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }, true );
+
+    root.addEventListener( 'contextmenu', ( event ) => {
+        // No browser menu over ours.
+        if ( contextMenuEl().contains( event.target ) ) {
+            event.preventDefault();
+            return;
+        }
+        const el = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        if ( ! el ) {
+            return;
+        }
+        // Text selected in a note keeps the browser's menu, to copy it. So does a long press on a note (Android).
+        const touch = ( event.pointerType || lastPointerType ) === 'touch';
+        const selection = window.getSelection();
+        if ( el.matches( NOTE_ITEM ) && ( touch || ( ! selection.isCollapsed && el.contains( selection.anchorNode ) ) ) ) {
+            return;
+        }
+        // Android's own long press may come after ours has opened the menu.
+        if ( contextMenu?.target === el ) {
+            event.preventDefault();
+            return;
+        }
+        cancelLongPress();
+        // With nothing to offer (a note in the Trash, for someone who can't delete), the browser's menu shows.
+        if ( openContextMenu( el, { point: touch ? null : { x: event.clientX, y: event.clientY } } ) ) {
+            event.preventDefault();
+            pressOpened = touch;
+        }
+    } );
+
+    root.addEventListener( 'keydown', ( event ) => {
+        if ( event.key !== 'ContextMenu' && ! ( event.key === 'F10' && event.shiftKey ) ) {
+            return;
+        }
+        const el = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        if ( contextMenuEl().contains( event.target ) || ( el && openContextMenu( el, { keyboard: true } ) ) ) {
+            event.preventDefault();
+        }
+    } );
+
+    // A click outside closes the menu without moving focus, and so does the window
+    // losing focus (a click into the editor). Resizing closes it, and so does a
+    // scroll that moves its note or item, but not a re-render that keeps it put.
+    document.addEventListener( 'pointerdown', ( event ) => {
+        if ( contextMenu && ! contextMenuEl().contains( event.target ) ) {
+            closeContextMenu( { focus: false } );
+        }
+    } );
+    window.addEventListener( 'blur', () => closeContextMenu( { focus: false } ) );
+    window.addEventListener( 'resize', () => closeContextMenu( { focus: contextMenuEl().contains( document.activeElement ) } ) );
+    document.addEventListener( 'scroll', ( event ) => {
+        if ( ! contextMenu || contextMenuEl().contains( event.target ) ) {
+            return;
+        }
+        const rect = contextTarget()?.getBoundingClientRect();
+        if ( ! rect || rect.top !== contextMenu.top || rect.left !== contextMenu.left ) {
+            closeContextMenu( { focus: contextMenuEl().contains( document.activeElement ) } );
+        }
+    }, true );
+
+    // ---- Pinned categories and tags ----------------------------------------
+
+    /*
+     * Categories and tags pinned from their context menus show in the main menu,
+     * below the built-in views, in the order they were pinned. They're saved per
+     * user, like appearance; includes/pinned-terms.php has the user meta, and
+     * leaves out terms that have since been deleted.
+     */
+    const TAXONOMIES = { category: 'category', tag: 'post_tag' };
+
+    function viewOf( pin ) {
+        return { type: pin.taxonomy === 'category' ? 'category' : 'tag', id: pin.id };
+    }
+
+    function pinFor( view ) {
+        return state.pins.find( ( pin ) => pin.taxonomy === TAXONOMIES[ view.type ] && pin.id === view.id );
+    }
+
+    // A category's or tag's name and archive link, from the sidebar's lists or,
+    // before they load and past their first 100 terms, from its pin.
+    function termFor( view ) {
+        const term = ( view.type === 'category' ? state.categories : state.tags ).find( ( t ) => t.id === view.id ) || pinFor( view );
+        return { name: term?.name || '', link: term?.link || '' };
+    }
+
+    function setPinned( view, pinned ) {
+        const pin = pinFor( view );
+        state.pins = state.pins.filter( ( p ) => p !== pin );
+        if ( pinned ) {
+            state.pins.push( { taxonomy: TAXONOMIES[ view.type ], id: view.id, ...termFor( view ) } );
+        }
+        renderSidebar();
+        savePins();
+    }
+
+    // One save at a time, each sending the pins as they are by then, so the last stored is the latest.
+    let pinsSaved = Promise.resolve();
+
+    function savePins() {
+        pinsSaved = pinsSaved
+            .then( () => apiFetch( {
+                path: '/wp/v2/users/me',
+                method: 'POST',
+                data: { meta: { [ settings.pinnedTermsKey ]: state.pins.map( ( { taxonomy, id } ) => ( { taxonomy, id } ) ) } },
+            } ) )
+            .catch( () => {
+                // The pins stay as they are on screen, so the writer can try again; a reload would drop them.
+                showToast( __( 'Pins couldn’t be saved', 'wordpress-for-writers' ) );
+            } );
+    }
+
     // ---- Actions -----------------------------------------------------------
 
     function toggleFocus() {
@@ -1132,12 +1642,12 @@
             state.activeId = null;
             mountEditor( null );
         }
-        refresh();
+        await refresh();
     }
 
     async function restoreNote( id ) {
         await apiFetch( { path: '/wp/v2/posts/' + id, method: 'POST', data: { status: 'draft' } } );
-        refresh();
+        await refresh();
     }
 
     async function deleteNote( id ) {
@@ -1149,7 +1659,7 @@
             state.activeId = null;
             mountEditor( null );
         }
-        refresh();
+        await refresh();
     }
 
     function onClick( event ) {
@@ -1236,6 +1746,13 @@
             case 'menu-item':
                 closeUserMenu();
                 break;
+            case 'context-item':
+                if ( target.dataset.command ) {
+                    runContextCommand( target.dataset.command );
+                } else {
+                    closeContextMenu(); // A link, which the browser goes on to follow.
+                }
+                break;
             case 'set-appearance':
                 setAppearance( target.dataset.key, target.dataset.value );
                 break;
@@ -1320,9 +1837,10 @@
     // ---- Boot --------------------------------------------------------------
 
     // Reopen a folded section that holds the restored category or tag view, so
-    // the active item is in sight. Folding it later in the session is left alone.
+    // the active item is in sight, unless it's pinned and in sight already.
+    // Folding it later in the session is left alone.
     const activeSection = { category: 'categories', tag: 'tags' }[ state.view.type ];
-    if ( activeSection && state.collapsed[ activeSection ] ) {
+    if ( activeSection && state.collapsed[ activeSection ] && ! pinFor( state.view ) ) {
         state.collapsed[ activeSection ] = false;
         savePref( 'collapsed', state.collapsed );
     }

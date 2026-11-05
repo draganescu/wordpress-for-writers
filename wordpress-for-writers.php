@@ -16,6 +16,7 @@ define( 'WFW_VERSION', '0.1.0' );
 define( 'WFW_URL', plugin_dir_url( __FILE__ ) );
 define( 'WFW_PAGE', 'wfw' );
 
+require_once __DIR__ . '/includes/pinned-terms.php';
 require_once __DIR__ . '/includes/appearance.php';
 require_once __DIR__ . '/includes/thumbnails.php';
 require_once __DIR__ . '/includes/site-scheme.php';
@@ -142,6 +143,9 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
                 ? (int) wp_get_update_data()['counts']['total']
                 : 0,
             'appearance'        => wfw_appearance_client_data(),
+            // Categories and tags pinned to the main menu, and the user meta key that stores them.
+            'pinnedTerms'       => wfw_pinned_terms_client_data(),
+            'pinnedTermsKey'    => wfw_pinned_terms_key(),
             /**
              * Extra links for the sidebar's user menu, so companion plugins can
              * surface their screens. Each item: array( 'label' => '', 'url' => '', 'icon' => '' ).
