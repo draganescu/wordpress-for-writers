@@ -1174,7 +1174,7 @@ body.wfw-takeover #wpbody-content {
         .wfw-segmented,
         .wfw .wfw-media__current,
         .wfw .wfw-media__current .components-drop-zone,
-        .wfw .wfw-media .wfw-media__tile.components-button {
+        .wfw .wfw-panel .wfw-media__tile.components-button {
             border-radius: 14px;
             corner-shape: squircle;
         }
@@ -1206,9 +1206,10 @@ body.wfw-takeover #wpbody-content {
 }
 
 /*
- * Featured image panel: replaces the editor while a note's image is being
- * chosen. Built from @wordpress/components, themed with the app's tokens the
- * same way frame.css themes the editor's own components.
+ * Panels that replace the editor while a note's featured image is chosen
+ * (.wfw-media) or its categories and tags are set (.wfw-terms). Built from
+ * @wordpress/components, themed with the app's tokens the same way frame.css
+ * themes the editor's own components. .wfw-panel holds what they share.
  */
 .wfw-note__thumb-btn {
     display: block;
@@ -1230,7 +1231,7 @@ body.wfw-takeover #wpbody-content {
     outline-offset: 2px;
 }
 
-.wfw-media {
+.wfw-panel {
     /*
      * WPDS tokens, which @wordpress/components read since WordPress 7.0, set
      * from the app's theme. The admin theme color still drives some
@@ -1289,12 +1290,12 @@ body.wfw-takeover #wpbody-content {
     height: 16px;
 }
 
-.wfw-media__column {
+.wfw-panel__column {
     max-width: 640px;
     margin: 0 auto;
 }
 
-.wfw-media__head {
+.wfw-panel__head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
@@ -1302,12 +1303,12 @@ body.wfw-takeover #wpbody-content {
     margin-bottom: 20px;
 }
 
-.wfw-media__heading {
+.wfw-panel__heading {
     min-width: 0;
 }
 
-.wfw-media__eyebrow,
-.wfw-media .wfw-media__label {
+.wfw-panel__eyebrow,
+.wfw-panel .wfw-panel__label {
     margin: 0;
     font-size: 11px;
     font-weight: 600;
@@ -1316,7 +1317,7 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-muted );
 }
 
-.wfw-media .wfw-media__title {
+.wfw-panel .wfw-panel__title {
     margin: 4px 0 0;
     padding: 0;
     font-size: 22px;
@@ -1328,16 +1329,16 @@ body.wfw-takeover #wpbody-content {
     white-space: nowrap;
 }
 
-.wfw-media .wfw-media__title.is-empty {
+.wfw-panel .wfw-panel__title.is-empty {
     color: var( --wfw-muted );
 }
 
-.wfw-media .components-button svg {
+.wfw-panel .components-button svg {
     width: 20px;
     height: 20px;
 }
 
-.wfw-media__notice.components-notice {
+.wfw-panel__notice.components-notice {
     margin: 0 0 var( --wpds-dimension-padding-lg, 16px );
 }
 
@@ -1396,14 +1397,14 @@ body.wfw-takeover #wpbody-content {
     margin: 14px 0 32px;
 }
 
-.wfw-media__status {
+.wfw-panel__status {
     display: inline-flex;
     align-items: center;
     font-size: 12px;
     color: var( --wfw-muted );
 }
 
-.wfw-media__status .components-spinner {
+.wfw-panel__status .components-spinner {
     margin: 0 6px 0 0;
 }
 
@@ -1436,7 +1437,7 @@ body.wfw-takeover #wpbody-content {
     gap: var( --wpds-dimension-gap-md, 12px );
 }
 
-.wfw-media .wfw-media__tile.components-button {
+.wfw-panel .wfw-media__tile.components-button {
     display: block;
     width: 100%;
     height: auto;
@@ -1456,18 +1457,18 @@ body.wfw-takeover #wpbody-content {
     transition: transform 0.15s ease;
 }
 
-.wfw-media .wfw-media__tile.components-button:hover:not( [aria-disabled="true"] ) img {
+.wfw-panel .wfw-media__tile.components-button:hover:not( [aria-disabled="true"] ) img {
     transform: scale( 1.03 );
 }
 
 /* Selected: a ring in the accent color, instead of the components' filled pressed state. */
-.wfw-media .wfw-media__tile.components-button.is-pressed,
-.wfw-media .wfw-media__tile.components-button.is-pressed:hover {
+.wfw-panel .wfw-media__tile.components-button.is-pressed,
+.wfw-panel .wfw-media__tile.components-button.is-pressed:hover {
     background: var( --wfw-code-bg );
     box-shadow: 0 0 0 2px var( --wfw-editor-bg ), 0 0 0 4px var( --wfw-accent );
 }
 
-.wfw-media .wfw-media__tile.components-button[aria-disabled="true"]:not( .is-pressed ) {
+.wfw-panel .wfw-media__tile.components-button[aria-disabled="true"]:not( .is-pressed ) {
     opacity: 0.6;
 }
 
@@ -1477,17 +1478,149 @@ body.wfw-takeover #wpbody-content {
     padding: 16px;
 }
 
+/* Categories and tags form. */
+.wfw-terms__loading {
+    display: flex;
+    justify-content: center;
+    padding: 24px 0;
+}
+
+.wfw-terms__section {
+    margin-bottom: 36px;
+}
+
+.wfw-terms__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var( --wpds-dimension-gap-md, 12px );
+    margin-bottom: var( --wpds-dimension-gap-md, 12px );
+}
+
+.wfw-terms__filter {
+    flex: 0 1 240px;
+    min-width: 0;
+}
+
+.wfw-terms__choices {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 12px 14px;
+    border: 1px solid var( --wfw-border );
+    border-radius: var( --wpds-border-radius-lg, 8px );
+}
+
+.wfw-terms__choice .components-checkbox-control__label {
+    color: var( --wfw-text );
+    font-size: 14px;
+}
+
+.wfw-terms__none {
+    margin: 0;
+    font-size: 13px;
+    color: var( --wfw-muted );
+}
+
+/* New category: name, parent and the button in one row. */
+.wfw-terms__add {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var( --wpds-dimension-gap-sm, 8px );
+    margin-top: var( --wpds-dimension-gap-md, 12px );
+}
+
+.wfw-terms__add-name {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+.wfw-terms__add-parent {
+    flex: 0 1 200px;
+    min-width: 0;
+}
+
+.wfw-panel .wfw-terms__tags .components-form-token-field__label {
+    margin: 0 0 var( --wpds-dimension-gap-md, 12px );
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var( --wfw-muted );
+}
+
+.wfw-panel .wfw-terms__tags .components-form-token-field__input-container {
+    border-radius: var( --wpds-border-radius-lg, 8px );
+    background: var( --wfw-editor-bg );
+}
+
+.wfw-panel .wfw-terms__tags .components-form-token-field__token-text,
+.wfw-panel .wfw-terms__tags .components-form-token-field__remove-token {
+    background: var( --wfw-code-bg );
+    color: var( --wfw-text );
+}
+
+.wfw-panel .wfw-terms__tags .components-form-token-field__suggestions-list {
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+}
+
+.wfw-panel .wfw-terms__tags .components-form-token-field__suggestion.is-selected {
+    background: var( --wfw-accent );
+    color: #fff;
+}
+
+.wfw-panel .wfw-terms__popular-label {
+    margin-top: 20px;
+}
+
+.wfw-terms__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.wfw-panel .wfw-terms__chip.components-button {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 14px;
+    background: var( --wfw-code-bg );
+    color: var( --wfw-text );
+    font-size: 13px;
+}
+
+.wfw-panel .wfw-terms__chip.components-button:hover:not( [aria-disabled="true"] ) {
+    color: var( --wfw-accent );
+}
+
+.wfw-terms__status {
+    margin-top: -16px;
+}
+
 @media ( max-width: 700px ) {
-    .wfw-media {
+    .wfw-panel {
         padding: 56px 16px 32px;
     }
 
-    .wfw-media__head {
+    .wfw-terms__section-head {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .wfw-media__head .components-button {
+    .wfw-terms__filter {
+        flex-basis: auto;
+    }
+
+    .wfw-panel__head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wfw-panel__head .components-button {
         align-self: flex-start;
     }
 

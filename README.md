@@ -22,6 +22,7 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
   - Theme styles are dropped in favour of a clean default writing surface.
   - The formatting toolbar floats at the bottom, and save/publish sits at the top right.
   - No block inserters or "Type / to choose a block" coaching.
+  - Hover the title for a row of quiet links: featured image, categories and tags. Each shows what the note has and opens a form in place of the editor, where you pick an image from your library or upload one, tick categories (and add new ones), and type tags with suggestions from the ones you use most. Changes save straight to the note.
 - **Autosave for drafts:** drafts save themselves as you type. Published posts still need an explicit Update.
 - **Live titles:** the note list updates as you type a title.
 - **Appearance:** 10 themes (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light/Dark, Dracula, Nord, and WordPress in wp-admin's Modern colours), plus font (serif, sans, mono), text size and line width. Choices are saved per user and apply live.
