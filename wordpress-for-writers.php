@@ -134,6 +134,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'canUpload'         => current_user_can( 'upload_files' ),
             // The featured image panel follows the same checks as the editor's own control.
             'featuredImages'    => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
+            // The categories and tags form: which taxonomies the note has, and who may add new terms to them.
+            'terms'             => wfw_terms_settings(),
             'maxUploadFileSize' => wp_max_upload_size(),
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),
@@ -163,15 +165,36 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( wfw_is_frame() && in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
         wp_enqueue_style( 'wfw-frame', WFW_URL . 'assets/frame.css', array(), wfw_asset_version( 'assets/frame.css' ) );
         wp_add_inline_style( 'wfw-frame', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
+        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-html-entities', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
+        $terms = wfw_terms_settings();
         wp_localize_script( 'wfw-frame', 'wfwFrame', array(
             'appearance'     => wfw_get_appearance(),
             // Same checks as the app's featured image panel, which the link above the title opens.
             'featuredImages' => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
+            // The links above the title for categories and tags, which open the app's form for them.
+            'categories'     => $terms['categories'],
+            'tags'           => $terms['tags'],
             'visibility'     => wfw_visibility(),
         ) );
     }
 } );
+
+/**
+ * What the app's categories and tags form may do: which of the two taxonomies
+ * notes have, and whether the user may add new terms to each. The REST API lets
+ * anyone who can assign tags make new ones, while new categories take the
+ * taxonomy's edit_terms capability (manage_categories, by default).
+ */
+function wfw_terms_settings() {
+    $category = get_taxonomy( 'category' );
+    $tag      = get_taxonomy( 'post_tag' );
+    return array(
+        'categories'       => is_object_in_taxonomy( 'post', 'category' ),
+        'tags'             => is_object_in_taxonomy( 'post', 'post_tag' ),
+        'canAddCategories' => $category && current_user_can( $category->cap->edit_terms ),
+        'canAddTags'       => $tag && current_user_can( $tag->cap->assign_terms ),
+    );
+}
 
 /**
  * Stamp appearance attributes on <html> before first paint, for the app and the embedded editor.

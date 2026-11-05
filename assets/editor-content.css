@@ -60,21 +60,36 @@ html {
 }
 
 /*
- * Featured image link above the title (added by frame.js). Absolutely placed,
- * so the title doesn't move; it appears with the pointer over the title or
- * focus in it, and stays faintly visible on touch screens.
+ * Featured image, categories and tags links in a row above the title (added by
+ * frame.js). Absolutely placed, so the title doesn't move; the row appears with
+ * the pointer over the title or focus in it, and stays faintly visible on touch
+ * screens. Each link's label shows what the note has and is cut short with an
+ * ellipsis when the names run long.
  */
 .editor-styles-wrapper .editor-visual-editor__post-title-wrapper {
     position: relative;
 }
 
-.editor-styles-wrapper .wfw-featured-link {
+.editor-styles-wrapper .wfw-title-links {
     position: absolute;
     bottom: calc( 100% + 6px );
     left: -6px;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    user-select: none;
+}
+
+.editor-styles-wrapper .wfw-title-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 50%;
     padding: 4px 8px 4px 6px;
     border: 0;
     border-radius: 6px;
@@ -84,34 +99,37 @@ html {
     font-size: 13px;
     line-height: 1.2;
     cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s ease, color 0.15s ease;
-    user-select: none;
+    transition: color 0.15s ease;
 }
 
-.editor-styles-wrapper .wfw-featured-link svg {
+.editor-styles-wrapper .wfw-title-link svg {
     fill: currentColor;
     flex: none;
 }
 
-.editor-styles-wrapper .editor-visual-editor__post-title-wrapper:hover .wfw-featured-link,
-.editor-styles-wrapper .editor-visual-editor__post-title-wrapper:focus-within .wfw-featured-link {
+.editor-styles-wrapper .wfw-title-link span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-styles-wrapper .editor-visual-editor__post-title-wrapper:hover .wfw-title-links,
+.editor-styles-wrapper .editor-visual-editor__post-title-wrapper:focus-within .wfw-title-links {
     opacity: 1;
 }
 
-.editor-styles-wrapper .wfw-featured-link:hover {
+.editor-styles-wrapper .wfw-title-link:hover {
     color: var( --wfw-text );
     background: var( --wfw-code-bg );
 }
 
-.editor-styles-wrapper .wfw-featured-link:focus-visible {
-    opacity: 1;
+.editor-styles-wrapper .wfw-title-link:focus-visible {
     outline: 2px solid var( --wfw-accent );
     outline-offset: 1px;
 }
 
 @media ( hover: none ) {
-    .editor-styles-wrapper .wfw-featured-link {
+    .editor-styles-wrapper .wfw-title-links {
         opacity: 0.7;
     }
 }

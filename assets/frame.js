@@ -228,30 +228,103 @@
     }
 
     /*
-     * Featured image: a quiet link above the title, like the cover image prompt
-     * in Ghost or Medium. It shows while the pointer is over the title or the
-     * title has focus (always, faintly, on touch screens), and asks the app to
-     * open its featured image panel in place of the editor. It sits in the
-     * canvas, absolutely positioned, so the title doesn't move. The editor
-     * re-renders the title wrapper, so the link is put back when it drops out.
+     * Featured image, categories and tags: a row of quiet links above the
+     * title, like the cover image prompt in Ghost or Medium. It shows while the
+     * pointer is over the title or the title has focus (always, faintly, on
+     * touch screens). Each link asks the app to open its panel in place of the
+     * editor: the featured image panel, or the categories and tags form, open
+     * on the part that was clicked. The row sits in the canvas, absolutely
+     * positioned, so the title doesn't move. The editor re-renders the title
+     * wrapper, so the row is put back when it drops out.
+     *
+     * A link's label says what the note has: the names of its categories or
+     * tags (read through core-data, like the editor's own panels), or an
+     * invitation to add some.
      */
-    function mountFeaturedImageLink() {
-        if ( ! window.wfwFrame || ! window.wfwFrame.featuredImages ) {
+    function mountTitleLinks() {
+        const config = window.wfwFrame || {};
+        const { __, _n, sprintf } = wp.i18n;
+        const svg = ( d ) => '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="' + d + '"/></svg>';
+        const LINKS = [
+            {
+                key: 'image',
+                enabled: !! config.featuredImages,
+                icon: svg( 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z' ),
+                message: { type: 'featured-image' },
+                label() {
+                    return editor().getEditedPostAttribute( 'featured_media' )
+                        ? __( 'Change featured image', 'wordpress-for-writers' )
+                        : __( 'Add featured image', 'wordpress-for-writers' );
+                },
+            },
+            {
+                key: 'categories',
+                enabled: !! config.categories,
+                icon: svg( 'M12.848 8a1 1 0 0 1-.914-.594l-.723-1.63a.5.5 0 0 0-.447-.276H5a.5.5 0 0 0-.5.5v11.5a.5.5 0 0 0 .5.5h14a.5.5 0 0 0 .5-.5v-9A.5.5 0 0 0 19 8h-6.152Zm.612-1.5a.5.5 0 0 1-.462-.31l-.445-1.084A2 2 0 0 0 10.763 4H5a2 2 0 0 0-2 2v11.5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-5.54Z' ),
+                message: { type: 'terms', focus: 'categories' },
+                label() {
+                    return termNames( 'categories', 'category', __( 'Add categories', 'wordpress-for-writers' ),
+                        /* translators: %d: number of categories. */
+                        ( n ) => sprintf( _n( '%d category', '%d categories', n, 'wordpress-for-writers' ), n ) );
+                },
+            },
+            {
+                key: 'tags',
+                enabled: !! config.tags,
+                icon: svg( 'M20.5 5.5h-3.1l.7-3.3-1.5-.3-.7 3.6H10l.7-3.3-1.5-.3-.7 3.6H4.5V7h3.7l-.9 4.5H3.5V13h3.5l-.7 3.3 1.5.3.7-3.6H14l-.7 3.3 1.5.3.7-3.6h4V11.5h-3.7l.9-4.5h3.8V5.5Zm-6.2 6h-5.5L9.7 7h5.5l-.9 4.5Z' ),
+                message: { type: 'terms', focus: 'tags' },
+                label() {
+                    return termNames( 'tags', 'post_tag', __( 'Add tags', 'wordpress-for-writers' ),
+                        /* translators: %d: number of tags. */
+                        ( n ) => sprintf( _n( '%d tag', '%d tags', n, 'wordpress-for-writers' ), n ) );
+                },
+            },
+        ].filter( ( item ) => item.enabled );
+
+        if ( ! LINKS.length ) {
             return;
         }
-        const { __ } = wp.i18n;
-        const ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"/></svg>';
-        let link = null;
-        let hasImage = null;
+
+        // The names of the note's terms, comma separated; a count while they load.
+        // The stores hand back the same arrays until they change, so the last
+        // result is kept per attribute and reused while they stay the same.
+        const named = {};
+        function termNames( attribute, taxonomy, empty, count ) {
+            const ids = editor().getEditedPostAttribute( attribute ) || [];
+            if ( ! ids.length ) {
+                return empty;
+            }
+            const terms = select( 'core' ).getEntityRecords( 'taxonomy', taxonomy, { include: ids, per_page: ids.length, context: 'view', _fields: 'id,name' } );
+            if ( ! terms ) {
+                return count( ids.length );
+            }
+            const last = named[ attribute ];
+            if ( last && last.ids === ids && last.terms === terms ) {
+                return last.text;
+            }
+            // Term names come HTML-escaped from the REST API.
+            const names = ids.map( ( id ) => terms.find( ( t ) => t.id === id ) ).filter( Boolean ).map( ( t ) => wp.htmlEntities.decodeEntities( t.name || '' ) );
+            const text = names.length ? names.join( ', ' ) : count( ids.length );
+            named[ attribute ] = { ids, terms, text };
+            return text;
+        }
+
+        let row = null;
+        let labels = {};
 
         function label() {
-            const now = !! editor().getEditedPostAttribute( 'featured_media' );
-            if ( link && now !== hasImage ) {
-                hasImage = now;
-                link.querySelector( 'span' ).textContent = now
-                    ? __( 'Change featured image', 'wordpress-for-writers' )
-                    : __( 'Add featured image', 'wordpress-for-writers' );
+            if ( ! row ) {
+                return;
             }
+            LINKS.forEach( ( item ) => {
+                const text = item.label();
+                if ( text !== labels[ item.key ] ) {
+                    labels[ item.key ] = text;
+                    const span = row.querySelector( '[data-link="' + item.key + '"] span' );
+                    span.textContent = text;
+                    span.title = text;
+                }
+            } );
         }
 
         const watched = new WeakSet();
@@ -270,31 +343,37 @@
             if ( ! canvas ) {
                 return;
             }
-            if ( ! canvas.dataset.wfwFeaturedLink ) {
-                canvas.dataset.wfwFeaturedLink = '1';
+            if ( ! canvas.dataset.wfwTitleLinks ) {
+                canvas.dataset.wfwTitleLinks = '1';
                 canvas.addEventListener( 'load', attach );
             }
             const doc = canvas.contentDocument;
             watch( doc );
             const wrapper = doc && doc.querySelector( '.editor-visual-editor__post-title-wrapper' );
-            if ( ! wrapper || ( link && link.parentNode === wrapper ) ) {
+            if ( ! wrapper || ( row && row.parentNode === wrapper ) ) {
                 return;
             }
-            if ( ! link || link.ownerDocument !== doc ) {
-                link = doc.createElement( 'button' );
-                link.type = 'button';
-                link.className = 'wfw-featured-link';
-                link.contentEditable = 'false';
-                link.innerHTML = ICON + '<span></span>';
-                link.addEventListener( 'click', () => {
-                    const id = editor().getCurrentPostId();
-                    if ( id ) {
-                        post( { type: 'featured-image', id } );
-                    }
+            if ( ! row || row.ownerDocument !== doc ) {
+                row = doc.createElement( 'div' );
+                row.className = 'wfw-title-links';
+                row.contentEditable = 'false';
+                LINKS.forEach( ( item ) => {
+                    const link = doc.createElement( 'button' );
+                    link.type = 'button';
+                    link.className = 'wfw-title-link wfw-title-link--' + item.key;
+                    link.dataset.link = item.key;
+                    link.innerHTML = item.icon + '<span></span>';
+                    link.addEventListener( 'click', () => {
+                        const id = editor().getCurrentPostId();
+                        if ( id ) {
+                            post( { ...item.message, id } );
+                        }
+                    } );
+                    row.appendChild( link );
                 } );
-                hasImage = null;
+                labels = {};
             }
-            wrapper.prepend( link );
+            wrapper.prepend( row );
             label();
         }
 
@@ -307,7 +386,7 @@
         attach();
     }
 
-    mountFeaturedImageLink();
+    mountTitleLinks();
 
     function post( message ) {
         window.parent.postMessage( { source: 'wfw-frame', ...message }, window.location.origin );
