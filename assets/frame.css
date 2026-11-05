@@ -592,9 +592,6 @@ body.wfw-frame .editor-notices :is( .components-notice-list, [class*="notices__p
 
 body.wfw-frame .editor-notices .components-notice {
     --wfw-notice-dot: var( --wfw-accent );
-    --components-notice-background-color: var( --wfw-editor-bg );
-    --components-notice-border-color: var( --wfw-border );
-    --components-notice-text-color: var( --wfw-text );
     position: relative;
     display: flex;
     flex-wrap: wrap;
@@ -664,7 +661,6 @@ body.wfw-frame .editor-notices .components-notice__actions {
 }
 
 /* Actions as quiet capsules, like the Save button. */
-body.wfw-frame .editor-notices .components-notice__action.components-button,
 body.wfw-frame .editor-notices .components-notice__actions .components-button {
     height: 28px;
     margin: 0 !important;
