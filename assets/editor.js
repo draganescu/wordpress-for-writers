@@ -236,13 +236,96 @@
         return el( 'div', { className: 'wfw-pill' }, el( blockEditor.BlockToolbar, { hideDragHandle: true } ) );
     }
 
+    /*
+     * Publishing: a small card under the Publish button (a sheet from the
+     * bottom on phones) instead of wp-admin's pre-publish sidebar. It holds
+     * what a writer decides at that moment, who can read the note and when it
+     * goes out, with the editor's own controls for both, and the editor's own
+     * Publish / Schedule button. Once the note is out the card closes and the
+     * editor's "published" toast offers to view it. The card's open state is
+     * the editor's publish sidebar flag, so the header's Publish button
+     * (PostPublishButton as a toggle) opens and closes it.
+     */
+    function PublishRow( { label, value, isOpen, onToggle, children } ) {
+        return el( 'div', { className: 'wfw-publish__row' + ( isOpen ? ' is-open' : '' ) },
+            el( 'button', { type: 'button', className: 'wfw-publish__toggle', 'aria-expanded': isOpen, onClick: onToggle },
+                el( 'span', { className: 'wfw-publish__label' }, label ),
+                el( 'span', { className: 'wfw-publish__value' }, value )
+            ),
+            isOpen && el( 'div', { className: 'wfw-publish__detail' }, children )
+        );
+    }
+
     function PublishPanel() {
-        const isOpen = useSelect( ( s ) => s( editorStore ).isPublishSidebarOpened(), [] );
+        const { isOpen, isOut } = useSelect( ( s ) => {
+            const store = s( editorStore );
+            return {
+                isOpen: store.isPublishSidebarOpened(),
+                isOut: store.isCurrentPostPublished() || store.isCurrentPostScheduled(),
+            };
+        }, [] );
         const { closePublishSidebar } = useDispatch( editorStore );
+        const [ section, setSection ] = useState( null );
+        const card = useRef();
+
+        // Published or scheduled: the card has done its job.
+        useEffect( () => {
+            if ( isOpen && isOut ) {
+                closePublishSidebar();
+            }
+        }, [ isOpen, isOut ] );
+
+        useEffect( () => {
+            if ( ! isOpen ) {
+                setSection( null );
+                return;
+            }
+            const focusable = card.current && card.current.querySelector( '.wfw-publish__foot .is-primary' );
+            if ( focusable ) {
+                focusable.focus();
+            }
+        }, [ isOpen ] );
+
         if ( ! isOpen ) {
             return null;
         }
-        return el( 'div', { className: 'wfw-sheet wfw-sheet--publish' }, el( editor.PostPublishPanel, { onClose: closePublishSidebar } ) );
+        const toggle = ( name ) => () => setSection( ( open ) => ( open === name ? null : name ) );
+        const close = () => closePublishSidebar();
+
+        return el( Fragment, null,
+            el( 'div', { className: 'wfw-publish-backdrop', onClick: close } ),
+            el( 'div', {
+                ref: card,
+                className: 'wfw-publish',
+                role: 'dialog',
+                'aria-label': __( 'Publish', 'wordpress-for-writers' ),
+                onKeyDown: ( event ) => {
+                    if ( event.key === 'Escape' && ! event.defaultPrevented ) {
+                        event.preventDefault();
+                        close();
+                    }
+                },
+            },
+            el( 'h2', { className: 'wfw-publish__title' }, __( 'Ready to publish?', 'wordpress-for-writers' ) ),
+            el( editor.PostVisibilityCheck, {
+                render: ( { canEdit } ) => canEdit && el( PublishRow, {
+                    label: __( 'Who can read', 'wordpress-for-writers' ),
+                    value: el( editor.PostVisibilityLabel ),
+                    isOpen: section === 'visibility',
+                    onToggle: toggle( 'visibility' ),
+                }, el( editor.PostVisibility, { onClose: () => setSection( null ) } ) ),
+            } ),
+            el( editor.PostScheduleCheck, null, el( PublishRow, {
+                label: __( 'When', 'wordpress-for-writers' ),
+                value: el( editor.PostScheduleLabel ),
+                isOpen: section === 'schedule',
+                onToggle: toggle( 'schedule' ),
+            }, el( editor.PostSchedule, { onClose: () => setSection( null ) } ) ) ),
+            el( 'div', { className: 'wfw-publish__foot' },
+                el( Button, { variant: 'tertiary', onClick: close }, __( 'Not yet', 'wordpress-for-writers' ) ),
+                el( editor.PostPublishButton )
+            ) )
+        );
     }
 
     /*
@@ -385,8 +468,7 @@
         } );
 
         const ThemeProvider = wp.theme && wp.theme.ThemeProvider;
-        const publishing = useSelect( ( s ) => s( editorStore ).isPublishSidebarOpened(), [] );
-        const layout = el( 'div', { className: 'wfw-ed' + ( settingsOpen ? ' has-settings' : '' ) + ( publishing ? ' is-publishing' : '' ) },
+        const layout = el( 'div', { className: 'wfw-ed' + ( settingsOpen ? ' has-settings' : '' ) },
             el( Notices ),
             el( Actions ),
             el( 'div', { className: 'wfw-canvas' },
