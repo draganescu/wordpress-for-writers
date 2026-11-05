@@ -103,9 +103,17 @@
 
     const compactLayout = window.matchMedia( '(max-width: 1100px)' );
 
-    let frame = null;
-    let frameReady = false;
-    let revealTimer = 0;
+    /*
+     * The open editors, listed under Editing now: the one in view, and those
+     * opened with "Open in new tab", which keep running out of sight so each
+     * keeps its place, undo history and unsaved changes. Each is
+     * { key, id, title, frame, ready, revealTimer }: id is null for a new note
+     * until it's first saved, and frame is null until the tab is first shown
+     * (tabs come back after a reload without loading every editor at once).
+     */
+    let tabs = [];
+    let current = null;
+    let tabSeq = 0;
     let pendingReplies = {};
     let replySeq = 0;
     let listRequest = 0;
@@ -380,11 +388,13 @@
         const tags = state.tags
             .map( ( t ) => navButton( { type: 'tag', id: t.id }, t.name, TAG_ICON ) )
             .join( '' );
+        const editing = editingNowHtml();
         const siteIcon = settings.siteIcon ? `<img class="wfw-sidebar__icon" src="${ esc( settings.siteIcon ) }" alt="" />` : '';
 
         sidebar.innerHTML = `
             <div class="wfw-sidebar__head">${ siteIcon }<span class="wfw-sidebar__name">${ esc( settings.siteName ) }</span></div>
             <div class="wfw-sidebar__scroll">
+                ${ editing }
                 ${ statusNav }
                 ${ pinned ? `<div class="wfw-sidebar__pins" role="group" aria-label="${ esc( __( 'Pinned', 'wordpress-for-writers' ) ) }">${ pinned }</div>` : '' }
                 ${ state.categories.length ? sidebarSection( 'categories', __( 'Categories', 'wordpress-for-writers' ), categoryTree( 0, 0 ) ) : '' }
@@ -416,7 +426,40 @@
     // Tells the sidebar's controls apart across renders: what they do and to
     // what, and whether they're the pinned copy of a category or tag.
     function controlKey( el ) {
-        return [ el.dataset.action, el.dataset.type, el.dataset.id, el.dataset.section, el.getAttribute( 'href' ), !! el.closest( '.wfw-sidebar__pins' ) ].join( '|' );
+        return [ el.dataset.action, el.dataset.type, el.dataset.id, el.dataset.section, el.dataset.tab, el.getAttribute( 'href' ), !! el.closest( '.wfw-sidebar__pins' ) ].join( '|' );
+    }
+
+    /*
+     * Editing now: the open editors as vertical tabs, first in the sidebar. It
+     * shows once there's an editor besides the one in view, so a single open note
+     * doesn't repeat what the list already highlights. Each tab has a close
+     * button, and a middle click closes it too.
+     */
+    function editingNowHtml() {
+        if ( ! tabs.some( ( t ) => t !== current ) ) {
+            return '';
+        }
+        const items = tabs.map( ( tab ) => {
+            const active = tab === current && ! state.featured;
+            const title = tab.title || __( 'Untitled', 'wordpress-for-writers' );
+            return `
+                <div class="wfw-tab${ active ? ' is-active' : '' }" data-tab="${ tab.key }" role="listitem">
+                    <button class="wfw-nav${ active ? ' is-active' : '' }" data-action="tab" data-tab="${ tab.key }"${ active ? ' aria-current="true"' : '' }>
+                        <span class="wfw-nav__icon">${ icon( 'open' ) }</span>
+                        <span class="wfw-nav__label${ tab.title ? '' : ' is-empty' }">${ esc( title ) }</span>
+                    </button>
+                    <button class="wfw-icon-btn wfw-tab__close" data-action="close-tab" data-tab="${ tab.key }" aria-label="${ esc( sprintf( __( 'Close %s', 'wordpress-for-writers' ), title ) ) }" title="${ esc( __( 'Close', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</button>
+                </div>`;
+        } ).join( '' );
+        return `
+            <div class="wfw-sidebar__tabs">
+                <div class="wfw-sidebar__heading" id="wfw-tabs-heading">${ esc( __( 'Editing now', 'wordpress-for-writers' ) ) }</div>
+                <div role="list" aria-labelledby="wfw-tabs-heading">${ items }</div>
+            </div>`;
+    }
+
+    function tabByKey( key ) {
+        return tabs.find( ( t ) => t.key === Number( key ) );
     }
 
     // The site icon stays invisible until it has loaded, and is dropped if it fails, so an empty box never shows.
@@ -584,14 +627,14 @@
 
     // ---- Editor frame ------------------------------------------------------
 
-    function ask( message, timeout ) {
-        if ( ! frame || ! frame.contentWindow ) {
+    function ask( message, timeout, tab = current ) {
+        if ( ! tab?.frame?.contentWindow ) {
             return Promise.resolve( null );
         }
         const replyTo = ++replySeq;
         return new Promise( ( resolve ) => {
             pendingReplies[ replyTo ] = resolve;
-            frame.contentWindow.postMessage( { source: 'wfw', replyTo, ...message }, window.location.origin );
+            tab.frame.contentWindow.postMessage( { source: 'wfw', replyTo, ...message }, window.location.origin );
             setTimeout( () => {
                 if ( pendingReplies[ replyTo ] ) {
                     delete pendingReplies[ replyTo ];
@@ -601,11 +644,12 @@
         } );
     }
 
-    async function canLeaveEditor() {
-        if ( ! frameReady ) {
+    // Saves a draft's last changes before its editor goes; a published note's unsaved changes are the writer's call.
+    async function canLeaveEditor( tab = current ) {
+        if ( ! tab?.ready ) {
             return true;
         }
-        const reply = await ask( { type: 'flush' }, 8000 );
+        const reply = await ask( { type: 'flush' }, 8000, tab );
         if ( ! reply || reply.ok ) {
             return true;
         }
@@ -613,79 +657,221 @@
     }
 
     // Placeholder shown in the editor's colors while a note loads: its title from
-    // the list and a few faint lines, so switching notes never flashes white.
-    function skeletonHtml() {
-        const title = state.activeId && root.querySelector( `.wfw-note[data-id="${ state.activeId }"] .wfw-note__title:not(.is-empty)` );
-        const body = state.activeId ? '<span></span><span></span><span></span>' : '';
-        return `<div class="wfw-editor__skeleton" aria-hidden="true"><div class="wfw-editor__skeleton-column">${ title ? `<div class="wfw-editor__skeleton-title">${ esc( title.textContent ) }</div>` : '' }${ body }</div></div>`;
+    // the list (or its tab) and a few faint lines, so switching notes never flashes white.
+    function skeletonHtml( tab ) {
+        const listed = tab?.id && root.querySelector( `.wfw-note[data-id="${ tab.id }"] .wfw-note__title:not(.is-empty)` );
+        const title = listed ? listed.textContent : tab?.title;
+        const body = tab?.id ? '<span></span><span></span><span></span>' : '';
+        return `<div class="wfw-editor__skeleton" aria-hidden="true"><div class="wfw-editor__skeleton-column">${ title ? `<div class="wfw-editor__skeleton-title">${ esc( title ) }</div>` : '' }${ body }</div></div>`;
     }
 
-    // The new frame stays transparent until its canvas has painted with our
+    function clearEditorPane() {
+        const editor = root.querySelector( '.wfw-editor' );
+        state.featured?.root.unmount();
+        state.featured = null;
+        editor.querySelectorAll( '.wfw-editor__placeholder, .wfw-editor__loading, .wfw-editor__skeleton, .wfw-media' ).forEach( ( el ) => el.remove() );
+        return editor;
+    }
+
+    // A tab's frame stays transparent until its canvas has painted with our
     // styles (or a timeout passes), then fades in over the skeleton.
-    function revealEditor() {
-        clearTimeout( revealTimer );
-        if ( ! frame ) {
+    function revealEditor( tab ) {
+        clearTimeout( tab?.revealTimer );
+        if ( ! tab?.frame ) {
             return;
         }
-        frame.classList.remove( 'is-loading' );
+        tab.frame.classList.remove( 'is-loading' );
+        if ( tab !== current ) {
+            return;
+        }
         root.querySelectorAll( '.wfw-editor__loading, .wfw-editor__skeleton' ).forEach( ( el ) => {
             el.classList.add( 'is-done' );
             setTimeout( () => el.remove(), 250 );
         } );
     }
 
-    function mountEditor( src ) {
-        const editor = root.querySelector( '.wfw-editor' );
-        state.featured?.root.unmount();
-        state.featured = null;
-        editor.querySelectorAll( 'iframe, .wfw-editor__placeholder, .wfw-editor__loading, .wfw-editor__skeleton, .wfw-media' ).forEach( ( el ) => el.remove() );
-        clearTimeout( revealTimer );
-        frameReady = false;
-        root.classList.toggle( 'has-note', !! src );
-        if ( ! src ) {
-            frame = null;
-            editor.insertAdjacentHTML( 'beforeend', `<div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>` );
-            return;
-        }
-        editor.insertAdjacentHTML( 'beforeend', '<div class="wfw-editor__loading"></div>' + skeletonHtml() );
-        frame = document.createElement( 'iframe' );
-        // aria-label rather than title: Safari shows an iframe's title as a hover tooltip.
-        frame.setAttribute( 'aria-label', __( 'Editor', 'wordpress-for-writers' ) );
-        frame.classList.add( 'is-loading' );
-        frame.src = src;
-        editor.appendChild( frame );
-        revealTimer = setTimeout( revealEditor, 8000 );
+    function editorSrc( id ) {
+        return id ? settings.adminUrl + 'post.php?post=' + id + '&action=edit&wfw_frame=1' : settings.adminUrl + 'post-new.php?wfw_frame=1';
     }
 
+    function dropFrame( tab ) {
+        clearTimeout( tab.revealTimer );
+        tab.frame?.remove();
+        tab.frame = null;
+        tab.ready = false;
+    }
+
+    // Loads the tab's note into a fresh editor, in place of the one it had.
+    function loadTab( tab ) {
+        dropFrame( tab );
+        tab.frame = document.createElement( 'iframe' );
+        // aria-label rather than title: Safari shows an iframe's title as a hover tooltip.
+        tab.frame.setAttribute( 'aria-label', __( 'Editor', 'wordpress-for-writers' ) );
+        tab.frame.classList.add( 'is-loading' );
+        tab.frame.classList.toggle( 'is-hidden', tab !== current );
+        tab.frame.src = editorSrc( tab.id );
+        root.querySelector( '.wfw-editor' ).appendChild( tab.frame );
+        tab.revealTimer = setTimeout( () => revealEditor( tab ), 8000 );
+    }
+
+    // Puts the tab in view. The others stay loaded behind it, hidden.
+    function showTab( tab ) {
+        const editor = clearEditorPane();
+        current = tab;
+        state.activeId = tab ? tab.id : null;
+        tabs.forEach( ( t ) => t.frame?.classList.toggle( 'is-hidden', t !== tab ) );
+        root.classList.toggle( 'has-note', !! tab );
+        if ( ! tab ) {
+            editor.insertAdjacentHTML( 'beforeend', `<div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>` );
+        } else if ( ! tab.frame || tab.frame.classList.contains( 'is-loading' ) ) {
+            editor.insertAdjacentHTML( 'beforeend', '<div class="wfw-editor__loading"></div>' + skeletonHtml( tab ) );
+            if ( ! tab.frame ) {
+                loadTab( tab );
+            }
+        }
+        window.history.replaceState( null, '', tab?.id ? '#note=' + tab.id : window.location.pathname + window.location.search );
+        markActive();
+        saveTabs();
+        renderSidebar();
+    }
+
+    function tabFor( id ) {
+        return id ? tabs.find( ( t ) => t.id === id ) : null;
+    }
+
+    function noteTitle( id ) {
+        const note = state.notes.find( ( n ) => n.id === id );
+        return note ? note.title.raw || htmlToText( note.title.rendered ) : '';
+    }
+
+    function addTab( id, title = noteTitle( id ) ) {
+        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, revealTimer: 0 };
+        // Next to the tab in view, like a browser's new tab from a link.
+        const at = tabs.indexOf( current );
+        tabs.splice( at < 0 ? tabs.length : at + 1, 0, tab );
+        return tab;
+    }
+
+    // Opens the note in the tab in view, as a click on it in the list does. A note
+    // that already has a tab is shown there instead, so it's never open twice.
     async function openNote( id ) {
-        if ( id === state.activeId && frame ) {
+        const open = tabFor( id );
+        if ( open ) {
+            if ( open !== current || ! open.frame || state.featured ) {
+                showTab( open );
+            }
             root.classList.add( 'has-note' );
             return;
         }
-        if ( ! ( await canLeaveEditor() ) ) {
+        if ( current ) {
+            if ( ! ( await canLeaveEditor() ) ) {
+                return;
+            }
+            current.id = id;
+            current.title = noteTitle( id );
+            dropFrame( current );
+            showTab( current );
             return;
         }
-        state.activeId = id;
-        markActive();
-        window.history.replaceState( null, '', '#note=' + id );
-        mountEditor( settings.adminUrl + 'post.php?post=' + id + '&action=edit&wfw_frame=1' );
+        showTab( addTab( id ) );
+    }
+
+    // "Open in new tab": the note gets an editor of its own under Editing now, and comes into view.
+    function openNoteInTab( id ) {
+        showTab( tabFor( id ) || addTab( id ) );
     }
 
     async function newNote() {
-        if ( ! ( await canLeaveEditor() ) ) {
+        if ( current && ! ( await canLeaveEditor() ) ) {
             return;
         }
-        state.activeId = null;
-        markActive();
-        window.history.replaceState( null, '', window.location.pathname + window.location.search );
-        mountEditor( settings.adminUrl + 'post-new.php?wfw_frame=1' );
+        const tab = current || addTab( null, '' );
+        tab.id = null;
+        tab.title = '';
+        dropFrame( tab );
+        showTab( tab );
+    }
+
+    // Closes a tab's editor, after saving a draft's last changes. The next tab
+    // down (or, for the last one, the one above) comes into view in its place.
+    async function closeTab( tab, { save = true } = {} ) {
+        if ( save && ! ( await canLeaveEditor( tab ) ) ) {
+            return;
+        }
+        const at = tabs.indexOf( tab );
+        if ( at < 0 ) {
+            return;
+        }
+        dropFrame( tab );
+        tabs.splice( at, 1 );
+        if ( tab === current ) {
+            showTab( tabs[ at ] || tabs[ at - 1 ] || null );
+        } else {
+            saveTabs();
+            renderSidebar();
+        }
+    }
+
+    // Tabs are kept per device, like the other view preferences, and reopen after a reload.
+    function saveTabs() {
+        savePref( 'tabs', tabs.filter( ( t ) => t.id ).map( ( t ) => ( { id: t.id, title: t.title } ) ) );
+    }
+
+    // Tabs restored from the last visit, minus notes that have since been trashed or deleted.
+    async function restoreTabs() {
+        const saved = ( loadPref( 'tabs', [] ) || [] ).filter( ( t ) => t && Number( t.id ) > 0 );
+        if ( ! saved.length ) {
+            return;
+        }
+        saved.forEach( ( t ) => {
+            if ( ! tabFor( Number( t.id ) ) ) {
+                addTab( Number( t.id ), String( t.title || '' ) );
+            }
+        } );
+        renderSidebar();
+        const ids = tabs.map( ( t ) => t.id ).filter( Boolean );
+        const notes = await apiFetch( {
+            path: '/wp/v2/posts?' + new URLSearchParams( { include: ids.join( ',' ), per_page: 100, status: STATUS_VIEWS[ 0 ].status, context: 'edit', _fields: 'id,title' } ),
+        } ).catch( () => null );
+        if ( ! notes ) {
+            return;
+        }
+        const found = new Map( notes.map( ( n ) => [ n.id, n.title.raw || htmlToText( n.title.rendered ) ] ) );
+        tabs = tabs.filter( ( t ) => ! t.id || found.has( t.id ) || t === current );
+        tabs.forEach( ( t ) => {
+            if ( found.has( t.id ) ) {
+                t.title = found.get( t.id );
+            }
+        } );
+        saveTabs();
+        renderSidebar();
+    }
+
+    // A note that went to the trash or was deleted closes its tab, with nothing to save.
+    function closeNoteTab( id ) {
+        const tab = tabFor( id );
+        if ( tab ) {
+            closeTab( tab, { save: false } );
+        }
+    }
+
+    function setTabTitle( tab, title ) {
+        tab.title = title;
+        const label = root.querySelector( `.wfw-tab[data-tab="${ tab.key }"] .wfw-nav__label` );
+        if ( label ) {
+            label.textContent = title || __( 'Untitled', 'wordpress-for-writers' );
+            label.classList.toggle( 'is-empty', ! title );
+        }
+        saveTabs();
     }
 
     window.addEventListener( 'message', ( event ) => {
         if ( event.origin !== window.location.origin || ! event.data || event.data.source !== 'wfw-frame' ) {
             return;
         }
-        if ( ! frame || event.source !== frame.contentWindow ) {
+        // Every tab's editor talks to the app; only the one in view gets to steer it.
+        const tab = tabs.find( ( t ) => t.frame && t.frame.contentWindow === event.source );
+        if ( ! tab ) {
             return;
         }
         const data = event.data;
@@ -696,16 +882,19 @@
         }
         switch ( data.type ) {
             case 'ready': {
-                frameReady = true;
-                applyAppearance();
-                if ( data.id && state.activeId !== data.id ) {
-                    state.activeId = data.id;
-                    markActive();
+                tab.ready = true;
+                postAppearance( tab );
+                if ( data.id && tab.id !== data.id ) {
+                    tab.id = data.id;
+                    if ( tab === current ) {
+                        state.activeId = data.id;
+                        markActive();
+                    }
                 }
                 break;
             }
             case 'painted': {
-                revealEditor();
+                revealEditor( tab );
                 break;
             }
             case 'title': {
@@ -714,23 +903,28 @@
                     el.textContent = data.title || __( 'Untitled', 'wordpress-for-writers' );
                     el.classList.toggle( 'is-empty', ! data.title );
                 }
+                setTabTitle( tab, data.title || '' );
                 break;
             }
             case 'saved': {
-                state.activeId = data.id;
-                window.history.replaceState( null, '', '#note=' + data.id );
+                tab.id = data.id;
+                if ( tab === current ) {
+                    state.activeId = data.id;
+                    window.history.replaceState( null, '', '#note=' + data.id );
+                }
+                saveTabs();
                 loadNotes();
                 loadCounts();
                 break;
             }
             case 'featured-image': {
-                if ( FEATURED && data.id ) {
+                if ( FEATURED && data.id && tab === current ) {
                     openFeatured( data.id );
                 }
                 break;
             }
             case 'escape': {
-                if ( state.focus ) {
+                if ( state.focus && tab === current ) {
                     toggleFocus();
                 }
                 break;
@@ -977,16 +1171,27 @@
     } )();
 
     async function openFeatured( id ) {
-        if ( ! FEATURED || ! ( await canLeaveEditor() ) ) {
+        if ( ! FEATURED ) {
             return;
+        }
+        // The panel saves the image straight to the note, so the note's own editor
+        // saves first and goes, and loads again (with the new image) on the way back.
+        // Other tabs keep running behind the panel.
+        const tab = tabFor( id );
+        if ( tab ) {
+            if ( ! ( await canLeaveEditor( tab ) ) ) {
+                return;
+            }
+            dropFrame( tab );
+            current = tab;
         }
         state.activeId = id;
         markActive();
         window.history.replaceState( null, '', '#image=' + id );
-        mountEditor( null );
+        const editor = clearEditorPane();
+        tabs.forEach( ( t ) => t.frame?.classList.add( 'is-hidden' ) );
         root.classList.add( 'has-note' );
-        const editor = root.querySelector( '.wfw-editor' );
-        editor.querySelector( '.wfw-editor__placeholder' )?.remove();
+        renderSidebar();
         const host = document.createElement( 'div' );
         host.className = 'wfw-media';
         host.setAttribute( 'role', 'region' );
@@ -1003,9 +1208,12 @@
         Object.entries( appearance ).forEach( ( [ key, value ] ) => {
             document.documentElement.dataset[ 'wfw' + key[ 0 ].toUpperCase() + key.slice( 1 ) ] = value;
         } );
-        if ( frame && frame.contentWindow ) {
-            frame.contentWindow.postMessage( { source: 'wfw', type: 'appearance', appearance }, window.location.origin );
-        }
+        tabs.forEach( postAppearance );
+    }
+
+    // Every tab's editor follows the appearance, in view or not.
+    function postAppearance( tab ) {
+        tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'appearance', appearance }, window.location.origin );
     }
 
     const saveAppearance = debounce( () => {
@@ -1184,11 +1392,6 @@
         return root.querySelector( '.wfw-menu--context' );
     }
 
-    // A link to the app with `hash` (note=ID) open.
-    function appUrl( hash ) {
-        return window.location.origin + window.location.pathname + window.location.search + '#' + hash;
-    }
-
     /*
      * The post's link with preview=true, the way get_preview_post_link() builds it.
      * The editor's own preview goes through an autosave instead, but only notes
@@ -1213,7 +1416,8 @@
         const published = note.status === 'publish' || note.status === 'private';
         const items = [
             { command: 'open', icon: 'open', label: __( 'Open', 'wordpress-for-writers' ) },
-            { href: appUrl( 'note=' + note.id ), icon: 'external', label: __( 'Open in new tab', 'wordpress-for-writers' ) },
+            // A tab of the app's own, under Editing now, rather than another browser tab.
+            { command: 'open-tab', icon: 'external', label: __( 'Open in new tab', 'wordpress-for-writers' ) },
         ];
         if ( note.link ) {
             items.push(
@@ -1336,6 +1540,9 @@
         switch ( command ) {
             case 'open':
                 openNote( menu.id );
+                break;
+            case 'open-tab':
+                openNoteInTab( menu.id );
                 break;
             case 'copy-link':
                 copyLink( menu.note.link );
@@ -1638,10 +1845,7 @@
 
     async function trashNote( id ) {
         await apiFetch( { path: '/wp/v2/posts/' + id, method: 'DELETE' } );
-        if ( id === state.activeId ) {
-            state.activeId = null;
-            mountEditor( null );
-        }
+        closeNoteTab( id );
         await refresh();
     }
 
@@ -1655,10 +1859,7 @@
             return;
         }
         await apiFetch( { path: '/wp/v2/posts/' + id + '?force=true', method: 'DELETE' } );
-        if ( id === state.activeId ) {
-            state.activeId = null;
-            mountEditor( null );
-        }
+        closeNoteTab( id );
         await refresh();
     }
 
@@ -1694,8 +1895,29 @@
                 break;
             }
             case 'open':
-                openNote( id );
+                // Cmd- or Ctrl-click opens the note in a tab of its own, as it would a link in a browser.
+                if ( event.metaKey || event.ctrlKey ) {
+                    openNoteInTab( id );
+                } else {
+                    openNote( id );
+                }
                 break;
+            case 'tab': {
+                const tab = tabByKey( target.dataset.tab );
+                root.classList.remove( 'is-sidebar-open' );
+                if ( tab ) {
+                    showTab( tab );
+                    root.classList.add( 'has-note' );
+                }
+                break;
+            }
+            case 'close-tab': {
+                const tab = tabByKey( target.dataset.tab );
+                if ( tab ) {
+                    closeTab( tab );
+                }
+                break;
+            }
             case 'featured':
                 event.stopPropagation();
                 openFeatured( id );
@@ -1763,6 +1985,30 @@
                 break;
         }
     }
+
+    // A middle click opens a note in a new tab and closes a tab, as in a browser.
+    // Its mousedown would start the browser's autoscroll there instead.
+    const MIDDLE_CLICK = '.wfw-note, .wfw-tab';
+    root.addEventListener( 'mousedown', ( event ) => {
+        if ( event.button === 1 && event.target.closest( MIDDLE_CLICK ) ) {
+            event.preventDefault();
+        }
+    } );
+    root.addEventListener( 'auxclick', ( event ) => {
+        const el = event.button === 1 && event.target.closest( MIDDLE_CLICK );
+        if ( ! el ) {
+            return;
+        }
+        event.preventDefault();
+        if ( el.matches( '.wfw-tab' ) ) {
+            const tab = tabByKey( el.dataset.tab );
+            if ( tab ) {
+                closeTab( tab );
+            }
+        } else {
+            openNoteInTab( Number( el.dataset.id ) );
+        }
+    } );
 
     document.addEventListener( 'pointerdown', ( event ) => {
         if ( state.listMenu && ! event.target.closest( '.wfw-list__head' ) ) {
@@ -1849,6 +2095,8 @@
     renderSidebar();
     renderListHeader();
     refresh();
+
+    restoreTabs();
 
     const hashMatch = window.location.hash.match( /(note|image)=(\d+)/ );
     if ( hashMatch ) {
