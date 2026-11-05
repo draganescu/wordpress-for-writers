@@ -10,6 +10,9 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The user meta key. It carries the site's table prefix, like a user option,
  * so each site of a network keeps its own pins: term IDs differ between sites.
+ * PHP reads it with get_user_option( 'wfw_pinned_terms' ). The app writes it
+ * through the REST API, which only knows user meta, so the key is registered
+ * there with the prefix spelled out.
  */
 function wfw_pinned_terms_key() {
     global $wpdb;
@@ -17,12 +20,22 @@ function wfw_pinned_terms_key() {
 }
 
 /**
+ * The most pins a writer can keep. The REST schema refuses more, and saving
+ * checks that each pinned term still exists, so the list stays short.
+ */
+const WFW_MAX_PINNED_TERMS = 50;
+
+/**
  * Pins as stored: a list of { taxonomy, id } in pin order, without repeats or
- * terms that no longer exist, so a deleted term drops out quietly.
+ * terms that no longer exist, so a deleted term drops out quietly, and no more
+ * than WFW_MAX_PINNED_TERMS of them.
  */
 function wfw_sanitize_pinned_terms( $value ) {
     $pins = array();
     foreach ( is_array( $value ) ? $value : array() as $pin ) {
+        if ( count( $pins ) >= WFW_MAX_PINNED_TERMS ) {
+            break;
+        }
         $taxonomy = is_array( $pin ) && isset( $pin['taxonomy'] ) ? $pin['taxonomy'] : '';
         $id       = is_array( $pin ) && isset( $pin['id'] ) ? absint( $pin['id'] ) : 0;
         if ( $id && in_array( $taxonomy, array( 'category', 'post_tag' ), true ) && get_term( $id, $taxonomy ) instanceof WP_Term ) {
@@ -43,8 +56,9 @@ add_action( 'init', function () {
         'sanitize_callback' => 'wfw_sanitize_pinned_terms',
         'show_in_rest'      => array(
             'schema' => array(
-                'type'    => 'array',
-                'context' => array( 'edit' ),
+                'type'     => 'array',
+                'context'  => array( 'edit' ),
+                'maxItems' => WFW_MAX_PINNED_TERMS,
                 'items'   => array(
                     'type'                 => 'object',
                     'properties'           => array(
@@ -70,7 +84,7 @@ add_action( 'init', function () {
  */
 function wfw_pinned_terms_client_data() {
     $pins = array();
-    foreach ( wfw_sanitize_pinned_terms( get_user_meta( get_current_user_id(), wfw_pinned_terms_key(), true ) ) as $pin ) {
+    foreach ( wfw_sanitize_pinned_terms( get_user_option( 'wfw_pinned_terms' ) ) as $pin ) {
         $term   = get_term( $pin['id'], $pin['taxonomy'] );
         $link   = get_term_link( $term );
         $pins[] = $pin + array(
