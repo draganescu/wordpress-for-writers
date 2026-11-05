@@ -443,7 +443,8 @@
             return '';
         }
         const items = tabs.map( ( tab ) => {
-            const active = tab === current && ! state.featured;
+            // The featured image panel counts as its note's tab, which stays marked while the panel is open.
+            const active = tab === current;
             const title = tab.title || __( 'Untitled', 'wordpress-for-writers' );
             return `
                 <div class="wfw-tab${ active ? ' is-active' : '' }" data-tab="${ tab.key }" role="listitem">
