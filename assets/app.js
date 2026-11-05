@@ -1184,7 +1184,12 @@
         return window.location.origin + window.location.pathname + window.location.search + '#' + hash;
     }
 
-    // The post's link with preview=true, the way WordPress builds its preview links.
+    /*
+     * The post's link with preview=true, the way get_preview_post_link() builds it.
+     * The editor's own preview goes through an autosave instead, but only notes
+     * that aren't published get this item, and the app saves those as drafts
+     * while they're written, so the preview shows what the list does.
+     */
     function previewUrl( link ) {
         const url = new URL( link, window.location.href );
         url.searchParams.set( 'preview', 'true' );
@@ -1550,7 +1555,10 @@
                 method: 'POST',
                 data: { meta: { [ settings.pinnedTermsKey ]: state.pins.map( ( { taxonomy, id } ) => ( { taxonomy, id } ) ) } },
             } ) )
-            .catch( () => {} );
+            .catch( () => {
+                // The pins stay as they are on screen, so the writer can try again; a reload would drop them.
+                showToast( __( 'Pins couldn’t be saved', 'wordpress-for-writers' ) );
+            } );
     }
 
     // ---- Actions -----------------------------------------------------------
