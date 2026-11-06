@@ -465,10 +465,24 @@
                 description: __( 'Show or hide the settings.', 'wordpress-for-writers' ),
                 keyCombination: { modifier: 'primaryShift', character: ',' },
             } );
+            registerShortcut( {
+                name: 'wfw/command-palette',
+                category: 'global',
+                description: __( 'Open the command palette.', 'wordpress-for-writers' ),
+                keyCombination: { modifier: 'primary', character: 'k' },
+            } );
         }, [] );
         useShortcut( 'wfw/toggle-settings', ( event ) => {
             event.preventDefault();
             setSettingsOpen( ( open ) => ! open );
+        } );
+        useShortcut( 'wfw/command-palette', ( event ) => {
+            // With text selected, core's link format has Cmd/Ctrl+K, as in wp-admin.
+            if ( event.defaultPrevented ) {
+                return;
+            }
+            event.preventDefault();
+            post( { type: 'palette' } );
         } );
 
         const layout = el( 'div', { className: 'wfw-ed' + ( settingsOpen ? ' has-settings' : '' ) },
