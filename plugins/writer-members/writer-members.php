@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Writer Members
  * Description: Membership tiers, per-post gating with a paywall block, and a minimal Stripe webhook. Stands alone; pairs with WordPress for Writers.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Andrei Draganescu
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WMEM_VERSION', '0.1.0' );
+define( 'WMEM_VERSION', '0.1.1' );
 define( 'WMEM_FILE', __FILE__ );
 define( 'WMEM_URL', plugin_dir_url( __FILE__ ) );
 define( 'WMEM_DB_VERSION', 2 );
