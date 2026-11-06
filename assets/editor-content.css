@@ -305,10 +305,25 @@ html {
 
 @media ( max-width: 600px ) {
     .editor-styles-wrapper {
-        padding: 60px 20px calc( 140px + var( --wfw-keyboard, 0px ) );
+        padding: 64px 20px calc( 140px + var( --wfw-keyboard, 0px ) );
     }
 
     .editor-styles-wrapper .wfw-title h1 {
         font-size: 1.5em;
+    }
+
+    /*
+     * Phones: the app's back link, the save state and Publish sit over the top
+     * of the editor, so the links come down into the flow, between them and
+     * the title, rather than floating above the title into that bar.
+     */
+    .editor-styles-wrapper .wfw-title-links {
+        position: static;
+        flex-wrap: wrap;
+        margin: 0 0 10px -8px;
+    }
+
+    .editor-styles-wrapper .wfw-title-link {
+        max-width: 100%;
     }
 }
