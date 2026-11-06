@@ -3,7 +3,7 @@
  * Plugin Name: WordPress for Writers
  * Description: Replaces wp-admin with a three-pane, Bear-style writing interface: tags sidebar, note list, editor.
  * Version: 0.4.0
- * Requires at least: 6.5
+ * Requires at least: 7.1
  * Requires PHP: 7.4
  * Author: Andrei Draganescu
  * Update URI: https://github.com/draganescu/wordpress-for-writers
@@ -12,6 +12,23 @@
  */
 
 defined( 'ABSPATH' ) || exit;
+
+/*
+ * The editor is built from parts that arrived in WordPress 7.1 (ThemeProvider,
+ * the public editor components, FormTokenField's help prop). WordPress
+ * refuses to activate the plugin below the header's version; this covers a
+ * site that was downgraded afterwards, which gets a notice instead of a
+ * broken editor.
+ */
+if ( version_compare( $GLOBALS['wp_version'], '7.1', '<' ) ) {
+    add_action( 'admin_notices', function () {
+        printf(
+            '<div class="notice notice-error"><p>%s</p></div>',
+            esc_html__( 'WordPress for Writers needs WordPress 7.1 or newer. Update WordPress to use it.', 'wordpress-for-writers' )
+        );
+    } );
+    return;
+}
 
 define( 'WFW_VERSION', '0.4.0' );
 define( 'WFW_URL', plugin_dir_url( __FILE__ ) );

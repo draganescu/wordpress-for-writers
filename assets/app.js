@@ -1391,6 +1391,8 @@
             const tagIds = post?.tags || [];
 
             // The part of the form the link above the title was for gets focus once it has loaded.
+            // FormTokenField has no ref or prop for its input, so the tag input is found by
+            // its class name. Should core rename it, the form opens without moving focus.
             useEffect( () => {
                 if ( focusedRef.current || ! post || ! columnRef.current || ( focus !== 'tags' && ! categories ) ) {
                     return;
@@ -1610,14 +1612,13 @@
                         onInputChange: setTagInput,
                         placeholder: __( 'Add a tag', 'wordpress-for-writers' ),
                         disabled,
-                        __experimentalShowHowTo: false,
+                        help: '', // Without the "Separate with commas or the Enter key" hint.
                         __next40pxDefaultSize: true,
                         __nextHasNoMarginBottom: true,
                         messages: {
                             added: __( 'Tag added.', 'wordpress-for-writers' ),
                             removed: __( 'Tag removed.', 'wordpress-for-writers' ),
                             remove: __( 'Remove tag', 'wordpress-for-writers' ),
-                            __experimentalInvalid: __( 'Invalid tag', 'wordpress-for-writers' ),
                         },
                     } ),
                     popular.length > 0 && el( Fragment, null,

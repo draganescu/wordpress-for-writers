@@ -39,7 +39,7 @@ The setup lives in `blueprint.json`, the demo posts in `playground/demo-content.
 
 ## Install
 
-Copy or clone this folder into `wp-content/plugins/` and activate **WordPress for Writers**. Requires WordPress 6.5+ and PHP 7.4+.
+Copy or clone this folder into `wp-content/plugins/` and activate **WordPress for Writers**. Requires WordPress 7.1+ and PHP 7.4+.
 
 To reach the classic dashboard, use **Classic dashboard** in the sidebar footer (`/wp-admin/index.php?wfw_classic=1`). The note's settings (excerpt, categories, tags, plugins' panels, and the selected block's settings) open in a sheet with **Cmd/Ctrl + Shift + ,**.
 
