@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WordPress for Writers
  * Description: Replaces wp-admin with a three-pane, Bear-style writing interface: tags sidebar, note list, editor.
- * Version: 0.4.0
+ * Version: 0.5.0
  * Requires at least: 7.1
  * Requires PHP: 7.4
  * Author: Andrei Draganescu
@@ -30,7 +30,7 @@ if ( version_compare( $GLOBALS['wp_version'], '7.1', '<' ) ) {
     return;
 }
 
-define( 'WFW_VERSION', '0.4.0' );
+define( 'WFW_VERSION', '0.5.0' );
 define( 'WFW_URL', plugin_dir_url( __FILE__ ) );
 define( 'WFW_PAGE', 'wfw' );
 
