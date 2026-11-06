@@ -38,6 +38,36 @@ html {
     margin-right: 0;
 }
 
+/*
+ * Layouts, alignments, block gaps and the button look come from core's global
+ * stylesheet (wfw_canvas_global_stylesheet()). The note's root is editor.js's
+ * own BlockList, which core's root rules (.wp-site-blocks) don't reach, so its
+ * alignments are set here, as core sets them inside groups.
+ */
+.editor-styles-wrapper .wfw-body > .alignleft {
+    float: left;
+    margin-inline-start: 0;
+    margin-inline-end: 2em;
+}
+
+.editor-styles-wrapper .wfw-body > .alignright {
+    float: right;
+    margin-inline-start: 2em;
+    margin-inline-end: 0;
+}
+
+.editor-styles-wrapper .wfw-body > .aligncenter {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* A float clears before the next block that isn't one, as on the site. */
+.editor-styles-wrapper .wfw-body::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
 /* Title */
 .editor-styles-wrapper .wfw-title h1 {
     font-family: var( --wfw-font-body );
@@ -160,7 +190,7 @@ html {
 .editor-styles-wrapper h5,
 .editor-styles-wrapper h6 { font-size: 1em; }
 
-.editor-styles-wrapper a {
+.editor-styles-wrapper a:where( :not( .wp-element-button, .wp-block-button__link ) ) {
     color: var( --wfw-accent );
     text-decoration: underline;
     text-decoration-color: color-mix( in srgb, var( --wfw-accent ) 35%, transparent );
