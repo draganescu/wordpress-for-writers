@@ -43,9 +43,9 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
     // The editor is part of Writer: only for those who can use Writer (see wfw_capability()).
     if ( ! wfw_user_can_write() ) {
         wp_die(
-            esc_html__( 'Writer, and its editor, are open to people who can edit pages on this site. You can still write in the standard WordPress editor.', 'wordpress-for-writers' ),
+            esc_html__( 'Writer, and its editor, are open to the people who write on this site.', 'wordpress-for-writers' ),
             esc_html__( 'Writer isn’t available for your account', 'wordpress-for-writers' ),
-            array( 'response' => 403, 'link_url' => admin_url( 'edit.php' ), 'link_text' => esc_html__( 'Go to your posts', 'wordpress-for-writers' ) )
+            array( 'response' => 403, 'link_url' => admin_url( 'admin.php?page=' . WFW_PAGE ), 'link_text' => esc_html__( 'Why?', 'wordpress-for-writers' ) )
         );
     }
 

@@ -56,12 +56,13 @@ function wfw_visibility() {
 
 /**
  * Who gets Writer: the app, the takeover of the dashboard and the editor.
- * By default it's people who can edit pages (Editors and Administrators);
- * filter `wfw_capability` to open it up or narrow it down. Everyone else
+ * By default it's everyone who can write posts: Contributors, Authors,
+ * Editors and Administrators (edit_posts). Filter `wfw_capability` to
+ * narrow it down, for example to edit_pages for Editors and up. Everyone else
  * keeps the standard dashboard, and opening Writer explains why.
  */
 function wfw_capability() {
-    return (string) apply_filters( 'wfw_capability', 'edit_pages' );
+    return (string) apply_filters( 'wfw_capability', 'edit_posts' );
 }
 
 function wfw_user_can_write( $user = null ) {
@@ -111,11 +112,11 @@ function wfw_render_no_access() {
     <div class="wrap">
         <h1><?php esc_html_e( 'Writer', 'wordpress-for-writers' ); ?></h1>
         <div class="card" style="max-width: 560px;">
-            <h2 class="title"><?php esc_html_e( 'Writer is for the people who run this site’s content', 'wordpress-for-writers' ); ?></h2>
+            <h2 class="title"><?php esc_html_e( 'Writer is for the people who write on this site', 'wordpress-for-writers' ); ?></h2>
             <p>
                 <?php
-                if ( 'edit_pages' === wfw_capability() ) {
-                    esc_html_e( 'Writer, this site’s writing app, is open to people who can edit pages: Editors and Administrators.', 'wordpress-for-writers' );
+                if ( 'edit_posts' === wfw_capability() ) {
+                    esc_html_e( 'Writer, this site’s writing app, is open to everyone who can write posts here: Contributors, Authors, Editors and Administrators.', 'wordpress-for-writers' );
                 } else {
                     esc_html_e( 'Writer, this site’s writing app, is open to people with the permissions this site has set for it.', 'wordpress-for-writers' );
                 }
@@ -123,23 +124,27 @@ function wfw_render_no_access() {
             </p>
             <p>
                 <?php
-                if ( $roles ) {
-                    printf(
+                $role = $roles ? '<strong>' . esc_html( implode( ', ', $roles ) ) . '</strong>' : '';
+                if ( current_user_can( 'edit_posts' ) ) {
+                    // The site narrowed Writer down: this user writes, just not in Writer.
+                    echo $role // phpcs:ignore WordPress.Security.EscapeOutput
                         /* translators: %s: the user's role(s), such as "Author". */
-                        esc_html__( 'Your account is set up as %s, so you’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' ),
-                        '<strong>' . esc_html( implode( ', ', $roles ) ) . '</strong>'
-                    );
+                        ? sprintf( esc_html__( 'Your account is set up as %s, so you’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' ), $role ) // phpcs:ignore WordPress.Security.EscapeOutput
+                        : esc_html__( 'You’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' );
                 } else {
-                    esc_html_e( 'Your account doesn’t have that access, so you’ll keep using the standard WordPress dashboard.', 'wordpress-for-writers' );
+                    echo $role // phpcs:ignore WordPress.Security.EscapeOutput
+                        /* translators: %s: the user's role(s), such as "Subscriber". */
+                        ? sprintf( esc_html__( 'Your account is set up as %s, which is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' ), $role ) // phpcs:ignore WordPress.Security.EscapeOutput
+                        : esc_html__( 'Your account is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' );
                 }
                 ?>
             </p>
-            <p><?php esc_html_e( 'If you think you should have Writer, ask one of the site’s administrators.', 'wordpress-for-writers' ); ?></p>
+            <p><?php esc_html_e( 'If you think you should be writing here, ask one of the site’s administrators.', 'wordpress-for-writers' ); ?></p>
             <p>
                 <?php if ( current_user_can( 'edit_posts' ) ) : ?>
                     <a class="button button-primary" href="<?php echo esc_url( admin_url( 'edit.php' ) ); ?>"><?php esc_html_e( 'Go to your posts', 'wordpress-for-writers' ); ?></a>
                 <?php endif; ?>
-                <a class="button" href="<?php echo esc_url( admin_url( 'index.php' ) ); ?>"><?php esc_html_e( 'Dashboard', 'wordpress-for-writers' ); ?></a>
+                <a class="button" href="<?php echo esc_url( admin_url( current_user_can( 'edit_posts' ) ? 'index.php' : 'profile.php' ) ); ?>"><?php echo current_user_can( 'edit_posts' ) ? esc_html__( 'Dashboard', 'wordpress-for-writers' ) : esc_html__( 'Your profile', 'wordpress-for-writers' ); ?></a>
             </p>
         </div>
     </div>
