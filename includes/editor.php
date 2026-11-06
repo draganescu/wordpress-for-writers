@@ -63,6 +63,20 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
     $GLOBALS['post'] = $post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
     setup_postdata( $post );
 
+    // A block editor screen, as wp-admin's editor marks its own, so core and
+    // plugins treat it as one.
+    get_current_screen()->is_block_editor( true );
+
+    /*
+     * Cross-origin isolation, as core sets up for wp-admin's editor
+     * (load-post.php): in Chromium the editor runs in its own agent cluster,
+     * and client-side media processing (WordPress 7.1+) can run in it. The app
+     * only talks to the editor through postMessage, which isolation allows.
+     */
+    if ( function_exists( 'wp_set_up_cross_origin_isolation' ) ) {
+        wp_set_up_cross_origin_isolation();
+    }
+
     // Our writing surface inside the canvas iframe. Assets enqueued on
     // enqueue_block_assets are loaded into the canvas (the editor settings
     // collect them); added here so it's only ever this page's canvas.
