@@ -38,6 +38,108 @@ html {
     margin-right: 0;
 }
 
+/*
+ * Layouts and alignments. The canvas gets none of the theme's styles, and
+ * since WordPress 7.0 core no longer hands out its base layout rules on their
+ * own, so these mirror core's layout definitions (flow, constrained, flex,
+ * grid): left, right and center alignment in the note itself and inside
+ * groups, and rows, stacks and grids laid out as on the site. The class names
+ * are the ones core prints on the front end too.
+ */
+.editor-styles-wrapper :is( .wfw-body, .is-layout-flow, .is-layout-constrained ) > .alignleft {
+    float: left;
+    margin-inline-start: 0;
+    margin-inline-end: 2em;
+}
+
+.editor-styles-wrapper :is( .wfw-body, .is-layout-flow, .is-layout-constrained ) > .alignright {
+    float: right;
+    margin-inline-start: 2em;
+    margin-inline-end: 0;
+}
+
+.editor-styles-wrapper :is( .wfw-body, .is-layout-flow, .is-layout-constrained ) > .aligncenter {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Zero specificity, as in core: a group's own content width (a per-block rule) wins. */
+:where( .editor-styles-wrapper .is-layout-constrained ) > :where( :not( .alignleft ):not( .alignright ):not( .alignfull ) ) {
+    max-width: var( --wp--style--global--content-size );
+    margin-left: auto;
+    margin-right: auto;
+}
+
+:where( .editor-styles-wrapper .is-layout-constrained ) > :where( .alignwide ) {
+    max-width: var( --wp--style--global--wide-size );
+}
+
+.editor-styles-wrapper :where( .is-layout-flow, .is-layout-constrained ) > * {
+    margin-block-start: 0.85em;
+    margin-block-end: 0;
+}
+
+.editor-styles-wrapper :where( .is-layout-flow, .is-layout-constrained ) > :first-child {
+    margin-block-start: 0;
+}
+
+.editor-styles-wrapper :where( .is-layout-flex ) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.editor-styles-wrapper :where( .is-layout-grid ) {
+    display: grid;
+    gap: 0.5em;
+}
+
+.editor-styles-wrapper :where( .is-layout-flex, .is-layout-grid ) > :is( *, div ) {
+    margin: 0;
+}
+
+/* Blocks with a default gap of their own (block.json), as core prints them. */
+.editor-styles-wrapper :where( .wp-block-columns.is-layout-flex, .wp-block-columns.is-layout-grid ) {
+    gap: 2em;
+}
+
+.editor-styles-wrapper :where( .wp-block-post-template, .wp-block-latest-posts, .wp-block-term-template ):where( .is-layout-flex, .is-layout-grid ) {
+    gap: 1.25em;
+}
+
+/*
+ * Core's default block styles, which reach the front end through the global
+ * stylesheet the canvas leaves out: a button looks like one (in the
+ * appearance's accent rather than core's dark gray), and an Icon block's icon
+ * has its default size. Zero specificity, so a block's own colors and sizes win.
+ */
+.editor-styles-wrapper :where( .wp-element-button, .wp-block-button__link ) {
+    background-color: var( --wfw-accent );
+    border-width: 0;
+    color: var( --wfw-editor-bg );
+    font-family: inherit;
+    font-size: inherit;
+    font-style: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    padding: calc( 0.667em + 2px ) calc( 1.333em + 2px );
+    text-decoration: none;
+    text-transform: inherit;
+}
+
+.editor-styles-wrapper :where( .wp-block-icon svg ) {
+    width: 24px;
+}
+
+/* A float clears before the next block that isn't one, as on the site. */
+.editor-styles-wrapper .wfw-body::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
 /* Title */
 .editor-styles-wrapper .wfw-title h1 {
     font-family: var( --wfw-font-body );
@@ -160,7 +262,7 @@ html {
 .editor-styles-wrapper h5,
 .editor-styles-wrapper h6 { font-size: 1em; }
 
-.editor-styles-wrapper a {
+.editor-styles-wrapper a:where( :not( .wp-element-button, .wp-block-button__link ) ) {
     color: var( --wfw-accent );
     text-decoration: underline;
     text-decoration-color: color-mix( in srgb, var( --wfw-accent ) 35%, transparent );

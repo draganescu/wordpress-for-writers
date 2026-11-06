@@ -179,14 +179,15 @@ function wfw_editor_settings( $post ) {
 
     /*
      * The canvas ignores the theme: the writing surface is ours (editor-content.css).
-     * Only the global stylesheet's presets and the base layout rules go in, so color
-     * and size classes still resolve and layouts still work; the theme's and the
-     * user's styles and the theme's editor stylesheets are left out.
+     * Only the global stylesheet's variables and presets go in, so color and size
+     * classes still resolve; the theme's and the user's styles and the theme's
+     * editor stylesheets are left out. Layout and alignment rules live in
+     * editor-content.css: core's 'base-layout-styles' type, which used to carry
+     * them, is deprecated since WordPress 7.0 and returns nothing.
      */
     $settings['styles'] = array(
         array( 'css' => wp_get_global_stylesheet( array( 'variables' ) ) ),
         array( 'css' => wp_get_global_stylesheet( array( 'presets' ) ) ),
-        array( 'css' => wp_get_global_stylesheet( array( 'base-layout-styles' ) ) ),
     );
 
     return $settings;
