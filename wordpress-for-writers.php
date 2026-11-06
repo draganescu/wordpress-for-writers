@@ -20,6 +20,7 @@ require_once __DIR__ . '/includes/pinned-terms.php';
 require_once __DIR__ . '/includes/appearance.php';
 require_once __DIR__ . '/includes/thumbnails.php';
 require_once __DIR__ . '/includes/site-scheme.php';
+require_once __DIR__ . '/includes/editor.php';
 
 /**
  * Cache-busting version for a plugin asset.
@@ -27,13 +28,6 @@ require_once __DIR__ . '/includes/site-scheme.php';
 function wfw_asset_version( $path ) {
     $file = __DIR__ . '/' . $path;
     return file_exists( $file ) ? WFW_VERSION . '.' . filemtime( $file ) : WFW_VERSION;
-}
-
-/**
- * Whether the current request is the editor loaded inside the app's iframe.
- */
-function wfw_is_frame() {
-    return isset( $_GET['wfw_frame'] ); // phpcs:ignore WordPress.Security.NonceVerification
 }
 
 /**
@@ -61,18 +55,44 @@ function wfw_visibility() {
 }
 
 /**
- * Register the app page.
+ * Who gets Writer: the app, the takeover of the dashboard and the editor.
+ * By default it's everyone who can write posts: Contributors, Authors,
+ * Editors and Administrators (edit_posts). Filter `wfw_capability` to
+ * narrow it down, for example to edit_pages for Editors and up. Everyone else
+ * keeps the standard dashboard, and opening Writer explains why.
+ */
+function wfw_capability() {
+    return (string) apply_filters( 'wfw_capability', 'edit_posts' );
+}
+
+function wfw_user_can_write( $user = null ) {
+    return $user ? user_can( $user, wfw_capability() ) : current_user_can( wfw_capability() );
+}
+
+/**
+ * Register the app page: in the menu for those who can use Writer, and as a
+ * hidden page for everyone else, so its URL shows the explanation rather
+ * than WordPress's bare "not allowed" screen.
  */
 add_action( 'admin_menu', function () {
-    add_menu_page(
-        __( 'Writer', 'wordpress-for-writers' ),
-        __( 'Writer', 'wordpress-for-writers' ),
-        'edit_posts',
-        WFW_PAGE,
-        'wfw_render_app',
-        'dashicons-edit-page',
-        1
-    );
+    if ( wfw_user_can_write() ) {
+        add_menu_page(
+            __( 'Writer', 'wordpress-for-writers' ),
+            __( 'Writer', 'wordpress-for-writers' ),
+            wfw_capability(),
+            WFW_PAGE,
+            'wfw_render_app',
+            'dashicons-edit-page',
+            1
+        );
+        return;
+    }
+    add_submenu_page( '', __( 'Writer', 'wordpress-for-writers' ), '', 'read', WFW_PAGE, 'wfw_render_no_access' );
+} );
+
+// A page without a menu entry gets no title from the menu; give the explanation one.
+add_action( 'load-admin_page_' . WFW_PAGE, function () {
+    $GLOBALS['title'] = __( 'Writer', 'wordpress-for-writers' ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride
 } );
 
 function wfw_render_app() {
@@ -80,17 +100,69 @@ function wfw_render_app() {
 }
 
 /**
+ * Why Writer isn't open to this user, and where to go instead.
+ */
+function wfw_render_no_access() {
+    $user  = wp_get_current_user();
+    $names = wp_roles()->role_names;
+    $roles = array_filter( array_map( function ( $role ) use ( $names ) {
+        return isset( $names[ $role ] ) ? translate_user_role( $names[ $role ] ) : '';
+    }, (array) $user->roles ) );
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e( 'Writer', 'wordpress-for-writers' ); ?></h1>
+        <div class="card" style="max-width: 560px;">
+            <h2 class="title"><?php esc_html_e( 'Writer is for the people who write on this site', 'wordpress-for-writers' ); ?></h2>
+            <p>
+                <?php
+                if ( 'edit_posts' === wfw_capability() ) {
+                    esc_html_e( 'Writer, this site’s writing app, is open to everyone who can write posts here: Contributors, Authors, Editors and Administrators.', 'wordpress-for-writers' );
+                } else {
+                    esc_html_e( 'Writer, this site’s writing app, is open to people with the permissions this site has set for it.', 'wordpress-for-writers' );
+                }
+                ?>
+            </p>
+            <p>
+                <?php
+                $role = $roles ? '<strong>' . esc_html( implode( ', ', $roles ) ) . '</strong>' : '';
+                if ( current_user_can( 'edit_posts' ) ) {
+                    // The site narrowed Writer down: this user writes, just not in Writer.
+                    echo $role // phpcs:ignore WordPress.Security.EscapeOutput
+                        /* translators: %s: the user's role(s), such as "Author". */
+                        ? sprintf( esc_html__( 'Your account is set up as %s, so you’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' ), $role ) // phpcs:ignore WordPress.Security.EscapeOutput
+                        : esc_html__( 'You’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' );
+                } else {
+                    echo $role // phpcs:ignore WordPress.Security.EscapeOutput
+                        /* translators: %s: the user's role(s), such as "Subscriber". */
+                        ? sprintf( esc_html__( 'Your account is set up as %s, which is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' ), $role ) // phpcs:ignore WordPress.Security.EscapeOutput
+                        : esc_html__( 'Your account is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' );
+                }
+                ?>
+            </p>
+            <p><?php esc_html_e( 'If you think you should be writing here, ask one of the site’s administrators.', 'wordpress-for-writers' ); ?></p>
+            <p>
+                <?php if ( current_user_can( 'edit_posts' ) ) : ?>
+                    <a class="button button-primary" href="<?php echo esc_url( admin_url( 'edit.php' ) ); ?>"><?php esc_html_e( 'Go to your posts', 'wordpress-for-writers' ); ?></a>
+                <?php endif; ?>
+                <a class="button" href="<?php echo esc_url( admin_url( current_user_can( 'edit_posts' ) ? 'index.php' : 'profile.php' ) ); ?>"><?php echo current_user_can( 'edit_posts' ) ? esc_html__( 'Dashboard', 'wordpress-for-writers' ) : esc_html__( 'Your profile', 'wordpress-for-writers' ); ?></a>
+            </p>
+        </div>
+    </div>
+    <?php
+}
+
+/**
  * Send writers to the app instead of the dashboard.
  */
 add_action( 'load-index.php', function () {
-    if ( current_user_can( 'edit_posts' ) && ! isset( $_GET['wfw_classic'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+    if ( wfw_user_can_write() && ! isset( $_GET['wfw_classic'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
         wp_safe_redirect( admin_url( 'admin.php?page=' . WFW_PAGE ) );
         exit;
     }
 } );
 
 add_filter( 'login_redirect', function ( $redirect_to, $requested, $user ) {
-    if ( $user instanceof WP_User && user_can( $user, 'edit_posts' ) && ( ! $requested || admin_url() === $requested ) ) {
+    if ( $user instanceof WP_User && wfw_user_can_write( $user ) && ( ! $requested || admin_url() === $requested ) ) {
         return admin_url( 'admin.php?page=' . WFW_PAGE );
     }
     return $redirect_to;
@@ -139,6 +211,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'maxUploadFileSize' => wp_max_upload_size(),
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),
+            // The Writer editor's page; each tab loads it for its note (see includes/editor.php).
+            'editorUrl'         => wfw_editor_url(),
             // Core's update notices are hidden on the app page, so the account menu shows the
             // pending count instead, to the same people core shows it to (zero for everyone else).
             'updatesCount'      => current_user_can( 'update_core' ) || current_user_can( 'update_plugins' ) || current_user_can( 'update_themes' )
@@ -158,23 +232,6 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
                     return is_array( $link ) && ! empty( $link['label'] ) && ! empty( $link['url'] );
                 }
             ) ),
-        ) );
-        return;
-    }
-
-    if ( wfw_is_frame() && in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
-        wp_enqueue_style( 'wfw-frame', WFW_URL . 'assets/frame.css', array(), wfw_asset_version( 'assets/frame.css' ) );
-        wp_add_inline_style( 'wfw-frame', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-frame', WFW_URL . 'assets/frame.js', array( 'wp-data', 'wp-editor', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-html-entities', 'wp-plugins', 'wp-i18n' ), wfw_asset_version( 'assets/frame.js' ), true );
-        $terms = wfw_terms_settings();
-        wp_localize_script( 'wfw-frame', 'wfwFrame', array(
-            'appearance'     => wfw_get_appearance(),
-            // Same checks as the app's featured image panel, which the link above the title opens.
-            'featuredImages' => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
-            // The links above the title for categories and tags, which open the app's form for them.
-            'categories'     => $terms['categories'],
-            'tags'           => $terms['tags'],
-            'visibility'     => wfw_visibility(),
         ) );
     }
 } );
@@ -197,56 +254,10 @@ function wfw_terms_settings() {
 }
 
 /**
- * Stamp appearance attributes on <html> before first paint, for the app and the embedded editor.
+ * Stamp appearance attributes on <html> before first paint. The editor page does its own (includes/editor.php).
  */
-add_action( 'admin_head', function () {
-    $screen = get_current_screen();
-    if ( ( $screen && 'toplevel_page_' . WFW_PAGE === $screen->id ) || wfw_is_frame() ) {
-        echo '<script>' . wfw_appearance_bootstrap_script() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput
-    }
-} );
-
-/**
- * The editor canvas ignores the theme: drop theme and user global styles and the
- * theme's editor styles, keeping only presets so color/size classes still resolve.
- */
-add_filter( 'block_editor_settings_all', function ( $settings ) {
-    if ( ! wfw_is_frame() || empty( $settings['styles'] ) ) {
-        return $settings;
-    }
-    $settings['styles'] = array_values( array_filter( $settings['styles'], function ( $style ) {
-        return ! in_array( $style['__unstableType'] ?? '', array( 'theme', 'user' ), true );
-    } ) );
-    return $settings;
-}, 99 );
-
-/**
- * Our own default styling inside the canvas iframe. Assets enqueued on
- * enqueue_block_assets in the editor are loaded into the canvas unscoped.
- */
-add_action( 'enqueue_block_assets', function () {
-    if ( ! is_admin() || ! wfw_is_frame() ) {
-        return;
-    }
-
-    // Drop theme stylesheets that would otherwise load into the canvas.
-    $theme_urls = array_unique( array( get_stylesheet_directory_uri(), get_template_directory_uri() ) );
-    foreach ( wp_styles()->queue as $handle ) {
-        $src = wp_styles()->registered[ $handle ]->src ?? '';
-        if ( 'wp-theme' === $handle || ( $src && array_filter( $theme_urls, fn( $url ) => str_starts_with( $src, $url ) ) ) ) {
-            wp_dequeue_style( $handle );
-        }
-    }
-
-    wp_enqueue_style( 'wfw-canvas', WFW_URL . 'assets/editor-content.css', array(), wfw_asset_version( 'assets/editor-content.css' ) );
-    wp_add_inline_style( 'wfw-canvas', wfw_appearance_css() );
-}, 99 );
-
-/**
- * Keep the frame marker on the editor's body so its styles survive the editor rewriting the URL.
- */
-add_filter( 'admin_body_class', function ( $classes ) {
-    return wfw_is_frame() ? $classes . ' wfw-frame' : $classes;
+add_action( 'admin_head-toplevel_page_' . WFW_PAGE, function () {
+    echo '<script>' . wfw_appearance_bootstrap_script() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput
 } );
 
 /**

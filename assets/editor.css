@@ -1,0 +1,607 @@
+/*
+ * The Writer editor's chrome (editor.js): the page around the canvas, the
+ * save and publish controls, the formatting pill, notices, toasts and the
+ * settings and publish sheets. These are our own elements; component colors
+ * come from ThemeProvider, seeded with the appearance's accent and background.
+ * The writing surface inside the canvas is editor-content.css.
+ */
+body.wfw-editor-page.wfw-editor-page {
+    /* Components that still read the admin theme color (and older WordPress). */
+    --wp-admin-theme-color: var( --wfw-accent );
+    --wp-admin-theme-color-darker-10: color-mix( in srgb, var( --wfw-accent ) 90%, #000 );
+    --wp-admin-theme-color-darker-20: color-mix( in srgb, var( --wfw-accent ) 80%, #000 );
+    --wfw-pill-shadow: 0 1px 2px rgba( 0, 0, 0, 0.04 ), 0 4px 16px rgba( 0, 0, 0, 0.06 );
+    margin: 0;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    overflow: hidden;
+}
+
+html:has( body.wfw-editor-page ) {
+    background: var( --wfw-editor-bg );
+}
+
+.wfw-ed {
+    /*
+     * The components' own theme variables (what their Theme component sets),
+     * for the parts that read these rather than the WPDS tokens ThemeProvider sets.
+     */
+    --wp-components-color-accent: var( --wfw-accent );
+    --wp-components-color-accent-darker-10: color-mix( in srgb, var( --wfw-accent ) 90%, #000 );
+    --wp-components-color-accent-darker-20: color-mix( in srgb, var( --wfw-accent ) 80%, #000 );
+    --wp-components-color-accent-inverted: #fff;
+    --wp-components-color-background: var( --wfw-editor-bg );
+    --wp-components-color-foreground: var( --wfw-text );
+    --wp-components-color-foreground-inverted: var( --wfw-editor-bg );
+    --wp-components-color-gray-100: var( --wfw-code-bg );
+    --wp-components-color-gray-200: var( --wfw-border );
+    --wp-components-color-gray-300: var( --wfw-border );
+    --wp-components-color-gray-400: var( --wfw-muted );
+    --wp-components-color-gray-600: var( --wfw-muted );
+    --wp-components-color-gray-700: var( --wfw-muted );
+    --wp-components-color-gray-800: var( --wfw-text );
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+}
+
+/*
+ * Menus and popovers (the block options menu, the link and color pickers).
+ * Their text follows --wp-components-color-foreground above, but WordPress 7.1
+ * paints their surface plain #fff, with no variable or WPDS token behind it,
+ * so the one surface class every popover shares takes the theme's background.
+ */
+.wfw-ed .components-popover__content {
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border-color: var( --wfw-border );
+}
+
+.wfw-canvas {
+    flex: 1;
+    min-height: 0;
+}
+
+.wfw-canvas iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var( --wfw-editor-bg );
+}
+
+/* Leave room for the settings sheet at its side, except on phones. */
+@media ( min-width: 601px ) {
+    .wfw-ed.has-settings .wfw-canvas {
+        margin-right: 300px;
+    }
+}
+
+/* ---- Save / Publish ---------------------------------------------------- */
+
+.wfw-actions {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+}
+
+.wfw-ed.has-settings .wfw-actions {
+    right: calc( 300px + 12px );
+}
+
+.wfw-actions .components-button {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 16px;
+    font-weight: 500;
+}
+
+.wfw-actions .components-button:not( .is-primary ):not( .is-secondary ) {
+    color: var( --wfw-muted );
+    font-size: 12px;
+}
+
+.wfw-ed .wfw-actions .components-button.is-primary:is( *, :hover, :focus, :active ) {
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-accent );
+    box-shadow: inset 0 0 0 1px var( --wfw-border ), var( --wfw-pill-shadow );
+}
+
+.wfw-ed .wfw-actions .components-button.is-primary:focus-visible {
+    box-shadow: 0 0 0 2px var( --wfw-editor-bg ), 0 0 0 4px var( --wfw-accent );
+}
+
+.wfw-ed .wfw-actions .components-button.is-primary:hover:not( [aria-disabled="true"] ) {
+    background: var( --wfw-accent );
+    color: #fff;
+    box-shadow: none;
+}
+
+.wfw-ed .wfw-actions .components-button.is-primary[aria-disabled="true"] {
+    color: var( --wfw-muted );
+    opacity: 1;
+}
+
+/* ---- Formatting pill --------------------------------------------------- */
+
+.wfw-pill {
+    position: absolute;
+    left: 50%;
+    /* --wfw-keyboard: on-screen keyboard overlap, set by editor.js (iOS doesn't resize the layout). */
+    bottom: calc( 16px + var( --wfw-keyboard, 0px ) );
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    max-width: calc( 100% - 32px );
+    padding: 2px 4px;
+    transform: translateX( -50% );
+    background: var( --wfw-editor-bg );
+    border: 1px solid var( --wfw-border );
+    border-radius: 12px;
+    box-shadow: var( --wfw-pill-shadow );
+}
+
+.wfw-ed.has-settings .wfw-pill {
+    left: calc( 50% - 150px );
+}
+
+/*
+ * Inside the pill the toolbar draws no frame of its own. Its parts go flat and
+ * the icons sit most of the way to the text color. Movers and the parent
+ * selector are left out (Bear's bar is formatting only); should their markup
+ * change, they show again rather than anything else going missing.
+ */
+.wfw-pill > * {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.wfw-pill .components-toolbar-group,
+.wfw-pill .components-toolbar {
+    border: 0;
+    background: transparent;
+}
+
+.wfw-pill .components-button {
+    color: color-mix( in srgb, var( --wfw-muted ), var( --wfw-text ) 75% );
+}
+
+.wfw-pill .components-button:hover {
+    color: var( --wfw-text );
+}
+
+.wfw-pill .components-button.is-pressed {
+    color: var( --wfw-accent );
+    background: transparent;
+}
+
+.wfw-pill .components-button.is-pressed::before {
+    background: transparent;
+}
+
+.wfw-pill .block-editor-block-mover,
+.wfw-pill .block-editor-block-parent-selector {
+    display: none;
+}
+
+/* ---- Notices ----------------------------------------------------------- */
+
+/*
+ * Top notices (e.g. "There is an autosave…") as cards in the theme's colors,
+ * centered on the writing column, floating over the top of the canvas. A dot
+ * carries the status.
+ */
+.wfw-notices {
+    position: absolute;
+    top: 12px;
+    right: 0;
+    left: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    pointer-events: none;
+}
+
+.wfw-notice {
+    --wfw-notice-dot: var( --wfw-accent );
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    width: 100%;
+    max-width: var( --wfw-measure, 720px );
+    padding: 10px 8px 10px 34px;
+    box-sizing: border-box;
+    pointer-events: auto;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border: 1px solid var( --wfw-border );
+    border-radius: 12px;
+    box-shadow: var( --wfw-pill-shadow );
+    font-family: var( --wfw-font-ui );
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.wfw-notice::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    width: 8px;
+    height: 8px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: var( --wfw-notice-dot );
+}
+
+.wfw-notice.is-warning {
+    --wfw-notice-dot: var( --wfw-status-draft );
+}
+
+.wfw-notice.is-success {
+    --wfw-notice-dot: var( --wfw-status-publish );
+}
+
+.wfw-notice.is-error {
+    --wfw-notice-dot: #d63638;
+    border-color: color-mix( in srgb, #d63638 40%, var( --wfw-border ) );
+}
+
+.wfw-notice__content {
+    flex: 1 1 240px;
+}
+
+.wfw-notice__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Actions as quiet capsules. */
+.wfw-notice .wfw-notice__action {
+    height: 28px;
+    padding: 0 12px;
+    background: transparent;
+    color: var( --wfw-text );
+    border: 1px solid var( --wfw-border );
+    border-radius: 999px;
+    box-shadow: none;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.wfw-notice .wfw-notice__action:hover {
+    background: var( --wfw-code-bg );
+    color: var( --wfw-text );
+}
+
+.wfw-notice .wfw-notice__action.is-primary {
+    background: var( --wfw-accent );
+    color: #fff;
+    border-color: transparent;
+}
+
+.wfw-notice__dismiss.components-button {
+    color: var( --wfw-muted );
+    border-radius: 8px;
+}
+
+/* Clear the Save pill when the column reaches under it. */
+@media ( max-width: 960px ) {
+    .wfw-notices {
+        top: 60px;
+    }
+}
+
+/* Toasts above the formatting pill. */
+.wfw-toasts {
+    position: absolute;
+    left: 50%;
+    bottom: calc( 76px + var( --wfw-keyboard, 0px ) );
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: max-content;
+    max-width: calc( 100% - 32px );
+    transform: translateX( -50% );
+}
+
+.wfw-toast {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 10px 16px;
+    background: var( --wfw-text );
+    color: var( --wfw-editor-bg );
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba( 0, 0, 0, 0.18 );
+    font-family: var( --wfw-font-ui );
+    font-size: 13px;
+}
+
+.wfw-toast .wfw-notice__action.components-button {
+    height: auto;
+    padding: 0;
+    color: inherit;
+    text-decoration: underline;
+}
+
+/* ---- Publish card ------------------------------------------------------ */
+
+/*
+ * Under the Publish button on wider screens; a sheet from the bottom on
+ * phones. Rows show who can read the note and when it goes out, each opening
+ * the editor's own control for it in place.
+ */
+.wfw-publish-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 54;
+}
+
+.wfw-publish {
+    position: absolute;
+    top: 56px;
+    right: 12px;
+    z-index: 55;
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    max-width: calc( 100% - 24px );
+    max-height: calc( 100% - 72px );
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 16px 16px 12px;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border: 1px solid var( --wfw-border );
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba( 0, 0, 0, 0.18 );
+    font-family: var( --wfw-font-ui );
+    font-size: 13px;
+}
+
+.wfw-ed.has-settings .wfw-publish {
+    right: calc( 300px + 12px );
+}
+
+.wfw-publish__title {
+    margin: 0 0 8px;
+    color: inherit;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.wfw-publish__row {
+    border-bottom: 1px solid var( --wfw-border );
+}
+
+.wfw-publish__toggle {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.wfw-publish__label {
+    color: var( --wfw-muted );
+}
+
+.wfw-publish__value {
+    color: var( --wfw-accent );
+    font-weight: 500;
+    text-align: right;
+}
+
+.wfw-publish__toggle:focus-visible {
+    outline: 2px solid var( --wfw-accent );
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.wfw-publish__detail {
+    padding: 0 0 12px;
+}
+
+.wfw-publish__detail :is( h2, h3, legend, label, p ) {
+    color: inherit;
+}
+
+.wfw-publish__foot {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding-top: 12px;
+}
+
+.wfw-publish__foot .components-button {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 18px;
+    font-weight: 500;
+}
+
+.wfw-publish__foot .components-button.is-tertiary {
+    color: var( --wfw-muted );
+}
+
+@media ( max-width: 600px ) {
+    .wfw-publish-backdrop {
+        background: rgba( 0, 0, 0, 0.3 );
+    }
+
+    .wfw-publish {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-width: none;
+        max-height: 85%;
+        padding: 20px 20px calc( 16px + env( safe-area-inset-bottom, 0px ) );
+        border-width: 1px 0 0;
+        border-radius: 16px 16px 0 0;
+        font-size: 15px;
+    }
+
+    .wfw-ed.has-settings .wfw-publish {
+        right: 0;
+    }
+
+    .wfw-publish__title {
+        font-size: 17px;
+    }
+
+    .wfw-publish__foot .components-button {
+        flex: 1;
+        justify-content: center;
+        height: 44px;
+        border-radius: 22px;
+    }
+}
+
+/* ---- Settings sheet ---------------------------------------------------- */
+
+.wfw-sheet {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    width: 300px;
+    max-width: 100%;
+    overflow: auto;
+    box-sizing: border-box;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border-left: 1px solid var( --wfw-border );
+}
+
+/* Some block editor panels set fixed dark grays on their text; in a sheet it follows the theme. */
+.wfw-sheet :is( h2, h3, h4, p, legend, label ) {
+    color: inherit;
+}
+
+/* The block card and the block style names hard-code #1e1e1e (WordPress 7.1). */
+.wfw-sheet :is( .block-editor-block-card, .block-editor-block-styles__item ) :is( span, div ) {
+    color: inherit;
+}
+
+.wfw-sheet__header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    padding: 0 8px 0 16px;
+    background: var( --wfw-editor-bg );
+    border-bottom: 1px solid var( --wfw-border );
+}
+
+.wfw-sheet__header h2 {
+    margin: 0;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.wfw-sheet__footer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+}
+
+.wfw-sheet__tabs .components-tab-panel__tabs {
+    border-bottom: 1px solid var( --wfw-border );
+}
+
+/* Narrow editors (phones): the formatting pill scrolls sideways rather than overflowing. */
+@media ( max-width: 600px ) {
+    .wfw-pill {
+        bottom: calc( 12px + var( --wfw-keyboard, 0px ) );
+        max-width: calc( 100% - 24px );
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+    }
+
+    .wfw-pill::-webkit-scrollbar {
+        display: none;
+    }
+
+    .wfw-actions {
+        right: 8px;
+    }
+
+    .wfw-toasts {
+        bottom: calc( 68px + var( --wfw-keyboard, 0px ) );
+    }
+
+    .wfw-sheet {
+        width: 100%;
+        border-left: 0;
+    }
+
+    .wfw-ed.has-settings .wfw-actions,
+    .wfw-ed.has-settings .wfw-pill {
+        display: none;
+    }
+}
+
+/*
+ * Squircle corners (experiment), as in app.css: smooth superellipse corners with
+ * radii about 1.7x the ones they override. Set --wfw-corner-shape to round (here
+ * and in app.css) to compare.
+ */
+:root {
+    --wfw-corner-shape: squircle;
+}
+
+@supports ( corner-shape: squircle ) {
+    @container style( --wfw-corner-shape: squircle ) {
+        .wfw-pill,
+        .wfw-notice,
+        .wfw-toast {
+            border-radius: 20px;
+            corner-shape: squircle;
+        }
+
+        .wfw-actions .components-button,
+        .wfw-publish__foot .components-button {
+            corner-shape: squircle;
+        }
+    }
+}
