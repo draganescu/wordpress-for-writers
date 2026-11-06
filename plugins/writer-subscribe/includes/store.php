@@ -194,7 +194,11 @@ function wsub_add( $email, $source = '', $double_opt_in = true, $public = true, 
         return array( 'status' => 'already', 'row' => $existing );
     }
 
-    if ( $public && $existing && 'unsubscribed' === $existing->status ) {
+    // An address that unsubscribed stays on confirmation until it confirms.
+    // That includes a pending re-signup of it (it still carries its
+    // unsubscribe date), or a second public request with double opt-in off
+    // would activate it without anyone ever confirming.
+    if ( $public && $existing && ( 'unsubscribed' === $existing->status || ! empty( $existing->unsubscribed_at ) ) ) {
         $double_opt_in = true;
     }
 

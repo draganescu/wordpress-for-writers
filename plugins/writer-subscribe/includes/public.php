@@ -27,11 +27,57 @@ function wsub_client_ip() {
 }
 
 /**
+ * Add one to a rate-limit counter and return the new value.
+ *
+ * The bump is a single atomic operation, not a read followed by a write, so
+ * requests served at the same time by different PHP workers each count.
+ * Otherwise they would all read the same number, all pass, and all store the
+ * same number plus one. The window starts with the first hit and ends after
+ * $ttl seconds; hits inside it do not extend it.
+ */
+function wsub_rate_counter_bump( $key, $ttl ) {
+    global $wpdb;
+
+    if ( wp_using_ext_object_cache() ) {
+        // add() does nothing when the key exists, so the first request
+        // creates it and every request then increments it in the cache.
+        wp_cache_add( $key, 0, 'wsub', $ttl );
+        $n = wp_cache_incr( $key, 1, 'wsub' );
+        // Treat a cache that cannot count as full, rather than as empty.
+        return false === $n ? PHP_INT_MAX : (int) $n;
+    }
+
+    // Without an object cache, transients are rows in the options table.
+    // The pair is created under the transient names so WordPress still
+    // expires it and clears it out; INSERT IGNORE means a request racing to
+    // create it can't reset a counter another one has already bumped.
+    $name = '_transient_' . $key;
+    if ( false === get_transient( $key ) ) {
+        $wpdb->query(
+            $wpdb->prepare(
+                "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %d, 'off'), (%s, '0', 'off')",
+                '_transient_timeout_' . $key,
+                time() + $ttl,
+                $name
+            )
+        );
+        // The miss was remembered by the options cache; the rows exist now.
+        wp_cache_delete( 'notoptions', 'options' );
+    }
+    $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = option_value + 1 WHERE option_name = %s", $name ) );
+    wp_cache_delete( $name, 'options' );
+    return (int) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $name ) );
+}
+
+/**
  * Too many signups recently, from this address or site-wide?
  *
  * Counted only after the request has passed validation, so junk doesn't eat
  * into a real visitor's allowance. The site-wide cap is the backstop for
- * attackers with many addresses.
+ * attackers with many addresses. Each counter is bumped first and the result
+ * compared to its cap, so a burst of parallel requests is counted in full.
+ * An address that is over its own cap never reaches the site-wide counter,
+ * so one blocked client can't use up everyone's allowance.
  */
 function wsub_rate_limited() {
     $per_ip  = max( 1, (int) apply_filters( 'wsub_rate_limit', 10 ) );
@@ -40,14 +86,10 @@ function wsub_rate_limited() {
     $ip_key  = 'wsub_rl_' . md5( wsub_client_ip() . wp_salt( 'nonce' ) );
     $all_key = 'wsub_rl_all';
 
-    $n = (int) get_transient( $ip_key );
-    $g = (int) get_transient( $all_key );
-    if ( $n >= $per_ip || $g >= $per_min ) {
+    if ( wsub_rate_counter_bump( $ip_key, HOUR_IN_SECONDS ) > $per_ip ) {
         return true;
     }
-    set_transient( $ip_key, $n + 1, HOUR_IN_SECONDS );
-    set_transient( $all_key, $g + 1, MINUTE_IN_SECONDS );
-    return false;
+    return wsub_rate_counter_bump( $all_key, MINUTE_IN_SECONDS ) > $per_min;
 }
 
 /**
@@ -62,6 +104,14 @@ function wsub_handle_signup( $email, $source, $honeypot, $consented ) {
         : __( 'You’re subscribed. Thank you!', 'writer-subscribe' );
 
     $email = trim( (string) $email );
+
+    // Only the values the plugin's own forms send. The stored source is
+    // shown in the admin list, the CSV export and the visitor's personal
+    // data export, so free text from the request must not get that far.
+    $source = (string) $source;
+    if ( ! preg_match( '/^(inline|block|popup:\d+)$/', $source ) ) {
+        $source = '';
+    }
 
     // Bots fill the hidden field; tell them it worked and do nothing.
     if ( '' !== trim( (string) $honeypot ) ) {
@@ -91,7 +141,7 @@ function wsub_handle_signup( $email, $source, $honeypot, $consented ) {
     // Proof of consent: the exact wording the person agreed to, and when.
     $consent_text = $consented ? (string) wsub_setting( 'consent' ) : '';
 
-    $result = wsub_add( $email, sanitize_text_field( (string) $source ), $double, true, $consent_text );
+    $result = wsub_add( $email, $source, $double, true, $consent_text );
 
     if ( 'error' === $result['status'] || ! $result['row'] ) {
         return array( 'ok' => false, 'code' => 'error', 'message' => __( 'Something went wrong. Please try again.', 'writer-subscribe' ) );
@@ -101,14 +151,12 @@ function wsub_handle_signup( $email, $source, $honeypot, $consented ) {
         wsub_send_confirmation( $result['row'] );
     }
 
-    // A visitor who unsubscribed is always asked to confirm again, even with
-    // double opt-in off, so tell them to check their inbox.
-    if ( in_array( $result['status'], array( 'pending', 'cooldown' ), true ) ) {
-        $check = __( 'Almost done. Check your inbox to confirm.', 'writer-subscribe' );
-    }
-
-    // 'already' gets the same answer as a fresh signup, so the form can't be
-    // used to find out who is on the list.
+    // Every successful outcome gets the same answer. 'already' is not told
+    // apart from a fresh signup, and with double opt-in off a visitor who
+    // unsubscribed (who is always asked to confirm again) is not told apart
+    // either; the confirmation email in their inbox explains the next step.
+    // Otherwise the form could be used to find out who is, or was, on the
+    // list. The no-JS fallback already answers with one notice code.
     return array( 'ok' => true, 'code' => 'ok', 'message' => $check );
 }
 

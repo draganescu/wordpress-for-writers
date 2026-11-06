@@ -130,9 +130,18 @@
 
     // ---- Utilities ---------------------------------------------------------
 
+    /*
+     * Preferences live in the browser, under the user's id: on a shared browser
+     * one account doesn't see another's open tabs or view. (Core keeps its own
+     * editor preferences the same way.)
+     */
+    function prefKey( key ) {
+        return 'wfw:' + settings.userId + ':' + key;
+    }
+
     function loadPref( key, fallback ) {
         try {
-            const value = window.localStorage.getItem( 'wfw:' + key );
+            const value = window.localStorage.getItem( prefKey( key ) );
             return value === null ? fallback : JSON.parse( value );
         } catch ( e ) {
             return fallback;
@@ -141,9 +150,14 @@
 
     function savePref( key, value ) {
         try {
-            window.localStorage.setItem( 'wfw:' + key, JSON.stringify( value ) );
+            window.localStorage.setItem( prefKey( key ), JSON.stringify( value ) );
         } catch ( e ) {}
     }
+
+    // The keys from before preferences were kept per user; what they held is dropped.
+    try {
+        [ 'view', 'sidebarHidden', 'collapsed', 'list', 'tabs' ].forEach( ( key ) => window.localStorage.removeItem( 'wfw:' + key ) );
+    } catch ( e ) {}
 
     function esc( value ) {
         return String( value ?? '' ).replace( /[&<>"']/g, ( c ) => ( {
@@ -913,31 +927,37 @@
         }
     }
 
-    // Tabs are kept per device, like the other view preferences, and reopen after a reload.
+    /*
+     * Tabs are kept per device, like the other view preferences, and reopen after
+     * a reload. Only the note ids are kept: the titles come from the site when the
+     * tabs are restored, so the browser holds nothing of what the notes say.
+     */
     function saveTabs() {
-        savePref( 'tabs', tabs.filter( ( t ) => t.id ).map( ( t ) => ( { id: t.id, title: t.title } ) ) );
+        savePref( 'tabs', tabs.filter( ( t ) => t.id ).map( ( t ) => ( { id: t.id } ) ) );
     }
 
     // A title changes with every keystroke in it: those are saved once typing pauses.
     const saveTabTitles = debounce( saveTabs, 500 );
 
-    // Tabs restored from the last visit, minus notes that have since been trashed or deleted.
+    /*
+     * Tabs restored from the last visit, minus notes that have since been trashed
+     * or deleted. They show as Untitled until the site confirms them and gives
+     * their titles; the tabs it doesn't confirm, or all of them when it can't be
+     * asked, are dropped rather than kept on trust.
+     */
     async function restoreTabs() {
         const saved = ( loadPref( 'tabs', [] ) || [] ).filter( ( t ) => t && Number( t.id ) > 0 );
         if ( ! saved.length ) {
             return;
         }
-        saved.slice( 0, MAX_TABS ).forEach( ( t ) => addTab( Number( t.id ), String( t.title || '' ) ) );
+        const restored = saved.slice( 0, MAX_TABS ).map( ( t ) => addTab( Number( t.id ), '' ) );
         renderSidebar();
-        const ids = tabs.map( ( t ) => t.id ).filter( Boolean );
+        const ids = restored.map( ( t ) => t.id );
         const notes = await apiFetch( {
             path: '/wp/v2/posts?' + new URLSearchParams( { include: ids.join( ',' ), per_page: 100, status: STATUS_VIEWS[ 0 ].status, context: 'edit', _fields: 'id,title' } ),
         } ).catch( () => null );
-        if ( ! notes ) {
-            return;
-        }
-        const found = new Map( notes.map( ( n ) => [ n.id, n.title.raw || htmlToText( n.title.rendered ) ] ) );
-        tabs = tabs.filter( ( t ) => ! t.id || found.has( t.id ) || t === current );
+        const found = new Map( ( notes || [] ).map( ( n ) => [ n.id, n.title.raw || htmlToText( n.title.rendered ) ] ) );
+        tabs = tabs.filter( ( t ) => ! restored.includes( t ) || found.has( t.id ) || t === current );
         tabs.forEach( ( t ) => {
             if ( found.has( t.id ) ) {
                 t.title = found.get( t.id );
@@ -2316,29 +2336,36 @@
 
     /*
      * A copy of the note as a new draft: its title (marked as a copy), content,
-     * excerpt, categories, tags, featured image and format. Sticky, the date and
-     * the password stay with the original. The copy opens in the tab in view.
+     * excerpt, categories, tags, featured image, format and visibility (the meta a
+     * companion plugin gates the note with, so a members-only note doesn't come
+     * back as one for everyone). Sticky, the date and the password stay with the
+     * original. The copy opens in the tab in view.
      */
     async function duplicateNote( id ) {
         try {
             const note = await apiFetch( { path: '/wp/v2/posts/' + id + '?context=edit' } );
             const title = note.title.raw.trim();
+            const metaKey = settings.visibility?.metaKey;
+            const data = {
+                status: 'draft',
+                title: title
+                    /* translators: %s: the title of the note being duplicated. */
+                    ? sprintf( __( '%s (copy)', 'wordpress-for-writers' ), title )
+                    : '',
+                content: note.content.raw,
+                excerpt: note.excerpt.raw,
+                categories: note.categories,
+                tags: note.tags,
+                featured_media: note.featured_media,
+                format: note.format,
+            };
+            if ( metaKey && note.meta && metaKey in note.meta ) {
+                data.meta = { [ metaKey ]: note.meta[ metaKey ] };
+            }
             const copy = await apiFetch( {
                 path: '/wp/v2/posts',
                 method: 'POST',
-                data: {
-                    status: 'draft',
-                    title: title
-                        /* translators: %s: the title of the note being duplicated. */
-                        ? sprintf( __( '%s (copy)', 'wordpress-for-writers' ), title )
-                        : '',
-                    content: note.content.raw,
-                    excerpt: note.excerpt.raw,
-                    categories: note.categories,
-                    tags: note.tags,
-                    featured_media: note.featured_media,
-                    format: note.format,
-                },
+                data,
             } );
             await refresh();
             openNote( copy.id );
