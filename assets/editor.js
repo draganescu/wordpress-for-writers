@@ -471,7 +471,6 @@
             setSettingsOpen( ( open ) => ! open );
         } );
 
-        const ThemeProvider = wp.theme && wp.theme.ThemeProvider;
         const layout = el( 'div', { className: 'wfw-ed' + ( settingsOpen ? ' has-settings' : '' ) },
             el( Notices ),
             el( Actions ),
@@ -491,8 +490,8 @@
             el( wp.plugins.PluginArea ),
             el( Popover.Slot )
         );
-        return ThemeProvider && colors.primary && colors.background
-            ? el( ThemeProvider, { isRoot: true, color: colors }, layout )
+        return colors.primary && colors.background
+            ? el( wp.theme.ThemeProvider, { isRoot: true, color: colors }, layout )
             : layout;
     }
 
