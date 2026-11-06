@@ -48,6 +48,18 @@ html:has( body.wfw-editor-page ) {
     color: var( --wfw-text );
 }
 
+/*
+ * Menus and popovers (the block options menu, the link and color pickers).
+ * Their text follows --wp-components-color-foreground above, but WordPress 7.1
+ * paints their surface plain #fff, with no variable or WPDS token behind it,
+ * so the one surface class every popover shares takes the theme's background.
+ */
+.wfw-ed .components-popover__content {
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border-color: var( --wfw-border );
+}
+
 .wfw-canvas {
     flex: 1;
     min-height: 0;
