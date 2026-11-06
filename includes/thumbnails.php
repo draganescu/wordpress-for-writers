@@ -15,31 +15,66 @@ defined( 'ABSPATH' ) || exit;
  * ('featured', 'format' or 'block'), or null when the note has none.
  */
 function wfw_note_thumbnail( $post ) {
+    $thumbnail = null;
+
+    // Whoever edits the note picks the attachment IDs, both the featured one
+    // and the wp-image-{id} class in its content, so an ID only turns into a
+    // URL when the user may read that attachment, the way core's media
+    // endpoint decides it. Any other ID counts as no library image.
     $featured = get_post_thumbnail_id( $post );
-    if ( $featured && wp_attachment_is_image( $featured ) ) {
-        return array(
+    if ( $featured && wfw_can_read_attachment( $featured ) && wp_attachment_is_image( $featured ) ) {
+        $thumbnail = array(
             'url'    => wp_get_attachment_image_url( $featured, 'thumbnail' ),
             'source' => 'featured',
         );
-    }
-
-    if ( 'image' === get_post_format( $post ) ) {
-        $image  = wfw_first_image( $post->post_content );
-        $source = 'format';
     } else {
-        $images = wfw_image_block_images( parse_blocks( $post->post_content ) );
-        $image  = 1 === count( $images ) ? $images[0] : null;
-        $source = 'block';
-    }
-    if ( ! $image ) {
-        return null;
+        if ( 'image' === get_post_format( $post ) ) {
+            $image  = wfw_first_image( $post->post_content );
+            $source = 'format';
+        } else {
+            $images = wfw_image_block_images( parse_blocks( $post->post_content ) );
+            $image  = 1 === count( $images ) ? $images[0] : null;
+            $source = 'block';
+        }
+        if ( $image ) {
+            // Library images use the square crop WordPress makes for thumbnails; others keep the URL they have in the note.
+            $url = $image['id'] && wfw_can_read_attachment( $image['id'] ) && wp_attachment_is_image( $image['id'] )
+                ? wp_get_attachment_image_url( $image['id'], 'thumbnail' )
+                : esc_url_raw( $image['src'] );
+            $thumbnail = $url ? array( 'url' => $url, 'source' => $source ) : null;
+        }
     }
 
-    // Library images use the square crop WordPress makes for thumbnails; others keep the URL they have in the note.
-    $url = $image['id'] && wp_attachment_is_image( $image['id'] )
-        ? wp_get_attachment_image_url( $image['id'], 'thumbnail' )
-        : esc_url_raw( $image['src'] );
-    return $url ? array( 'url' => $url, 'source' => $source ) : null;
+    /**
+     * The thumbnail the note list shows for a post, or null for none. A plugin
+     * that keeps part of a note from some readers, such as a paywall, returns
+     * null here for those readers, so no image from the hidden part reaches
+     * them through the list.
+     *
+     * @param array|null $thumbnail The thumbnail's 'url' and 'source' ('featured', 'format' or 'block'), or null.
+     * @param WP_Post    $post      The note.
+     */
+    return apply_filters( 'wfw_note_thumbnail', $thumbnail, $post );
+}
+
+/**
+ * Whether the current user may read an attachment, as core's media endpoint
+ * decides it. The read_post capability alone is stricter than that: for an
+ * attachment that inherits its status from an unpublished parent it wants the
+ * user to be the attachment's own author, so an image an editor dropped into
+ * an author's draft would fail it even though the author can read the draft
+ * and /wp/v2/media hands them the image. Like core, an inherited attachment
+ * is readable when its parent is.
+ */
+function wfw_can_read_attachment( $attachment_id ) {
+    if ( current_user_can( 'read_post', $attachment_id ) ) {
+        return true;
+    }
+    $attachment = get_post( $attachment_id );
+    return $attachment
+        && 'inherit' === $attachment->post_status
+        && $attachment->post_parent > 0
+        && current_user_can( 'read_post', $attachment->post_parent );
 }
 
 /**
@@ -79,15 +114,21 @@ function wfw_image_block_images( $blocks ) {
 
 /**
  * The list asks for this field only while it shows images, and WordPress only
- * runs the callback for responses that include the field. Edit context only:
- * there the API returns just the notes the user can edit, so an image from a
- * note's content never reaches anyone who can't read that content.
+ * runs the callback for responses that include the field. Edit context only,
+ * though that alone keeps nothing private: before WordPress 6.9 the edit
+ * context lists other people's published notes too, and a companion plugin
+ * may hide part of a note from some readers. So the field is null unless the
+ * user can edit the note, and plugins have the last word through the
+ * wfw_note_thumbnail filter.
  */
 add_action( 'rest_api_init', function () {
     register_rest_field( 'post', 'wfw_thumbnail', array(
         'get_callback' => function ( $data ) {
             $post = get_post( $data['id'] );
-            return $post ? wfw_note_thumbnail( $post ) : null;
+            if ( ! $post || ! current_user_can( 'edit_post', $post->ID ) ) {
+                return null;
+            }
+            return wfw_note_thumbnail( $post );
         },
         'schema'       => array(
             'description' => __( 'The image the note list shows for the post: its featured image, else one from its content.', 'wordpress-for-writers' ),

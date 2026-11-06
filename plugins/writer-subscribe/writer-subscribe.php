@@ -8,6 +8,7 @@
  * Author: Andrei Draganescu
  * License: GPL-2.0-or-later
  * Text Domain: writer-subscribe
+ * Update URI: https://github.com/draganescu/wordpress-for-writers
  */
 
 defined( 'ABSPATH' ) || exit;

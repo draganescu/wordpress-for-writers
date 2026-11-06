@@ -89,6 +89,17 @@ function wsub_csv_cell( $value ) {
 }
 
 /**
+ * Write one CSV row. The escape character is set to nothing on purpose: with
+ * PHP's default backslash, a quote preceded by a backslash is not doubled, so
+ * a value like `\",=1+1` closes its cell early and the rest lands in a new,
+ * unguarded cell. With no escape every quote is doubled and a cell can never
+ * be split.
+ */
+function wsub_csv_row( $out, array $cells ) {
+    fputcsv( $out, $cells, ',', '"', '' );
+}
+
+/**
  * Stream the list as CSV. Reads in id-ordered batches and writes straight to
  * the response, so memory use stays flat however big the list is.
  */
@@ -121,7 +132,7 @@ add_action( 'admin_post_wsub_export', function () {
     header( 'X-Accel-Buffering: no' );
 
     $out = fopen( 'php://output', 'w' );
-    fputcsv( $out, array( 'email', 'status', 'source', 'subscribed_at', 'confirmed_at', 'unsubscribed_at', 'consented_at', 'consent_text' ) );
+    wsub_csv_row( $out, array( 'email', 'status', 'source', 'subscribed_at', 'confirmed_at', 'unsubscribed_at', 'consented_at', 'consent_text' ) );
 
     $last = 0;
     do {
@@ -135,11 +146,11 @@ add_action( 'admin_post_wsub_export', function () {
         );
         foreach ( $rows as $row ) {
             $last = (int) $row['id'];
-            fputcsv(
+            wsub_csv_row(
                 $out,
                 array(
                     wsub_csv_cell( $row['email'] ),
-                    $row['status'],
+                    wsub_csv_cell( $row['status'] ),
                     wsub_csv_cell( $row['source'] ),
                     $row['created_at'],
                     (string) $row['confirmed_at'],
@@ -301,10 +312,15 @@ function wsub_render_list() {
 
 /**
  * "popup:123" → "Popup on “Post title”".
+ *
+ * The post ID comes from the visitor, and this label reaches the subscriber
+ * through the personal data export, so only a published post's title is
+ * shown. A draft, private or trashed post gets the plain label.
  */
 function wsub_source_label( $source ) {
     if ( preg_match( '/^popup:(\d+)$/', $source, $m ) ) {
-        $title = get_the_title( (int) $m[1] );
+        $id    = (int) $m[1];
+        $title = is_post_publicly_viewable( $id ) ? get_the_title( $id ) : '';
         return $title ? sprintf( __( 'Popup on “%s”', 'writer-subscribe' ), $title ) : __( 'Popup', 'writer-subscribe' );
     }
     $known = array(
