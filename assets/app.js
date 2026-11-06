@@ -331,6 +331,12 @@
             </main>
             <div class="wfw-menu wfw-menu--context wfw-menu--tabs" id="wfw-tabs-menu" role="menu" aria-label="${ esc( __( 'Editing now', 'wordpress-for-writers' ) ) }" tabindex="-1" hidden></div>
             <div class="wfw-menu wfw-menu--context" id="wfw-context-menu" role="menu" tabindex="-1" hidden></div>
+            <div class="wfw-palette" hidden>
+                <div class="wfw-palette__card" role="dialog" aria-modal="true" aria-label="${ esc( __( 'Commands', 'wordpress-for-writers' ) ) }">
+                    <label class="wfw-search wfw-palette__search">${ icon( 'search' ) }<input type="text" role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls="wfw-palette-list" autocomplete="off" spellcheck="false" placeholder="${ esc( __( 'Type a command or a note’s title', 'wordpress-for-writers' ) ) }" /></label>
+                    <div class="wfw-palette__list" id="wfw-palette-list" role="listbox" aria-label="${ esc( __( 'Commands', 'wordpress-for-writers' ) ) }"></div>
+                </div>
+            </div>
             <div class="wfw-toast" role="status"></div>
         `;
 
@@ -1150,6 +1156,13 @@
             case 'escape': {
                 if ( state.focus && tab === current ) {
                     toggleFocus();
+                }
+                break;
+            }
+            case 'palette': {
+                // Cmd/Ctrl+K in the editor in view; focus goes back to it when the palette closes.
+                if ( tab === current ) {
+                    openPalette( tab.frame );
                 }
                 break;
             }
@@ -2387,6 +2400,282 @@
             closeContextMenu( { focus: contextMenuEl().contains( document.activeElement ) } );
         }
     }, true );
+
+    // ---- Command palette ---------------------------------------------------
+
+    /*
+     * Cmd/Ctrl+K opens a palette over the app: the open tabs (Tab: …), notes
+     * matching what's typed (Open: …, from the same search as the list) and the
+     * app's own actions. It's the app's: core's command menu would come with the
+     * post editor's commands for UI the Writer doesn't render. In the app the key
+     * is handled here; in an editor, editor.js posts "palette" (with text
+     * selected, core's link format has Cmd/Ctrl+K, as in wp-admin). Like a menu:
+     * the arrows, Home and End pick, Enter and a click run, Escape, a click
+     * outside and the window losing focus close. Focus goes back to where it
+     * was, or to the editor's frame when it opened from there.
+     */
+    let palette = null;
+    let paletteRequest = 0;
+
+    function paletteEl() {
+        return root.querySelector( '.wfw-palette' );
+    }
+
+    function paletteActions() {
+        const sidebarShown = compactLayout.matches ? root.classList.contains( 'is-sidebar-open' ) : ! state.sidebarHidden;
+        return [
+            { command: 'new', icon: 'compose', label: __( 'New note', 'wordpress-for-writers' ) },
+            { command: 'focus', icon: 'focus', label: state.focus ? __( 'Leave focus mode', 'wordpress-for-writers' ) : __( 'Focus mode', 'wordpress-for-writers' ) },
+            { command: 'sidebar', icon: 'sidebar', label: sidebarShown ? __( 'Hide sidebar', 'wordpress-for-writers' ) : __( 'Show sidebar', 'wordpress-for-writers' ) },
+            { command: 'appearance', icon: 'appearance', label: __( 'Appearance', 'wordpress-for-writers' ) },
+        ];
+    }
+
+    // The groups that match the typed text: open tabs, found notes, then actions.
+    function paletteItems() {
+        const query = palette.query.toLowerCase();
+        const matches = ( text ) => ! query || text.toLowerCase().includes( query );
+        const untitled = __( 'Untitled', 'wordpress-for-writers' );
+        const tabItems = tabs
+            .map( ( tab ) => ( {
+                command: 'tab',
+                key: tab.key,
+                icon: 'open',
+                /* translators: %s: the title of a note open in a tab. */
+                label: sprintf( __( 'Tab: %s', 'wordpress-for-writers' ), tab.title || untitled ),
+                current: tab === current,
+            } ) )
+            .filter( ( item ) => matches( item.label ) );
+        const noteItems = palette.notes
+            .filter( ( note ) => ! tabFor( note.id ) )
+            .map( ( note ) => ( {
+                command: 'open',
+                id: note.id,
+                icon: 'notes',
+                /* translators: %s: a note's title. */
+                label: sprintf( __( 'Open: %s', 'wordpress-for-writers' ), note.title || untitled ),
+            } ) );
+        const actionItems = paletteActions().filter( ( item ) => matches( item.label ) );
+        return [
+            { label: __( 'Editing now', 'wordpress-for-writers' ), items: tabItems },
+            { label: __( 'Notes', 'wordpress-for-writers' ), items: noteItems },
+            { label: __( 'Commands', 'wordpress-for-writers' ), items: actionItems },
+        ].filter( ( group ) => group.items.length );
+    }
+
+    function renderPalette() {
+        if ( ! palette ) {
+            return;
+        }
+        const groups = paletteItems();
+        palette.items = groups.flatMap( ( group ) => group.items );
+        palette.index = Math.max( 0, Math.min( palette.index, palette.items.length - 1 ) );
+        let n = 0;
+        const list = paletteEl().querySelector( '.wfw-palette__list' );
+        list.innerHTML = groups.map( ( group ) => `
+            <div class="wfw-palette__group" role="group" aria-label="${ esc( group.label ) }">
+                <div class="wfw-palette__label" aria-hidden="true">${ esc( group.label ) }</div>
+                ${ group.items.map( ( item ) => {
+                    const i = n++;
+                    return `<div class="wfw-palette__item${ item.current ? ' is-current' : '' }" role="option" id="wfw-palette-option-${ i }" aria-selected="${ i === palette.index }" data-index="${ i }">${ icon( item.icon ) }<span>${ esc( item.label ) }</span>${ item.current ? `<span class="wfw-palette__hint">${ esc( __( 'In view', 'wordpress-for-writers' ) ) }</span>` : '' }</div>`;
+                } ).join( '' ) }
+            </div>` ).join( '' ) || ( palette.searching
+            ? `<div class="wfw-palette__empty">${ esc( __( 'Searching…', 'wordpress-for-writers' ) ) }</div>`
+            : `<div class="wfw-palette__empty">${ esc( __( 'Nothing found', 'wordpress-for-writers' ) ) }</div>` );
+        const input = paletteEl().querySelector( 'input' );
+        if ( palette.items.length ) {
+            input.setAttribute( 'aria-activedescendant', 'wfw-palette-option-' + palette.index );
+        } else {
+            input.removeAttribute( 'aria-activedescendant' );
+        }
+    }
+
+    function selectPaletteItem( index ) {
+        if ( ! palette?.items.length ) {
+            return;
+        }
+        palette.index = ( index + palette.items.length ) % palette.items.length;
+        const list = paletteEl().querySelector( '.wfw-palette__list' );
+        list.querySelectorAll( '[role="option"]' ).forEach( ( el ) => el.setAttribute( 'aria-selected', Number( el.dataset.index ) === palette.index ) );
+        paletteEl().querySelector( 'input' ).setAttribute( 'aria-activedescendant', 'wfw-palette-option-' + palette.index );
+        list.querySelector( `[data-index="${ palette.index }"]` )?.scrollIntoView( { block: 'nearest' } );
+    }
+
+    // Notes whose title or text matches, from the list's search, a moment after typing stops.
+    const searchPaletteNotes = debounce( async () => {
+        if ( ! palette ) {
+            return;
+        }
+        const query = palette.query;
+        const requestId = ++paletteRequest;
+        const params = { search: query, per_page: 8, status: STATUS_VIEWS[ 0 ].status, context: 'edit', _fields: 'id,title,status' };
+        const notes = await apiFetch( { path: '/wp/v2/posts?' + new URLSearchParams( params ) } ).catch( () => [] );
+        if ( ! palette || requestId !== paletteRequest ) {
+            return;
+        }
+        palette.searching = false;
+        palette.notes = notes.map( ( note ) => ( { id: note.id, title: note.title.raw || htmlToText( note.title.rendered ) } ) );
+        renderPalette();
+    }, 250 );
+
+    function setPaletteQuery( query ) {
+        palette.query = query.trim();
+        palette.index = 0;
+        palette.notes = [];
+        palette.searching = !! palette.query;
+        renderPalette();
+        if ( palette.query ) {
+            searchPaletteNotes();
+        } else {
+            paletteRequest++; // A reply to an earlier search is no longer wanted.
+        }
+    }
+
+    // `from` is what gets focus back when the palette closes: the focused element
+    // in the app, or the editor's frame when the editor asked for the palette.
+    function openPalette( from = document.activeElement ) {
+        closeContextMenu( { focus: false } );
+        closeUserMenu( false );
+        closeTabsMenu( false );
+        toggleListMenu( false );
+        palette = { query: '', notes: [], items: [], index: 0, searching: false, from };
+        const box = paletteEl();
+        const input = box.querySelector( 'input' );
+        input.value = '';
+        box.hidden = false;
+        renderPalette();
+        input.focus();
+    }
+
+    function closePalette( { focus = true } = {} ) {
+        if ( ! palette ) {
+            return;
+        }
+        const { from } = palette;
+        palette = null;
+        paletteRequest++;
+        paletteEl().hidden = true;
+        if ( focus && from?.isConnected ) {
+            from.focus( { preventScroll: true } );
+        }
+    }
+
+    function runPaletteItem( item ) {
+        // Opening or switching notes moves focus itself; the rest leave it where it was.
+        closePalette( { focus: ! [ 'tab', 'open', 'new' ].includes( item.command ) } );
+        switch ( item.command ) {
+            case 'tab': {
+                const tab = tabByKey( item.key );
+                root.classList.remove( 'is-sidebar-open' );
+                if ( tab ) {
+                    showTab( tab );
+                    root.classList.add( 'has-note' );
+                }
+                break;
+            }
+            case 'open':
+                root.classList.remove( 'is-sidebar-open' );
+                openNote( item.id );
+                break;
+            case 'new':
+                newNote();
+                break;
+            case 'focus':
+                toggleFocus();
+                break;
+            case 'sidebar':
+                root.querySelector( '[data-action="toggle-sidebar"]' )?.click();
+                break;
+            case 'appearance':
+                openAppearance();
+                break;
+        }
+    }
+
+    function togglePalette() {
+        if ( palette ) {
+            closePalette();
+        } else {
+            openPalette();
+        }
+    }
+
+    const isApple = /Mac|iPhone|iPad|iPod/.test( navigator.platform );
+
+    // Cmd/Ctrl+K anywhere in the app (the editors' frames post "palette" instead).
+    document.addEventListener( 'keydown', ( event ) => {
+        if ( event.defaultPrevented || event.key.toLowerCase() !== 'k' || event.altKey || event.shiftKey ) {
+            return;
+        }
+        if ( isApple ? ! event.metaKey || event.ctrlKey : ! event.ctrlKey || event.metaKey ) {
+            return;
+        }
+        event.preventDefault();
+        togglePalette();
+    } );
+
+    root.addEventListener( 'keydown', ( event ) => {
+        if ( ! palette || ! paletteEl().contains( event.target ) ) {
+            return;
+        }
+        switch ( event.key ) {
+            case 'ArrowDown':
+            case 'ArrowUp':
+            case 'Home':
+            case 'End': {
+                event.preventDefault();
+                const next = { ArrowDown: palette.index + 1, ArrowUp: palette.index - 1, Home: 0, End: -1 }[ event.key ];
+                selectPaletteItem( next );
+                break;
+            }
+            case 'Enter': {
+                event.preventDefault();
+                const item = palette.items[ palette.index ];
+                if ( item ) {
+                    runPaletteItem( item );
+                }
+                break;
+            }
+            case 'Escape':
+            case 'Tab':
+                event.preventDefault();
+                event.stopPropagation();
+                closePalette();
+                break;
+        }
+    } );
+
+    root.addEventListener( 'input', ( event ) => {
+        if ( palette && event.target === paletteEl().querySelector( 'input' ) ) {
+            setPaletteQuery( event.target.value );
+        }
+    } );
+
+    // The pointer picks as it moves and runs with a click; outside the card closes.
+    root.addEventListener( 'pointermove', ( event ) => {
+        const option = palette && event.target.closest( '.wfw-palette__item' );
+        if ( option && Number( option.dataset.index ) !== palette.index ) {
+            selectPaletteItem( Number( option.dataset.index ) );
+        }
+    } );
+    root.addEventListener( 'click', ( event ) => {
+        if ( ! palette ) {
+            return;
+        }
+        const option = event.target.closest( '.wfw-palette__item' );
+        if ( option ) {
+            runPaletteItem( palette.items[ Number( option.dataset.index ) ] );
+        } else if ( event.target === paletteEl() ) {
+            closePalette();
+        }
+    } );
+    // The input keeps focus while an option is pressed.
+    root.addEventListener( 'pointerdown', ( event ) => {
+        if ( palette && event.target.closest( '.wfw-palette__list' ) ) {
+            event.preventDefault();
+        }
+    } );
+    window.addEventListener( 'blur', () => closePalette( { focus: false } ) );
 
     // ---- Pinned categories and tags ----------------------------------------
 

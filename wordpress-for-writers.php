@@ -205,6 +205,17 @@ add_action( 'load-toplevel_page_' . WFW_PAGE, function () {
     } );
 } );
 
+/*
+ * wp-admin's own command palette (its menus and screens, on every admin screen)
+ * stays off the app's pages: Cmd/Ctrl+K is the Writer's palette there, in the
+ * app and from its editors' frames, and the two would race for the key.
+ */
+add_action( 'admin_enqueue_scripts', function ( $hook ) {
+    if ( 'toplevel_page_' . WFW_PAGE === $hook || 'admin_page_' . WFW_EDITOR_PAGE === $hook ) {
+        remove_action( 'admin_enqueue_scripts', 'wp_enqueue_command_palette_assets' );
+    }
+}, 1 );
+
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( 'toplevel_page_' . WFW_PAGE === $hook ) {
         wp_enqueue_style( 'wfw-app', WFW_URL . 'assets/app.css', array( 'wp-components' ), wfw_asset_version( 'assets/app.css' ) );
