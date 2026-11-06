@@ -700,8 +700,14 @@
         } );
     }
 
+    // A new note takes the REST nonce, which the editor page checks before
+    // creating the draft; the API client keeps it current.
     function editorSrc( id ) {
-        return id ? settings.adminUrl + 'post.php?post=' + id + '&action=edit&wfw_frame=1' : settings.adminUrl + 'post-new.php?wfw_frame=1';
+        if ( id ) {
+            return settings.editorUrl + '&post=' + id;
+        }
+        const nonce = wp.apiFetch.nonceMiddleware?.nonce || window.wpApiSettings?.nonce || '';
+        return settings.editorUrl + '&_wpnonce=' + encodeURIComponent( nonce );
     }
 
     function dropFrame( tab ) {

@@ -23,33 +23,23 @@ html {
 }
 
 /*
- * One centered column for title and content. The root container is doubled to
- * beat the editor's own .is-root-container.alignfull and the hard-coded
- * content width it puts on root children (the theme's, or 645px without one).
+ * One centered column for title and content (.wfw-column, .wfw-title and
+ * .wfw-body are editor.js's own wrappers). Blocks fill the column; wide and
+ * full alignments stay within it too.
  */
-.editor-styles-wrapper .editor-visual-editor__post-title-wrapper,
-.editor-styles-wrapper .is-root-container.is-root-container {
+.editor-styles-wrapper .wfw-column {
     max-width: var( --wfw-measure );
-    margin-left: auto !important;
-    margin-right: auto !important;
-    padding: 0 !important;
+    margin: 0 auto;
 }
 
-.editor-styles-wrapper .is-root-container.is-root-container > *,
-.editor-styles-wrapper .editor-visual-editor__post-title-wrapper > * {
+.editor-styles-wrapper .wfw-body > * {
     max-width: 100%;
     margin-left: 0;
     margin-right: 0;
 }
 
-.editor-styles-wrapper .is-root-container.is-root-container > .alignwide,
-.editor-styles-wrapper .is-root-container.is-root-container > .alignfull {
-    max-width: 100%;
-}
-
 /* Title */
-.editor-styles-wrapper .editor-post-title,
-.editor-styles-wrapper .wp-block-post-title {
+.editor-styles-wrapper .wfw-title h1 {
     font-family: var( --wfw-font-body );
     font-size: 1.75em;
     font-weight: 700;
@@ -61,12 +51,12 @@ html {
 
 /*
  * Featured image, categories and tags links in a row above the title (added by
- * frame.js). Absolutely placed, so the title doesn't move; the row appears with
+ * editor.js). Absolutely placed, so the title doesn't move; the row appears with
  * the pointer over the title or focus in it, and stays faintly visible on touch
  * screens. Each link's label shows what the note has and is cut short with an
  * ellipsis when the names run long.
  */
-.editor-styles-wrapper .editor-visual-editor__post-title-wrapper {
+.editor-styles-wrapper .wfw-title {
     position: relative;
 }
 
@@ -113,8 +103,8 @@ html {
     white-space: nowrap;
 }
 
-.editor-styles-wrapper .editor-visual-editor__post-title-wrapper:hover .wfw-title-links,
-.editor-styles-wrapper .editor-visual-editor__post-title-wrapper:focus-within .wfw-title-links {
+.editor-styles-wrapper .wfw-title:hover .wfw-title-links,
+.editor-styles-wrapper .wfw-title:focus-within .wfw-title-links {
     opacity: 1;
 }
 
@@ -141,7 +131,7 @@ html {
     line-height: 1.6;
 }
 
-.editor-styles-wrapper .is-root-container > * + * {
+.editor-styles-wrapper .wfw-body > * + * {
     margin-top: 0.85em;
     margin-bottom: 0;
 }
@@ -159,7 +149,7 @@ html {
     letter-spacing: -0.005em;
 }
 
-.editor-styles-wrapper .is-root-container > :is( h1, h2, h3, h4, h5, h6 ) {
+.editor-styles-wrapper .wfw-body > :is( h1, h2, h3, h4, h5, h6 ) {
     margin-top: 1.5em;
 }
 
@@ -284,8 +274,7 @@ html {
 }
 
 /* Placeholders: keep "Add title", drop the block-editor coaching. */
-.editor-styles-wrapper .editor-post-title [data-rich-text-placeholder]::after,
-.editor-styles-wrapper .wp-block-post-title [data-rich-text-placeholder]::after {
+.editor-styles-wrapper .wfw-title [data-rich-text-placeholder]::after {
     color: var( --wfw-muted );
     opacity: 0.6;
 }
@@ -316,11 +305,25 @@ html {
 
 @media ( max-width: 600px ) {
     .editor-styles-wrapper {
-        padding: 60px 20px calc( 140px + var( --wfw-keyboard, 0px ) );
+        padding: 64px 20px calc( 140px + var( --wfw-keyboard, 0px ) );
     }
 
-    .editor-styles-wrapper .editor-post-title,
-    .editor-styles-wrapper .wp-block-post-title {
+    .editor-styles-wrapper .wfw-title h1 {
         font-size: 1.5em;
+    }
+
+    /*
+     * Phones: the app's back link, the save state and Publish sit over the top
+     * of the editor, so the links come down into the flow, between them and
+     * the title, rather than floating above the title into that bar.
+     */
+    .editor-styles-wrapper .wfw-title-links {
+        position: static;
+        flex-wrap: wrap;
+        margin: 0 0 10px -8px;
+    }
+
+    .editor-styles-wrapper .wfw-title-link {
+        max-width: 100%;
     }
 }
