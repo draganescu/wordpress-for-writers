@@ -178,19 +178,77 @@ function wfw_editor_settings( $post ) {
     $settings = get_block_editor_settings( $settings, $context );
 
     /*
-     * The canvas ignores the theme: the writing surface is ours (editor-content.css).
-     * Only the global stylesheet's variables and presets go in, so color and size
-     * classes still resolve; the theme's and the user's styles and the theme's
-     * editor stylesheets are left out. Layout and alignment rules live in
-     * editor-content.css: core's 'base-layout-styles' type, which used to carry
-     * them, is deprecated since WordPress 7.0 and returns nothing.
+     * The canvas ignores the theme: the writing surface is ours (editor-content.css),
+     * and the theme's editor stylesheets are left out.
      */
     $settings['styles'] = array(
-        array( 'css' => wp_get_global_stylesheet( array( 'variables' ) ) ),
-        array( 'css' => wp_get_global_stylesheet( array( 'presets' ) ) ),
+        array( 'css' => wfw_canvas_global_stylesheet() ),
     );
 
     return $settings;
+}
+
+/**
+ * The global stylesheet without the theme's and the user's styles.
+ *
+ * Their settings stay (palette, font sizes, content and wide widths), so preset
+ * classes and variables resolve as on the site, and core still prints its own
+ * defaults: the layout and alignment rules, block gaps, the button element and
+ * the default block styles. Only the styles a theme or the user layered on top
+ * are left out, through the theme.json data filters, for this one stylesheet.
+ */
+function wfw_canvas_global_stylesheet() {
+    $strip_theme = function ( $data ) {
+        return wfw_theme_json_without_styles( $data, 'theme' );
+    };
+    $strip_user = function ( $data ) {
+        return wfw_theme_json_without_styles( $data, 'custom' );
+    };
+
+    add_filter( 'wp_theme_json_data_theme', $strip_theme, PHP_INT_MAX );
+    add_filter( 'wp_theme_json_data_user', $strip_user, PHP_INT_MAX );
+    wp_clean_theme_json_cache();
+
+    $css = wp_get_global_stylesheet( array( 'variables', 'presets', 'styles' ) );
+
+    remove_filter( 'wp_theme_json_data_theme', $strip_theme, PHP_INT_MAX );
+    remove_filter( 'wp_theme_json_data_user', $strip_user, PHP_INT_MAX );
+    wp_clean_theme_json_cache();
+
+    return $css;
+}
+
+/**
+ * A theme.json origin's data with its settings and without its styles.
+ *
+ * @param WP_Theme_JSON_Data $data   The origin's data, as the filter hands it over.
+ * @param string             $origin 'theme' or 'custom'.
+ * @return WP_Theme_JSON_Data
+ */
+function wfw_theme_json_without_styles( $data, $origin ) {
+    $raw = $data->get_data();
+    unset( $raw['styles'] );
+
+    /*
+     * The writing surface's own choices, said in theme.json so core prints them
+     * like any theme's: the note's rhythm between blocks, and buttons in the
+     * appearance's accent (the --wfw-* tokens editor.js sets on the canvas).
+     */
+    if ( 'theme' === $origin ) {
+        $raw['styles'] = array(
+            'spacing'  => array( 'blockGap' => '0.85em' ),
+            'elements' => array(
+                'button' => array(
+                    'color' => array(
+                        'background' => 'var(--wfw-accent)',
+                        'text'       => 'var(--wfw-editor-bg)',
+                    ),
+                ),
+            ),
+        );
+    }
+
+    return new WP_Theme_JSON_Data( $raw, $origin );
 }
 
 /**
