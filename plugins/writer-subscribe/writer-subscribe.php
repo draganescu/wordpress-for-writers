@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Writer Subscribe
  * Description: Collect email subscribers with a scroll-triggered popup and an inline form, then export them as CSV. Stands alone; pairs with WordPress for Writers.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Andrei Draganescu
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WSUB_VERSION', '0.1.0' );
+define( 'WSUB_VERSION', '0.1.1' );
 define( 'WSUB_DB_VERSION', '3' );
 define( 'WSUB_FILE', __FILE__ );
 define( 'WSUB_URL', plugin_dir_url( __FILE__ ) );
