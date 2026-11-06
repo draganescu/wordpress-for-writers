@@ -389,6 +389,10 @@
         return el( 'span', { className: 'wfw-notice__actions' }, notice.actions.map( ( action, index ) => el( Button, {
             key: index,
             href: action.url,
+            // "View Post" after publishing is marked to open in a new tab, as core's own
+            // snackbar does; in the frame it would otherwise replace the editor with the post.
+            target: action.openInNewTab ? '_blank' : undefined,
+            rel: action.openInNewTab ? 'noopener noreferrer' : undefined,
             variant: action.variant === 'primary' ? 'primary' : undefined,
             className: 'wfw-notice__action',
             onClick: () => {
@@ -813,6 +817,21 @@
     } );
 
     // ---- Boot ------------------------------------------------------------------
+
+    /*
+     * A new note's URL carries the REST nonce the page checked to create the
+     * draft. Its job done, it comes out of the address, which from now on names
+     * the draft by id as any other note's does: the nonce stays out of referrers
+     * (a link out of the frame), history and a reload, which creates nothing new.
+     */
+    try {
+        const url = new URL( window.location.href );
+        if ( url.searchParams.has( '_wpnonce' ) ) {
+            url.searchParams.delete( '_wpnonce' );
+            url.searchParams.set( 'post', String( config.postId ) );
+            window.history.replaceState( null, '', url.toString() );
+        }
+    } catch ( e ) {}
 
     /*
      * The writing surface: the block toolbar docked (in our pill) rather than

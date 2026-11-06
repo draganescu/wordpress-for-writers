@@ -6,6 +6,7 @@
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Andrei Draganescu
+ * Update URI: https://github.com/draganescu/wordpress-for-writers
  * License: GPL-2.0-or-later
  * Text Domain: wordpress-for-writers
  */
@@ -199,6 +200,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'siteName'          => get_bloginfo( 'name' ),
             'siteIcon'          => get_site_icon_url( 64 ),
             'userName'          => $user->display_name,
+            // The app's preferences in the browser (open tabs, view) are kept per user.
+            'userId'            => $user->ID,
             // 48px for the 24px avatar on retina screens; empty when the site hides avatars.
             'avatarUrl'         => get_option( 'show_avatars' ) ? get_avatar_url( $user->ID, array( 'size' => 48 ) ) : '',
             'canManage'         => current_user_can( 'manage_options' ),
@@ -208,6 +211,9 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'featuredImages'    => current_theme_supports( 'post-thumbnails', 'post' ) && post_type_supports( 'post', 'thumbnail' ),
             // The categories and tags form: which taxonomies the note has, and who may add new terms to them.
             'terms'             => wfw_terms_settings(),
+            // The visibility meta a companion plugin gates notes with (null without one), so
+            // a duplicate keeps the original's visibility.
+            'visibility'        => wfw_visibility(),
             'maxUploadFileSize' => wp_max_upload_size(),
             'allowedMimeTypes'  => get_allowed_mime_types(),
             'logoutUrl'         => wp_logout_url(),

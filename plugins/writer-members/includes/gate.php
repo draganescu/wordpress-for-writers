@@ -179,6 +179,15 @@ function wmem_rest_lock_raw( $response, $post ) {
 }
 
 /**
+ * The note list's thumbnail can be the one Image block of a post, which may
+ * sit behind the paywall. People who can't read the post in full get no
+ * thumbnail for it at all.
+ */
+add_filter( 'wfw_note_thumbnail', function ( $thumbnail, $post ) {
+    return wmem_can_read( $post ) ? $thumbnail : null;
+}, 10, 2 );
+
+/**
  * The Latest Posts block's "full post" mode prints post_content directly,
  * without the_content, so any author could list every gated post in full.
  * For readers who can't read everything, it falls back to excerpts (which
@@ -195,27 +204,35 @@ add_filter( 'render_block_data', function ( $block ) {
 
 /**
  * Search must not reveal what is behind a paywall: for people who can't
- * edit others' posts, gated posts match on title and excerpt only. Covers
- * the site search, /wp/v2/search and ?search= on the posts endpoints.
+ * edit others' posts, gated posts match on title and excerpt only, and are
+ * never ruled out on their content either. Core turns a `-word` term into
+ * `post_content NOT LIKE`, and left alone that would tell, word by word,
+ * what a paywall hides: the post drops out of the results exactly when the
+ * word is behind it. Covers the site search, /wp/v2/search and ?search= on
+ * the posts endpoints, for single words and for whole phrases (`sentence=1`)
+ * alike.
  *
  * Scale: this rewrites core's search SQL with a regex on its
- * `post_content LIKE '…'` clauses and adds a LEFT JOIN on postmeta. That's
- * cheap for a blog's few thousand posts, but it depends on the shape of
- * core's search SQL and adds a join to every search; on a large archive, or
- * with a search plugin that replaces core's SQL, use a search index that
- * leaves gated content out instead.
+ * `post_content LIKE '…'` and `post_content NOT LIKE '…'` clauses and adds
+ * a LEFT JOIN on postmeta. That's cheap for a blog's few thousand posts, but
+ * it depends on the shape of core's search SQL and adds a join to every
+ * search; on a large archive, or with a search plugin that replaces core's
+ * SQL, use a search index that leaves gated content out instead.
  */
 add_filter( 'posts_search', function ( $search, $query ) {
     global $wpdb;
     if ( '' === $search || current_user_can( 'edit_others_posts' ) ) {
         return $search;
     }
-    $like  = "/{$wpdb->posts}\.post_content LIKE '(?:[^'\\\\]|\\\\.)*'/";
+    $like  = "/{$wpdb->posts}\.post_content (NOT )?LIKE '(?:[^'\\\\]|\\\\.)*'/";
     $count = 0;
     $search = preg_replace_callback(
         $like,
         function ( $m ) {
-            return '(' . $m[0] . ' AND wmem_gate.meta_id IS NULL)';
+            // A gated post's content never decides: it can't match (LIKE), and it can't be excluded (NOT LIKE).
+            return empty( $m[1] )
+                ? '(' . $m[0] . ' AND wmem_gate.meta_id IS NULL)'
+                : '(' . $m[0] . ' OR wmem_gate.meta_id IS NOT NULL)';
         },
         $search,
         -1,

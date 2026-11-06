@@ -244,22 +244,38 @@ function wmem_stripe_checkout_paid( $session ) {
         return array( 'ignored' => 'unknown tier' );
     }
 
-    $user_id = wmem_find_or_create_member( $email );
+    $created = false;
+    $user_id = wmem_find_or_create_member( $email, $created );
     if ( is_wp_error( $user_id ) ) {
         return array( 'error' => $user_id->get_error_message() );
     }
 
-    $customer = is_string( $session['customer'] ?? null ) ? sanitize_text_field( $session['customer'] ) : '';
+    $ids = array();
+    foreach ( array( 'customer', 'subscription', 'payment_intent' ) as $field ) {
+        $ids[ $field ] = is_string( $session[ $field ] ?? null ) ? sanitize_text_field( $session[ $field ] ) : '';
+    }
+    $customer = $ids['customer'];
     $stored   = (string) wmem_get_member_data( $user_id, 'wmem_stripe_customer' );
 
     // The checkout email isn't verified, so someone else can pay "as" a member.
-    // That may only ever raise their tier, never lower it, and it must not take
-    // over their Stripe records (which is what refunds and cancellations act on).
-    if ( '' !== $stored && $stored !== $customer ) {
+    // That may only ever raise their tier, never lower it, and it must not put
+    // the payer's Stripe records on the account: refunds, disputes and
+    // cancellations act on those records, so storing them would let the payer
+    // revoke a tier the member didn't get from them. Records are stored only
+    // on an account this webhook just created for the email, or one that
+    // already carries the session's customer.
+    $linked = $created || ( '' !== $customer && $stored === $customer );
+    if ( ! $linked ) {
         if ( wmem_tier_rank( $tier['slug'] ) > wmem_tier_rank( wmem_user_tier( $user_id ) ) ) {
             wmem_set_user_tier( $user_id, $tier['slug'] );
         }
-        return array( 'user' => $user_id, 'tier' => wmem_user_tier( $user_id ), 'note' => 'other customer' );
+        $note = '' !== $stored ? 'other customer' : 'unlinked customer';
+        if ( '' === $stored ) {
+            // Nothing on file means a later cancellation will match no one:
+            // tell the admin, who can refund it or lower the tier by hand.
+            wmem_stripe_notify_unlinked( $user_id, $tier, $ids );
+        }
+        return array( 'user' => $user_id, 'tier' => wmem_user_tier( $user_id ), 'note' => $note, 'stripe' => $ids );
     }
 
     // A purchase below the member's current tier changes nothing, Stripe
@@ -269,15 +285,45 @@ function wmem_stripe_checkout_paid( $session ) {
     }
     wmem_set_user_tier( $user_id, $tier['slug'] );
     wmem_update_member_data( $user_id, 'wmem_paid_tier', $tier['slug'] );
-    if ( '' !== $customer ) {
-        wmem_update_member_data( $user_id, 'wmem_stripe_customer', $customer );
-    }
-    foreach ( array( 'subscription' => 'wmem_stripe_subscription', 'payment_intent' => 'wmem_stripe_payment_intent' ) as $field => $meta ) {
-        if ( is_string( $session[ $field ] ?? null ) && '' !== $session[ $field ] ) {
-            wmem_update_member_data( $user_id, $meta, sanitize_text_field( $session[ $field ] ) );
+    foreach ( array( 'customer' => 'wmem_stripe_customer', 'subscription' => 'wmem_stripe_subscription', 'payment_intent' => 'wmem_stripe_payment_intent' ) as $field => $meta ) {
+        if ( '' !== $ids[ $field ] ) {
+            wmem_update_member_data( $user_id, $meta, $ids[ $field ] );
         }
     }
     return array( 'user' => $user_id, 'tier' => wmem_user_tier( $user_id ) );
+}
+
+/**
+ * Email the admin about a payment made with the email of an existing account
+ * that has no Stripe customer on file. The payment isn't linked to the
+ * account (see wmem_stripe_checkout_paid), so no later Stripe event will find
+ * the member; the admin has to act on it by hand.
+ */
+function wmem_stripe_notify_unlinked( $user_id, $tier, $ids ) {
+    $user = get_userdata( $user_id );
+    if ( ! $user ) {
+        return;
+    }
+    $site    = wp_specialchars_decode( get_option( 'blogname' ), ENT_QUOTES );
+    $subject = sprintf(
+        /* translators: %s: site name */
+        __( '[%s] Stripe payment not linked to a member', 'writer-members' ),
+        $site
+    );
+    $message = sprintf(
+        /* translators: 1: tier name, 2: email address, 3: user ID */
+        __( 'A Stripe payment for the tier "%1$s" was made with the email %2$s, which belongs to an existing account (user ID %3$d) that has no Stripe customer on file. Because the checkout email isn\'t verified, the payment wasn\'t linked to that account: the tier was raised if it was lower, but a later refund, dispute or cancellation of this payment won\'t change the member\'s tier. If the payment is the member\'s own, lower their tier by hand when it ends; if it isn\'t, refund it in Stripe and set their tier back.', 'writer-members' ),
+        $tier['name'],
+        $user->user_email,
+        $user_id
+    ) . "\n\n";
+    foreach ( array( 'customer' => __( 'Stripe customer', 'writer-members' ), 'subscription' => __( 'Subscription', 'writer-members' ), 'payment_intent' => __( 'Payment intent', 'writer-members' ) ) as $field => $label ) {
+        if ( '' !== $ids[ $field ] ) {
+            $message .= $label . ': ' . $ids[ $field ] . "\n";
+        }
+    }
+    $message .= __( 'Members', 'writer-members' ) . ': ' . wmem_admin_url() . "\n";
+    wp_mail( get_option( 'admin_email' ), $subject, $message );
 }
 
 /**
@@ -362,10 +408,11 @@ function wmem_stripe_subscription_updated( $subscription ) {
 
 /**
  * The user with this email, or a new subscriber-role user who gets the
- * usual "set your password" email.
+ * usual "set your password" email. $created says which it was.
  */
-function wmem_find_or_create_member( $email ) {
-    $user = get_user_by( 'email', $email );
+function wmem_find_or_create_member( $email, &$created = null ) {
+    $created = false;
+    $user    = get_user_by( 'email', $email );
     if ( $user ) {
         // On multisite the account may belong to another site: add it here,
         // so the member shows up among this site's users.
@@ -390,6 +437,7 @@ function wmem_find_or_create_member( $email ) {
         )
     );
     if ( ! is_wp_error( $user_id ) ) {
+        $created = true;
         wp_new_user_notification( $user_id, null, 'user' );
     }
     return $user_id;
