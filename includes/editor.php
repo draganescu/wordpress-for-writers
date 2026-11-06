@@ -31,7 +31,7 @@ function wfw_editor_url( $post_id = 0 ) {
  * Register the page without a menu entry (an empty parent hides it).
  */
 add_action( 'admin_menu', function () {
-    add_submenu_page( '', __( 'Editor', 'wordpress-for-writers' ), '', 'edit_posts', WFW_EDITOR_PAGE, '__return_null' );
+    add_submenu_page( '', __( 'Editor', 'wordpress-for-writers' ), '', 'read', WFW_EDITOR_PAGE, '__return_null' );
 } );
 
 /**
@@ -39,6 +39,15 @@ add_action( 'admin_menu', function () {
  */
 add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
     require_once ABSPATH . 'wp-admin/includes/post.php';
+
+    // The editor is part of Writer: only for those who can use Writer (see wfw_capability()).
+    if ( ! wfw_user_can_write() ) {
+        wp_die(
+            esc_html__( 'Writer, and its editor, are open to people who can edit pages on this site. You can still write in the standard WordPress editor.', 'wordpress-for-writers' ),
+            esc_html__( 'Writer isn’t available for your account', 'wordpress-for-writers' ),
+            array( 'response' => 403, 'link_url' => admin_url( 'edit.php' ), 'link_text' => esc_html__( 'Go to your posts', 'wordpress-for-writers' ) )
+        );
+    }
 
     $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification
     if ( $post_id ) {

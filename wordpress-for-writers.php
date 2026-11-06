@@ -55,18 +55,43 @@ function wfw_visibility() {
 }
 
 /**
- * Register the app page.
+ * Who gets Writer: the app, the takeover of the dashboard and the editor.
+ * By default it's people who can edit pages (Editors and Administrators);
+ * filter `wfw_capability` to open it up or narrow it down. Everyone else
+ * keeps the standard dashboard, and opening Writer explains why.
+ */
+function wfw_capability() {
+    return (string) apply_filters( 'wfw_capability', 'edit_pages' );
+}
+
+function wfw_user_can_write( $user = null ) {
+    return $user ? user_can( $user, wfw_capability() ) : current_user_can( wfw_capability() );
+}
+
+/**
+ * Register the app page: in the menu for those who can use Writer, and as a
+ * hidden page for everyone else, so its URL shows the explanation rather
+ * than WordPress's bare "not allowed" screen.
  */
 add_action( 'admin_menu', function () {
-    add_menu_page(
-        __( 'Writer', 'wordpress-for-writers' ),
-        __( 'Writer', 'wordpress-for-writers' ),
-        'edit_posts',
-        WFW_PAGE,
-        'wfw_render_app',
-        'dashicons-edit-page',
-        1
-    );
+    if ( wfw_user_can_write() ) {
+        add_menu_page(
+            __( 'Writer', 'wordpress-for-writers' ),
+            __( 'Writer', 'wordpress-for-writers' ),
+            wfw_capability(),
+            WFW_PAGE,
+            'wfw_render_app',
+            'dashicons-edit-page',
+            1
+        );
+        return;
+    }
+    add_submenu_page( '', __( 'Writer', 'wordpress-for-writers' ), '', 'read', WFW_PAGE, 'wfw_render_no_access' );
+} );
+
+// A page without a menu entry gets no title from the menu; give the explanation one.
+add_action( 'load-admin_page_' . WFW_PAGE, function () {
+    $GLOBALS['title'] = __( 'Writer', 'wordpress-for-writers' ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride
 } );
 
 function wfw_render_app() {
@@ -74,17 +99,65 @@ function wfw_render_app() {
 }
 
 /**
+ * Why Writer isn't open to this user, and where to go instead.
+ */
+function wfw_render_no_access() {
+    $user  = wp_get_current_user();
+    $names = wp_roles()->role_names;
+    $roles = array_filter( array_map( function ( $role ) use ( $names ) {
+        return isset( $names[ $role ] ) ? translate_user_role( $names[ $role ] ) : '';
+    }, (array) $user->roles ) );
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e( 'Writer', 'wordpress-for-writers' ); ?></h1>
+        <div class="card" style="max-width: 560px;">
+            <h2 class="title"><?php esc_html_e( 'Writer is for the people who run this site’s content', 'wordpress-for-writers' ); ?></h2>
+            <p>
+                <?php
+                if ( 'edit_pages' === wfw_capability() ) {
+                    esc_html_e( 'Writer, this site’s writing app, is open to people who can edit pages: Editors and Administrators.', 'wordpress-for-writers' );
+                } else {
+                    esc_html_e( 'Writer, this site’s writing app, is open to people with the permissions this site has set for it.', 'wordpress-for-writers' );
+                }
+                ?>
+            </p>
+            <p>
+                <?php
+                if ( $roles ) {
+                    printf(
+                        /* translators: %s: the user's role(s), such as "Author". */
+                        esc_html__( 'Your account is set up as %s, so you’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' ),
+                        '<strong>' . esc_html( implode( ', ', $roles ) ) . '</strong>'
+                    );
+                } else {
+                    esc_html_e( 'Your account doesn’t have that access, so you’ll keep using the standard WordPress dashboard.', 'wordpress-for-writers' );
+                }
+                ?>
+            </p>
+            <p><?php esc_html_e( 'If you think you should have Writer, ask one of the site’s administrators.', 'wordpress-for-writers' ); ?></p>
+            <p>
+                <?php if ( current_user_can( 'edit_posts' ) ) : ?>
+                    <a class="button button-primary" href="<?php echo esc_url( admin_url( 'edit.php' ) ); ?>"><?php esc_html_e( 'Go to your posts', 'wordpress-for-writers' ); ?></a>
+                <?php endif; ?>
+                <a class="button" href="<?php echo esc_url( admin_url( 'index.php' ) ); ?>"><?php esc_html_e( 'Dashboard', 'wordpress-for-writers' ); ?></a>
+            </p>
+        </div>
+    </div>
+    <?php
+}
+
+/**
  * Send writers to the app instead of the dashboard.
  */
 add_action( 'load-index.php', function () {
-    if ( current_user_can( 'edit_posts' ) && ! isset( $_GET['wfw_classic'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+    if ( wfw_user_can_write() && ! isset( $_GET['wfw_classic'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
         wp_safe_redirect( admin_url( 'admin.php?page=' . WFW_PAGE ) );
         exit;
     }
 } );
 
 add_filter( 'login_redirect', function ( $redirect_to, $requested, $user ) {
-    if ( $user instanceof WP_User && user_can( $user, 'edit_posts' ) && ( ! $requested || admin_url() === $requested ) ) {
+    if ( $user instanceof WP_User && wfw_user_can_write( $user ) && ( ! $requested || admin_url() === $requested ) ) {
         return admin_url( 'admin.php?page=' . WFW_PAGE );
     }
     return $redirect_to;
