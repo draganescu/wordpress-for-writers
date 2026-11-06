@@ -775,6 +775,33 @@
         }
     }
 
+    /*
+     * "Exit editor" in the lock dialog is core's way out to the posts list
+     * (edit.php). In a tab, that would load wp-admin inside the app, so the
+     * click becomes an exit message and the app closes the tab instead. The
+     * link is matched by where it goes (this page sits in wp-admin, as edit.php
+     * does), not by the dialog's markup: should core change the URL, the link
+     * navigates as it does outside the app.
+     */
+    const ADMIN_POSTS_PATH = new URL( 'edit.php', window.location.href ).pathname;
+    document.addEventListener( 'click', ( event ) => {
+        const link = event.target.closest && event.target.closest( 'a[href]' );
+        if ( ! inApp || ! link || link.target === '_blank' || event.defaultPrevented ) {
+            return;
+        }
+        let url;
+        try {
+            url = new URL( link.href );
+        } catch ( e ) {
+            return;
+        }
+        if ( url.origin !== window.location.origin || url.pathname !== ADMIN_POSTS_PATH ) {
+            return;
+        }
+        event.preventDefault();
+        post( { type: 'exit', id: editorSelect().getCurrentPostId() } );
+    }, true );
+
     window.addEventListener( 'message', async ( event ) => {
         if ( event.origin !== window.location.origin || event.source !== window.parent || ! event.data || event.data.source !== 'wfw' ) {
             return;

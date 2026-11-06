@@ -1034,6 +1034,12 @@
                 }
                 break;
             }
+            case 'exit': {
+                // The editor is leaving (the lock dialog's Exit editor): the
+                // note belongs to someone else, so there is nothing to save.
+                closeTab( tab, { save: false } );
+                break;
+            }
         }
     } );
 
