@@ -42,21 +42,31 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
 
     $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification
     if ( $post_id ) {
+        /*
+         * One answer for a note that doesn't exist, isn't a post, or isn't the
+         * user's to edit, so the page doesn't tell which IDs exist.
+         */
         $post = get_post( $post_id );
-        if ( ! $post || 'post' !== $post->post_type ) {
-            wp_die( esc_html__( 'This note no longer exists.', 'wordpress-for-writers' ), 404 );
-        }
-        if ( ! current_user_can( 'edit_post', $post->ID ) ) {
-            wp_die( esc_html__( 'Sorry, you are not allowed to edit this note.', 'wordpress-for-writers' ), 403 );
+        if ( ! $post || 'post' !== $post->post_type || ! current_user_can( 'edit_post', $post->ID ) ) {
+            wp_die( esc_html__( 'Sorry, you can\'t edit this note.', 'wordpress-for-writers' ), 403 );
         }
         if ( 'trash' === $post->post_status ) {
             wp_die( esc_html__( 'This note is in the Trash. Restore it to edit it.', 'wordpress-for-writers' ) );
         }
     } else {
         if ( ! current_user_can( get_post_type_object( 'post' )->cap->create_posts ) ) {
-            wp_die( esc_html__( 'Sorry, you are not allowed to create notes.', 'wordpress-for-writers' ), 403 );
+            wp_die( esc_html__( 'Sorry, you can\'t create notes.', 'wordpress-for-writers' ), 403 );
         }
-        // An auto-draft, as post-new.php makes; the editor reports its id to the app.
+        /*
+         * A new note is an auto-draft, as post-new.php makes. Creating one
+         * takes the REST nonce the app already holds (its API client keeps it
+         * fresh), so another site can't make a writer's browser create drafts
+         * just by loading this URL.
+         */
+        $nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+        if ( ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
+            wp_die( esc_html__( 'This link to a new note has expired. Start the note again from the app.', 'wordpress-for-writers' ), 403 );
+        }
         $post = get_default_post_to_edit( 'post', true );
     }
 
@@ -268,15 +278,3 @@ add_filter( 'get_edit_post_link', function ( $link, $post_id ) {
     }
     return wfw_editor_url( $post_id );
 }, 10, 2 );
-
-/**
- * The publish panel's "Add Post" link opens post-new.php; from the Writer
- * editor, a new note opens in the Writer editor instead.
- */
-add_action( 'load-post-new.php', function () {
-    $type = isset( $_GET['post_type'] ) ? sanitize_key( $_GET['post_type'] ) : 'post'; // phpcs:ignore WordPress.Security.NonceVerification
-    if ( 'post' === $type && wfw_from_editor_page() ) {
-        wp_safe_redirect( wfw_editor_url() );
-        exit;
-    }
-} );
