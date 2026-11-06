@@ -415,6 +415,20 @@ body.wfw-takeover #wpbody-content {
     background: var( --wfw-border );
 }
 
+/* Switch tab's items: a check marks the tab in view, the others keep its room. */
+.wfw-menu__spacer {
+    width: 20px;
+    flex: none;
+}
+
+.wfw .wfw-menu--tabs {
+    max-width: min( 320px, calc( 100vw - 16px ) );
+}
+
+.wfw .wfw-menu__item.is-empty span {
+    color: var( --wfw-list-muted );
+}
+
 /*
  * Context menus: the same card, at the pointer (app.js keeps it inside the
  * window). Above the tablet drawer and its scrim, below the Appearance sheet.
@@ -871,14 +885,43 @@ body.wfw-takeover #wpbody-content {
     to { background-position: 150% 0; }
 }
 
-.wfw-focus-toggle {
+/* The pane's own buttons, over the editor's top left corner: Focus mode and Switch tab, or Notes (back) on phones. */
+.wfw-editor__corner {
     position: absolute;
-    box-shadow: none !important;
     top: 16px;
     left: 12px;
     z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wfw-focus-toggle {
+    box-shadow: none !important;
     opacity: 0.6;
     background: var( --wfw-editor-bg ) !important;
+}
+
+/*
+ * Switch tab: the open editors as a menu, next to Focus mode, for when Editing
+ * now is out of sight: the sidebar hidden or focus mode on, and always on
+ * tablets and phones, where the sidebar is a drawer. Shown once there are two tabs.
+ */
+.wfw-tabs-toggle {
+    display: none;
+    box-shadow: none !important;
+    width: auto;
+    padding: 0 8px 0 4px;
+    gap: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.6;
+    background: var( --wfw-editor-bg ) !important;
+}
+
+.wfw.has-tabs.is-sidebar-hidden .wfw-tabs-toggle,
+.wfw.has-tabs.is-focus .wfw-tabs-toggle {
+    display: inline-flex;
 }
 
 /* Back to the list (phones only) */
@@ -906,6 +949,10 @@ body.wfw-takeover #wpbody-content {
 
     .wfw.is-focus .wfw-list {
         display: none;
+    }
+
+    .wfw.has-tabs .wfw-tabs-toggle {
+        display: inline-flex;
     }
 
     .wfw-sidebar {
@@ -963,12 +1010,13 @@ body.wfw-takeover #wpbody-content {
         display: none !important;
     }
 
-    .wfw.has-note .wfw-back {
-        display: inline-flex !important;
-        position: absolute;
+    .wfw-editor__corner {
         top: 10px;
         left: 8px;
-        z-index: 3;
+    }
+
+    .wfw.has-note .wfw-back {
+        display: inline-flex !important;
         height: 32px;
         padding: 0 10px 0 4px;
         border-radius: 16px;

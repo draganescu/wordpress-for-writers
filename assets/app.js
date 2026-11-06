@@ -22,6 +22,7 @@
         close: '<path d="m13.06 12 6.47-6.47-1.06-1.06L12 10.94 5.53 4.47 4.47 5.53 10.94 12l-6.47 6.47 1.06 1.06L12 13.06l6.47 6.47 1.06-1.06L13.06 12Z"/>', // close
         back: '<path d="M14.6 7l-1.2-1L8 12l5.4 6 1.2-1-4.6-5z"/>', // chevron-left
         external: '<path d="M19.5 4.5h-7V6h4.44l-5.97 5.97 1.06 1.06L18 7.06v4.44h1.5v-7Zm-13 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3H17v3a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h3V5.5h-3Z"/>', // external
+        tabs: '<path d="M14.5 5.5h-7V7h7V5.5ZM7.5 9h7v1.5h-7V9Zm7 3.5h-7V14h7v-1.5Z"/><path d="M16 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2ZM6 3.5h10a.5.5 0 0 1 .5.5v12a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5Z"/><path d="M20 8v11c0 .69-.31 1-.999 1H6v1.5h13.001c1.52 0 2.499-.982 2.499-2.5V8H20Z"/>', // pages
         appearance: '<path fill-rule="evenodd" clip-rule="evenodd" d="M10.289 4.836A1 1 0 0111.275 4h1.306a1 1 0 01.987.836l.244 1.466c.787.26 1.503.679 2.108 1.218l1.393-.522a1 1 0 011.216.437l.653 1.13a1 1 0 01-.23 1.273l-1.148.944a6.025 6.025 0 010 2.435l1.149.946a1 1 0 01.23 1.272l-.653 1.13a1 1 0 01-1.216.437l-1.394-.522c-.605.54-1.32.958-2.108 1.218l-.244 1.466a1 1 0 01-.987.836h-1.306a1 1 0 01-.986-.836l-.244-1.466a5.995 5.995 0 01-2.108-1.218l-1.394.522a1 1 0 01-1.217-.436l-.653-1.131a1 1 0 01.23-1.272l1.149-.946a6.026 6.026 0 010-2.435l-1.148-.944a1 1 0 01-.23-1.272l.653-1.131a1 1 0 011.217-.437l1.393.522a5.994 5.994 0 012.108-1.218l.244-1.466zM14.929 12a3 3 0 11-6 0 3 3 0 016 0z"/>', // cog
         updates: '<path d="m11.3 17.2-5-5c-.1-.1-.1-.3 0-.4l2.3-2.3-1.1-1-2.3 2.3c-.7.7-.7 1.8 0 2.5l5 5H7.5v1.5h5.3v-5.2h-1.5v2.6zm7.5-6.4-5-5h2.7V4.2h-5.2v5.2h1.5V6.8l5 5c.1.1.1.3 0 .4l-2.3 2.3 1.1 1.1 2.3-2.3c.6-.7.6-1.9-.1-2.5z"/>', // update
         dashboard: '<path d="M12 5a8 8 0 0 1 3.842.984L14.726 7.1a6.502 6.502 0 0 0-7.323 1.303 6.5 6.5 0 0 0 0 9.194l-1.06 1.06A8 8 0 0 1 12 5Zm7.021 4.168a8 8 0 0 1-1.364 9.49l-1.06-1.061a6.5 6.5 0 0 0 1.307-7.312l1.117-1.117ZM17.47 6.47a.75.75 0 1 1 1.06 1.06l-5.083 5.082a1.5 1.5 0 1 1-1.06-1.06L17.47 6.47Z"/>', // dashboard
@@ -321,10 +322,14 @@
             </section>
             <div class="wfw-scrim" data-action="close-drawer"></div>
             <main class="wfw-editor">
-                <button class="wfw-back" data-action="back">${ icon( 'back' ) }${ esc( __( 'Notes', 'wordpress-for-writers' ) ) }</button>
-                <button class="wfw-icon-btn wfw-focus-toggle" data-action="toggle-focus" title="${ esc( __( 'Focus mode', 'wordpress-for-writers' ) ) }">${ icon( 'focus' ) }</button>
+                <div class="wfw-editor__corner">
+                    <button class="wfw-back" data-action="back">${ icon( 'back' ) }${ esc( __( 'Notes', 'wordpress-for-writers' ) ) }</button>
+                    <button class="wfw-icon-btn wfw-focus-toggle" data-action="toggle-focus" title="${ esc( __( 'Focus mode', 'wordpress-for-writers' ) ) }">${ icon( 'focus' ) }</button>
+                    <button class="wfw-icon-btn wfw-tabs-toggle" data-action="tabs-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="wfw-tabs-menu" title="${ esc( __( 'Switch tab', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Switch tab', 'wordpress-for-writers' ) ) }">${ icon( 'tabs' ) }<span class="wfw-tabs-toggle__count" aria-hidden="true"></span></button>
+                </div>
                 <div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>
             </main>
+            <div class="wfw-menu wfw-menu--context wfw-menu--tabs" id="wfw-tabs-menu" role="menu" aria-label="${ esc( __( 'Editing now', 'wordpress-for-writers' ) ) }" tabindex="-1" hidden></div>
             <div class="wfw-menu wfw-menu--context" id="wfw-context-menu" role="menu" tabindex="-1" hidden></div>
             <div class="wfw-toast" role="status"></div>
         `;
@@ -346,6 +351,7 @@
     function applyLayout() {
         root.classList.toggle( 'is-sidebar-hidden', state.sidebarHidden );
         root.classList.toggle( 'is-focus', state.focus );
+        closeTabsMenu( false ); // Its button may have just gone out of the layout.
     }
 
     function navButton( view, label, iconHtml, count ) {
@@ -445,6 +451,7 @@
             ( after.find( ( el ) => controlKey( el ) === focusedKey ) || after[ Math.min( focusedControl, after.length - 1 ) ] ).focus( { preventScroll: true } );
         }
         contextTarget(); // Rings the item an open context menu is for again.
+        syncTabsToggle();
     }
 
     // Tells the sidebar's controls apart across renders: what they do and to
@@ -484,6 +491,77 @@
 
     function tabByKey( key ) {
         return tabs.find( ( t ) => t.key === Number( key ) );
+    }
+
+    /*
+     * Switch tab: a button in the editor pane, next to Focus mode, that lists
+     * the open editors as a menu for when Editing now is out of sight (the
+     * sidebar hidden, focus mode, or the drawer of smaller screens). It shows
+     * once there are two tabs to switch between, with their count.
+     */
+    let tabsMenuOpen = false;
+
+    function tabsMenuEl() {
+        return root.querySelector( '#wfw-tabs-menu' );
+    }
+
+    function tabsMenuHtml() {
+        return tabs.map( ( tab ) => {
+            const active = tab === current;
+            const title = tab.title || __( 'Untitled', 'wordpress-for-writers' );
+            return `<button class="wfw-menu__item${ tab.title ? '' : ' is-empty' }" role="menuitemradio" aria-checked="${ active ? 'true' : 'false' }" tabindex="-1" data-action="tabs-menu-item" data-tab="${ tab.key }">${ active ? icon( 'check' ) : '<span class="wfw-menu__spacer"></span>' }<span>${ esc( title ) }</span></button>`;
+        } ).join( '' );
+    }
+
+    // Keeps the button's count and the open menu's items current with the tabs;
+    // the sidebar re-renders on every change to them (and on drafts' autosaves).
+    function syncTabsToggle() {
+        root.classList.toggle( 'has-tabs', tabs.length > 1 );
+        const count = root.querySelector( '.wfw-tabs-toggle__count' );
+        if ( count ) {
+            count.textContent = tabs.length;
+        }
+        if ( ! tabsMenuOpen ) {
+            return;
+        }
+        if ( tabs.length < 2 ) {
+            closeTabsMenu( false );
+            return;
+        }
+        const box = tabsMenuEl();
+        const focusedKey = box.contains( document.activeElement ) ? document.activeElement.dataset.tab : null;
+        box.innerHTML = tabsMenuHtml();
+        if ( focusedKey ) {
+            ( box.querySelector( `[data-tab="${ focusedKey }"]` ) || box ).focus( { preventScroll: true } );
+        }
+    }
+
+    // From the keyboard focus goes to the tab in view; otherwise to the menu itself, so its keys work from the start.
+    function openTabsMenu( { keyboard = false } = {} ) {
+        closeContextMenu( { focus: false } );
+        closeUserMenu( false );
+        const box = tabsMenuEl();
+        const button = root.querySelector( '.wfw-tabs-toggle' );
+        tabsMenuOpen = true;
+        box.innerHTML = tabsMenuHtml();
+        box.hidden = false;
+        button.setAttribute( 'aria-expanded', 'true' );
+        const rect = button.getBoundingClientRect();
+        placeContextMenu( box, { x: rect.left, y: rect.bottom + 4 } );
+        ( keyboard ? box.querySelector( '[aria-checked="true"]' ) || box.querySelector( '[role^="menuitem"]' ) : box ).focus( { preventScroll: true } );
+    }
+
+    function closeTabsMenu( returnFocus = true ) {
+        if ( ! tabsMenuOpen ) {
+            return;
+        }
+        tabsMenuOpen = false;
+        tabsMenuEl().hidden = true;
+        const button = root.querySelector( '.wfw-tabs-toggle' );
+        button?.setAttribute( 'aria-expanded', 'false' );
+        if ( returnFocus ) {
+            button?.focus( { preventScroll: true } );
+        }
     }
 
     // The site icon stays invisible until it has loaded, and is dropped if it fails, so an empty box never shows.
@@ -882,7 +960,9 @@
     }
 
     // "Open in new tab": the note gets another editor of its own under Editing now,
-    // even when it's open already, and comes into view.
+    // even when it's open already. As in a browser, the tab opens behind the one
+    // in view, which keeps the writer's place and focus; its editor loads when it
+    // is first shown. With no editor in view, the new tab comes into view.
     function openNoteInTab( id ) {
         if ( tabs.length >= MAX_TABS ) {
             showToast( sprintf(
@@ -892,7 +972,26 @@
             ) );
             return;
         }
-        showTab( addTab( id ) );
+        const tab = addTab( id );
+        if ( ! current ) {
+            showTab( tab );
+            return;
+        }
+        saveTabs();
+        renderSidebar();
+        // Nothing shows the new tab while Editing now is out of sight, so say so.
+        if ( ! tabsInSight() ) {
+            showToast( __( 'Opened in a new tab', 'wordpress-for-writers' ) );
+        }
+    }
+
+    // Whether Editing now can be seen: on tablets and phones the sidebar is a
+    // drawer, and on larger screens it can be hidden or out of focus mode's way.
+    function tabsInSight() {
+        if ( compactLayout.matches ) {
+            return root.classList.contains( 'is-sidebar-open' );
+        }
+        return ! state.sidebarHidden && ! state.focus;
     }
 
     async function newNote() {
@@ -1796,17 +1895,18 @@
         }
     }
 
-    // Keys for both kinds of .wfw-menu: this one and the context menus below.
+    // Keys for every kind of .wfw-menu: this one, the Switch tab menu and the context menus below.
     root.addEventListener( 'keydown', ( event ) => {
-        const onButton = event.target.closest( '.wfw-user' );
+        const onButton = event.target.closest( '.wfw-user, .wfw-tabs-toggle' );
         const menu = event.target.closest( '.wfw-menu' );
         if ( ! onButton && ! menu ) {
             return;
         }
-        // Each closes back to where it opened: this one to its button, a context menu to its note or item.
-        const isContext = !! menu?.classList.contains( 'wfw-menu--context' );
-        const close = isContext ? () => closeContextMenu() : () => closeUserMenu();
-        if ( event.key === 'Escape' && ( isContext || userMenuOpen ) ) {
+        // Each closes back to where it opened: this one and Switch tab to their buttons, a context menu to its note or item.
+        const isTabs = !! menu?.classList.contains( 'wfw-menu--tabs' );
+        const isContext = ! isTabs && !! menu?.classList.contains( 'wfw-menu--context' );
+        const close = isContext ? () => closeContextMenu() : isTabs ? () => closeTabsMenu() : () => closeUserMenu();
+        if ( event.key === 'Escape' && ( isContext || ( isTabs ? tabsMenuOpen : userMenuOpen ) ) ) {
             event.preventDefault();
             event.stopPropagation();
             close();
@@ -1815,11 +1915,15 @@
         if ( onButton ) {
             if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
                 event.preventDefault();
-                openUserMenu( event.key === 'ArrowDown' ? 0 : -1 );
+                if ( onButton.matches( '.wfw-tabs-toggle' ) ) {
+                    openTabsMenu( { keyboard: true } );
+                } else {
+                    openUserMenu( event.key === 'ArrowDown' ? 0 : -1 );
+                }
             }
             return;
         }
-        const items = [ ...menu.querySelectorAll( '[role="menuitem"]' ) ];
+        const items = [ ...menu.querySelectorAll( '[role^="menuitem"]' ) ];
         const index = items.indexOf( event.target );
         switch ( event.key ) {
             case 'ArrowDown':
@@ -1849,8 +1953,15 @@
         if ( userMenuOpen && ! event.target.closest( '.wfw-user, .wfw-menu' ) ) {
             closeUserMenu( false );
         }
+        if ( tabsMenuOpen && ! event.target.closest( '.wfw-tabs-toggle, .wfw-menu--tabs' ) ) {
+            closeTabsMenu( false );
+        }
     } );
-    window.addEventListener( 'blur', () => closeUserMenu( false ) );
+    window.addEventListener( 'blur', () => {
+        closeUserMenu( false );
+        closeTabsMenu( false );
+    } );
+    window.addEventListener( 'resize', () => closeTabsMenu( tabsMenuEl().contains( document.activeElement ) ) );
 
     // ---- Context menus -----------------------------------------------------
 
@@ -2447,6 +2558,22 @@
                 const tab = tabByKey( target.dataset.tab );
                 if ( tab ) {
                     closeTab( tab );
+                }
+                break;
+            }
+            case 'tabs-menu':
+                if ( tabsMenuOpen ) {
+                    closeTabsMenu();
+                } else {
+                    openTabsMenu( { keyboard: event.detail === 0 } );
+                }
+                break;
+            case 'tabs-menu-item': {
+                const tab = tabByKey( target.dataset.tab );
+                closeTabsMenu();
+                if ( tab ) {
+                    showTab( tab );
+                    root.classList.add( 'has-note' );
                 }
                 break;
             }
