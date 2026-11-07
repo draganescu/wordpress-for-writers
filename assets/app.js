@@ -808,6 +808,60 @@
         return settings.editorUrl + '&_wpnonce=' + encodeURIComponent( nonce );
     }
 
+    function setRestNonce( nonce ) {
+        if ( ! nonce ) {
+            return;
+        }
+        if ( wp.apiFetch.nonceMiddleware ) {
+            wp.apiFetch.nonceMiddleware.nonce = nonce;
+        }
+        if ( window.wpApiSettings ) {
+            window.wpApiSettings.nonce = nonce;
+        }
+    }
+
+    /*
+     * Signing in again (after the session ran out, through the login modal)
+     * starts a new session, and the REST nonce the app holds belongs to the
+     * old one. The API client only finds out on its next failed request, so
+     * the heartbeat's fresh nonce is taken as it comes.
+     */
+    wp.hooks?.addAction( 'heartbeat.tick', 'wfw/rest-nonce', ( response ) => setRestNonce( response?.rest_nonce ) );
+
+    async function refreshRestNonce() {
+        if ( ! wp.apiFetch.nonceEndpoint ) {
+            return false;
+        }
+        try {
+            const response = await window.fetch( wp.apiFetch.nonceEndpoint, { credentials: 'same-origin' } );
+            const nonce = response.ok ? ( await response.text() ).trim() : '';
+            setRestNonce( nonce );
+            return !! nonce;
+        } catch ( e ) {
+            return false;
+        }
+    }
+
+    /*
+     * A new note's editor turned away (its nonce went stale before the
+     * heartbeat brought a new one, as right after signing in again) is
+     * loaded once more with a fresh nonce.
+     */
+    function retryStaleNewNote( tab ) {
+        const frame = tab.frame;
+        frame.addEventListener( 'load', async () => {
+            // The turn-away is a wp_die() page. A working editor runs isolated
+            // (no contentDocument here), so only the error page is looked for.
+            let rejected = false;
+            try {
+                rejected = !! frame.contentDocument?.getElementById( 'error-page' );
+            } catch ( e ) {}
+            if ( rejected && tab.frame === frame && ! tab.id && ( await refreshRestNonce() ) && tab.frame === frame ) {
+                frame.src = editorSrc( 0 );
+            }
+        }, { once: true } );
+    }
+
     function dropFrame( tab ) {
         clearTimeout( tab.revealTimer );
         tab.frame?.remove();
@@ -868,6 +922,9 @@
         tab.frame.classList.toggle( 'is-hidden', tab !== current );
         tab.hiddenSince = tab !== current ? Date.now() : 0;
         tab.frame.src = editorSrc( tab.id );
+        if ( ! tab.id ) {
+            retryStaleNewNote( tab );
+        }
         root.querySelector( '.wfw-editor' ).appendChild( tab.frame );
         tab.revealTimer = setTimeout( () => revealEditor( tab ), 8000 );
     }

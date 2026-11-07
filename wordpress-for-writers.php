@@ -220,7 +220,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( 'toplevel_page_' . WFW_PAGE === $hook ) {
         wp_enqueue_style( 'wfw-app', WFW_URL . 'assets/app.css', array( 'wp-components' ), wfw_asset_version( 'assets/app.css' ) );
         wp_add_inline_style( 'wfw-app', wfw_appearance_css() );
-        wp_enqueue_script( 'wfw-app', WFW_URL . 'assets/app.js', array( 'wp-api-fetch', 'wp-i18n', 'wp-element', 'wp-components', 'wp-data', 'wp-core-data', 'wp-media-utils' ), wfw_asset_version( 'assets/app.js' ), true );
+        wp_enqueue_script( 'wfw-app', WFW_URL . 'assets/app.js', array( 'wp-api-fetch', 'wp-hooks', 'wp-i18n', 'wp-element', 'wp-components', 'wp-data', 'wp-core-data', 'wp-media-utils' ), wfw_asset_version( 'assets/app.js' ), true );
         $user = wp_get_current_user();
         wp_localize_script( 'wfw-app', 'wfwSettings', array(
             'adminUrl'          => admin_url(),
