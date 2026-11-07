@@ -90,6 +90,7 @@
         list: { ...LIST_DEFAULTS, ...loadPref( 'list', {} ) },
         total: 0,
         listMenu: false,
+        listError: false,
         // The panel shown in the editor pane in place of a note's editor (its featured image, or its
         // categories and tags): { id, root }.
         panel: null,
@@ -223,11 +224,60 @@
 
     // ---- Data --------------------------------------------------------------
 
+    /*
+     * The REST nonce lasts a day at most, and a writer may keep this page open
+     * for longer. The API client fetches a fresh nonce and retries when the
+     * server turns one down, but only for requests it parses: a request made
+     * with `parse: false` (to read the totals in its headers) gets the raw 403
+     * back, so every list load would fail until the page is reloaded. These
+     * requests get the same refresh here. Requests failing at once share one
+     * refresh.
+     */
+    let nonceRefresh = null;
+
+    function refreshNonce() {
+        nonceRefresh ??= window.fetch( apiFetch.nonceEndpoint, { credentials: 'same-origin' } )
+            .then( ( response ) => {
+                if ( ! response.ok ) {
+                    throw response;
+                }
+                return response.text();
+            } )
+            .then( ( nonce ) => {
+                apiFetch.nonceMiddleware.nonce = nonce;
+            } )
+            .finally( () => {
+                nonceRefresh = null;
+            } );
+        return nonceRefresh;
+    }
+
+    async function fetchWithHeaders( path, retried = false ) {
+        try {
+            return await apiFetch( { path, parse: false } );
+        } catch ( error ) {
+            if ( retried || ! ( error instanceof window.Response ) || error.status !== 403 || ! apiFetch.nonceEndpoint || ! apiFetch.nonceMiddleware ) {
+                throw error;
+            }
+            const body = await error.clone().json().catch( () => ( {} ) );
+            if ( body.code !== 'rest_cookie_invalid_nonce' ) {
+                throw error;
+            }
+            await refreshNonce();
+            return fetchWithHeaders( path, true );
+        }
+    }
+
+    // Heartbeat brings a fresh REST nonce once the old one is half spent, but
+    // core only hands it to wpApiSettings; the API client keeps its own.
+    wp.hooks?.addAction( 'heartbeat.tick', 'wfw/rest-nonce', ( response ) => {
+        if ( response?.rest_nonce && apiFetch.nonceMiddleware ) {
+            apiFetch.nonceMiddleware.nonce = response.rest_nonce;
+        }
+    } );
+
     async function fetchTotal( params ) {
-        const response = await apiFetch( {
-            path: '/wp/v2/posts?' + new URLSearchParams( { ...params, per_page: 1, context: 'edit', _fields: 'id' } ),
-            parse: false,
-        } );
+        const response = await fetchWithHeaders( '/wp/v2/posts?' + new URLSearchParams( { ...params, per_page: 1, context: 'edit', _fields: 'id' } ) );
         return parseInt( response.headers.get( 'X-WP-Total' ), 10 ) || 0;
     }
 
@@ -278,7 +328,7 @@
             renderListItems();
         }
         try {
-            const response = await apiFetch( { path: '/wp/v2/posts?' + new URLSearchParams( params ), parse: false } );
+            const response = await fetchWithHeaders( '/wp/v2/posts?' + new URLSearchParams( params ) );
             const items = await response.json();
             if ( requestId !== listRequest ) {
                 return;
@@ -287,9 +337,12 @@
             state.total = parseInt( response.headers.get( 'X-WP-Total' ), 10 ) || 0;
             state.page = page;
             state.notes = append ? state.notes.concat( items ) : items;
+            state.listError = false;
         } catch ( e ) {
+            // A list that didn't load says so, rather than passing for an empty one.
             if ( requestId === listRequest && ! append ) {
                 state.notes = [];
+                state.listError = true;
             }
         }
         if ( requestId === listRequest ) {
@@ -714,6 +767,10 @@
         const container = root.querySelector( '.wfw-list__items' );
         if ( state.loading && ! state.notes.length ) {
             container.innerHTML = '';
+            return;
+        }
+        if ( ! state.notes.length && state.listError ) {
+            container.innerHTML = `<div class="wfw-empty" role="alert">${ esc( __( 'Notes couldn’t be loaded.', 'wordpress-for-writers' ) ) }<button type="button" class="wfw-empty__retry" data-action="retry-list">${ esc( __( 'Try again', 'wordpress-for-writers' ) ) }</button></div>`;
             return;
         }
         if ( ! state.notes.length ) {
@@ -2814,6 +2871,9 @@
                 break;
             case 'list-menu':
                 toggleListMenu( undefined, { focusFirst: event.detail === 0 } );
+                break;
+            case 'retry-list':
+                refresh();
                 break;
             case 'list-option':
                 setListOption( target.dataset.key, target.dataset.value );
