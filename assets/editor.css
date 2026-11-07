@@ -60,6 +60,18 @@ html:has( body.wfw-editor-page ) {
     border-color: var( --wfw-border );
 }
 
+/*
+ * No inserters: neither the "+" beside an empty paragraph nor the one between
+ * blocks. WordPress 7.1 draws both in popovers out here, not in the canvas, so
+ * editor-content.css's inserter rules miss them. The "Distraction free"
+ * default in editor.js hides the in-between one only until a saved preference
+ * from wp-admin's editor overrides it, and never hides the empty-paragraph one.
+ */
+body.wfw-editor-page .block-editor-block-list__block-side-inserter-popover,
+body.wfw-editor-page .block-editor-block-list__insertion-point {
+    display: none !important;
+}
+
 .wfw-canvas {
     flex: 1;
     min-height: 0;
