@@ -863,6 +863,14 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-list-muted );
 }
 
+.wfw-empty__retry {
+    display: block;
+    margin: 12px auto 0;
+    padding: 6px 12px;
+    border: 1px solid var( --wfw-border );
+    border-radius: 4px;
+}
+
 /* Editor pane */
 .wfw-editor {
     position: relative;

@@ -90,6 +90,7 @@
         list: { ...LIST_DEFAULTS, ...loadPref( 'list', {} ) },
         total: 0,
         listMenu: false,
+        listError: false,
         // The panel shown in the editor pane in place of a note's editor (its featured image, or its
         // categories and tags): { id, root }.
         panel: null,
@@ -223,6 +224,29 @@
 
     // ---- Data --------------------------------------------------------------
 
+    /*
+     * The REST nonce lasts a day at most, and a writer may keep this page open
+     * for longer. The API client fetches a fresh nonce and retries when the
+     * server turns one down, but only when the error carries the code: a request
+     * made with `parse: false` (to read totals from its headers) gets the raw 403
+     * Response back instead, so every list load would fail until a reload. This
+     * hands such a 403 on as the error the client looks for; the retry keeps
+     * `parse: false`, so the caller still gets the Response.
+     */
+    apiFetch.use( async ( options, next ) => {
+        try {
+            return await next( options );
+        } catch ( error ) {
+            if ( options.parse === false && error instanceof window.Response && error.status === 403 ) {
+                const body = await error.clone().json().catch( () => null );
+                if ( body?.code === 'rest_cookie_invalid_nonce' ) {
+                    throw body;
+                }
+            }
+            throw error;
+        }
+    } );
+
     async function fetchTotal( params ) {
         const response = await apiFetch( {
             path: '/wp/v2/posts?' + new URLSearchParams( { ...params, per_page: 1, context: 'edit', _fields: 'id' } ),
@@ -287,9 +311,12 @@
             state.total = parseInt( response.headers.get( 'X-WP-Total' ), 10 ) || 0;
             state.page = page;
             state.notes = append ? state.notes.concat( items ) : items;
+            state.listError = false;
         } catch ( e ) {
+            // A list that didn't load says so, rather than passing for an empty one.
             if ( requestId === listRequest && ! append ) {
                 state.notes = [];
+                state.listError = true;
             }
         }
         if ( requestId === listRequest ) {
@@ -716,6 +743,10 @@
             container.innerHTML = '';
             return;
         }
+        if ( ! state.notes.length && state.listError ) {
+            container.innerHTML = `<div class="wfw-empty" role="alert">${ esc( __( 'Notes couldn’t be loaded.', 'wordpress-for-writers' ) ) }<button type="button" class="wfw-empty__retry" data-action="retry-list">${ esc( __( 'Try again', 'wordpress-for-writers' ) ) }</button></div>`;
+            return;
+        }
         if ( ! state.notes.length ) {
             container.innerHTML = `<div class="wfw-empty">${ esc( state.search ? __( 'No matching notes', 'wordpress-for-writers' ) : __( 'No notes here yet', 'wordpress-for-writers' ) ) }</div>`;
             return;
@@ -808,6 +839,61 @@
         return settings.editorUrl + '&_wpnonce=' + encodeURIComponent( nonce );
     }
 
+    function setRestNonce( nonce ) {
+        if ( ! nonce ) {
+            return;
+        }
+        if ( wp.apiFetch.nonceMiddleware ) {
+            wp.apiFetch.nonceMiddleware.nonce = nonce;
+        }
+        if ( window.wpApiSettings ) {
+            window.wpApiSettings.nonce = nonce;
+        }
+    }
+
+    /*
+     * The REST nonce the app holds goes stale: after a day with the page open,
+     * or at once when signing in again (after the session ran out, through the
+     * login modal) starts a new session. The API client only finds out on its
+     * next failed request, and core hands the heartbeat's fresh nonce only to
+     * wpApiSettings, so it's taken here as it comes.
+     */
+    wp.hooks?.addAction( 'heartbeat.tick', 'wfw/rest-nonce', ( response ) => setRestNonce( response?.rest_nonce ) );
+
+    async function refreshRestNonce() {
+        if ( ! wp.apiFetch.nonceEndpoint ) {
+            return false;
+        }
+        try {
+            const response = await window.fetch( wp.apiFetch.nonceEndpoint, { credentials: 'same-origin' } );
+            const nonce = response.ok ? ( await response.text() ).trim() : '';
+            setRestNonce( nonce );
+            return !! nonce;
+        } catch ( e ) {
+            return false;
+        }
+    }
+
+    /*
+     * A new note's editor turned away (its nonce went stale before the
+     * heartbeat brought a new one, as right after signing in again) is
+     * loaded once more with a fresh nonce.
+     */
+    function retryStaleNewNote( tab ) {
+        const frame = tab.frame;
+        frame.addEventListener( 'load', async () => {
+            // The turn-away is a wp_die() page. A working editor runs isolated
+            // (no contentDocument here), so only the error page is looked for.
+            let rejected = false;
+            try {
+                rejected = !! frame.contentDocument?.getElementById( 'error-page' );
+            } catch ( e ) {}
+            if ( rejected && tab.frame === frame && ! tab.id && ( await refreshRestNonce() ) && tab.frame === frame ) {
+                frame.src = editorSrc( 0 );
+            }
+        }, { once: true } );
+    }
+
     function dropFrame( tab ) {
         clearTimeout( tab.revealTimer );
         tab.frame?.remove();
@@ -868,6 +954,9 @@
         tab.frame.classList.toggle( 'is-hidden', tab !== current );
         tab.hiddenSince = tab !== current ? Date.now() : 0;
         tab.frame.src = editorSrc( tab.id );
+        if ( ! tab.id ) {
+            retryStaleNewNote( tab );
+        }
         root.querySelector( '.wfw-editor' ).appendChild( tab.frame );
         tab.revealTimer = setTimeout( () => revealEditor( tab ), 8000 );
     }
@@ -2814,6 +2903,11 @@
                 break;
             case 'list-menu':
                 toggleListMenu( undefined, { focusFirst: event.detail === 0 } );
+                break;
+            case 'retry-list':
+                // The counts fail along with the list; the terms recover on their own.
+                loadNotes();
+                loadCounts();
                 break;
             case 'list-option':
                 setListOption( target.dataset.key, target.dataset.value );
