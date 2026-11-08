@@ -61,15 +61,12 @@ html:has( body.wfw-editor-page ) {
 }
 
 /*
- * No inserters: neither the "+" beside an empty paragraph nor the one between
- * blocks. WordPress 7.1 draws both in popovers out here, not in the canvas, so
- * editor-content.css's inserter rules miss them. The "Distraction free"
- * default in editor.js hides the in-between one only until a saved preference
- * from wp-admin's editor overrides it, and never hides the empty-paragraph one.
+ * No "+" beside an empty paragraph. "Distraction free" (pinned on, see
+ * wfw_editor_enqueue()) removes the in-between inserters, but WordPress 7.1
+ * draws this one whatever the settings say, so it is hidden here.
  */
-body.wfw-editor-page .block-editor-block-list__block-side-inserter-popover,
-body.wfw-editor-page .block-editor-block-list__insertion-point {
-    display: none !important;
+.block-editor-block-list__block-side-inserter-popover {
+    display: none;
 }
 
 .wfw-canvas {
