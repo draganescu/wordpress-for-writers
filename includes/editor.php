@@ -177,6 +177,8 @@ function wfw_editor_settings( $post ) {
 
     $settings = get_block_editor_settings( $settings, $context );
 
+    $settings['allowedBlockTypes'] = wfw_allowed_block_types( $settings['allowedBlockTypes'] ?? true );
+
     /*
      * The canvas ignores the theme: the writing surface is ours (editor-content.css),
      * and the theme's editor stylesheets are left out.
@@ -186,6 +188,62 @@ function wfw_editor_settings( $post ) {
     );
 
     return $settings;
+}
+
+/**
+ * The core blocks a note can be written with. The Writer editor is for
+ * writing, not page building: layout (columns, groups, spacers), the theme's
+ * blocks (site, query, post, comment, navigation) and widgets are left out,
+ * as are other plugins' blocks: only core's and Writer's own are offered.
+ *
+ * Only the inserter and transforms are limited: a note that already holds a
+ * left-out block still shows and edits it.
+ *
+ * @param bool|string[] $allowed What allowed_block_types_all decided.
+ * @return bool|string[]
+ */
+function wfw_allowed_block_types( $allowed ) {
+    if ( false === $allowed ) {
+        return false;
+    }
+
+    $blocks = array(
+        // Text.
+        'core/paragraph',
+        'core/heading',
+        'core/list',
+        'core/list-item',
+        'core/quote',
+        'core/pullquote',
+        'core/verse',
+        'core/preformatted',
+        'core/code',
+        'core/footnotes',
+        'core/details',
+        'core/table',
+        'core/math',
+        'core/separator',
+        'core/spacer',
+        'core/text-columns',
+        // Media.
+        'core/image',
+        'core/gallery',
+        'core/cover',
+        'core/video',
+        'core/audio',
+        'core/playlist',
+        'core/playlist-track',
+        'core/file',
+        'core/embed',
+        // Calls to action.
+        'core/buttons',
+        'core/button',
+        // Writer's companion plugins, when active.
+        'writer-members/paywall',
+        'writer-subscribe/form',
+    );
+
+    return is_array( $allowed ) ? array_values( array_intersect( $blocks, $allowed ) ) : $blocks;
 }
 
 /**
