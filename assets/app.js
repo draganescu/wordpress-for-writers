@@ -247,14 +247,6 @@
         }
     } );
 
-    // Heartbeat brings a fresh REST nonce once the old one is half spent, but
-    // core only hands it to wpApiSettings; the API client keeps its own.
-    wp.hooks?.addAction( 'heartbeat.tick', 'wfw/rest-nonce', ( response ) => {
-        if ( response?.rest_nonce && apiFetch.nonceMiddleware ) {
-            apiFetch.nonceMiddleware.nonce = response.rest_nonce;
-        }
-    } );
-
     async function fetchTotal( params ) {
         const response = await apiFetch( {
             path: '/wp/v2/posts?' + new URLSearchParams( { ...params, per_page: 1, context: 'edit', _fields: 'id' } ),
@@ -860,10 +852,11 @@
     }
 
     /*
-     * Signing in again (after the session ran out, through the login modal)
-     * starts a new session, and the REST nonce the app holds belongs to the
-     * old one. The API client only finds out on its next failed request, so
-     * the heartbeat's fresh nonce is taken as it comes.
+     * The REST nonce the app holds goes stale: after a day with the page open,
+     * or at once when signing in again (after the session ran out, through the
+     * login modal) starts a new session. The API client only finds out on its
+     * next failed request, and core hands the heartbeat's fresh nonce only to
+     * wpApiSettings, so it's taken here as it comes.
      */
     wp.hooks?.addAction( 'heartbeat.tick', 'wfw/rest-nonce', ( response ) => setRestNonce( response?.rest_nonce ) );
 
