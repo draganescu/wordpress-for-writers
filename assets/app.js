@@ -227,46 +227,25 @@
     /*
      * The REST nonce lasts a day at most, and a writer may keep this page open
      * for longer. The API client fetches a fresh nonce and retries when the
-     * server turns one down, but only for requests it parses: a request made
-     * with `parse: false` (to read the totals in its headers) gets the raw 403
-     * back, so every list load would fail until the page is reloaded. These
-     * requests get the same refresh here. Requests failing at once share one
-     * refresh.
+     * server turns one down, but only when the error carries the code: a request
+     * made with `parse: false` (to read totals from its headers) gets the raw 403
+     * Response back instead, so every list load would fail until a reload. This
+     * hands such a 403 on as the error the client looks for; the retry keeps
+     * `parse: false`, so the caller still gets the Response.
      */
-    let nonceRefresh = null;
-
-    function refreshNonce() {
-        nonceRefresh ??= window.fetch( apiFetch.nonceEndpoint, { credentials: 'same-origin' } )
-            .then( ( response ) => {
-                if ( ! response.ok ) {
-                    throw response;
-                }
-                return response.text();
-            } )
-            .then( ( nonce ) => {
-                apiFetch.nonceMiddleware.nonce = nonce;
-            } )
-            .finally( () => {
-                nonceRefresh = null;
-            } );
-        return nonceRefresh;
-    }
-
-    async function fetchWithHeaders( path, retried = false ) {
+    apiFetch.use( async ( options, next ) => {
         try {
-            return await apiFetch( { path, parse: false } );
+            return await next( options );
         } catch ( error ) {
-            if ( retried || ! ( error instanceof window.Response ) || error.status !== 403 || ! apiFetch.nonceEndpoint || ! apiFetch.nonceMiddleware ) {
-                throw error;
+            if ( options.parse === false && error instanceof window.Response && error.status === 403 ) {
+                const body = await error.clone().json().catch( () => null );
+                if ( body?.code === 'rest_cookie_invalid_nonce' ) {
+                    throw body;
+                }
             }
-            const body = await error.clone().json().catch( () => ( {} ) );
-            if ( body.code !== 'rest_cookie_invalid_nonce' ) {
-                throw error;
-            }
-            await refreshNonce();
-            return fetchWithHeaders( path, true );
+            throw error;
         }
-    }
+    } );
 
     // Heartbeat brings a fresh REST nonce once the old one is half spent, but
     // core only hands it to wpApiSettings; the API client keeps its own.
@@ -277,7 +256,10 @@
     } );
 
     async function fetchTotal( params ) {
-        const response = await fetchWithHeaders( '/wp/v2/posts?' + new URLSearchParams( { ...params, per_page: 1, context: 'edit', _fields: 'id' } ) );
+        const response = await apiFetch( {
+            path: '/wp/v2/posts?' + new URLSearchParams( { ...params, per_page: 1, context: 'edit', _fields: 'id' } ),
+            parse: false,
+        } );
         return parseInt( response.headers.get( 'X-WP-Total' ), 10 ) || 0;
     }
 
@@ -328,7 +310,7 @@
             renderListItems();
         }
         try {
-            const response = await fetchWithHeaders( '/wp/v2/posts?' + new URLSearchParams( params ) );
+            const response = await apiFetch( { path: '/wp/v2/posts?' + new URLSearchParams( params ), parse: false } );
             const items = await response.json();
             if ( requestId !== listRequest ) {
                 return;
@@ -2873,7 +2855,9 @@
                 toggleListMenu( undefined, { focusFirst: event.detail === 0 } );
                 break;
             case 'retry-list':
-                refresh();
+                // The counts fail along with the list; the terms recover on their own.
+                loadNotes();
+                loadCounts();
                 break;
             case 'list-option':
                 setListOption( target.dataset.key, target.dataset.value );
