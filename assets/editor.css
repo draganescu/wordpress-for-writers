@@ -60,6 +60,15 @@ html:has( body.wfw-editor-page ) {
     border-color: var( --wfw-border );
 }
 
+/*
+ * No "+" beside an empty paragraph. "Distraction free" (pinned on, see
+ * wfw_editor_enqueue()) removes the in-between inserters, but WordPress 7.1
+ * draws this one whatever the settings say, so it is hidden here.
+ */
+.block-editor-block-list__block-side-inserter-popover {
+    display: none;
+}
+
 .wfw-canvas {
     flex: 1;
     min-height: 0;

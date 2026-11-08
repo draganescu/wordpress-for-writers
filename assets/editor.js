@@ -874,15 +874,12 @@
     } catch ( e ) {}
 
     /*
-     * The writing surface: the block toolbar docked (in our pill) rather than
-     * floating over the text, and no in-between inserters. These are the
-     * editor's own "Top toolbar" and "Distraction free" preferences, set as
-     * in-memory defaults, so the user's saved choices for wp-admin's editor
-     * are untouched. The publish panel stays on, as wp-admin's editor has it.
+     * The publish panel stays on, as wp-admin's editor has it. The Writer's
+     * preferences are its own (see wfw_editor_enqueue()), which also pins
+     * "Top toolbar" and "Distraction free" on: the block toolbar docked in our
+     * pill rather than floating over the text, and no in-between inserters.
      */
     dispatch( 'core/preferences' ).setDefaults( 'core', {
-        fixedToolbar: true,
-        distractionFree: true,
         isPublishSidebarEnabled: true,
     } );
 

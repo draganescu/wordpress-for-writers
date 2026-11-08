@@ -280,6 +280,38 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
     wp_enqueue_editor();
     wp_enqueue_script( 'heartbeat' );
 
+    /*
+     * The Writer editor keeps its own preferences. Core loads the user's saved
+     * wp-admin editor preferences into wp-preferences; this replaces that with
+     * a store of the Writer's own, in the browser under the user's id as the
+     * app's are. wp-admin's choices (an editor without distraction free, say)
+     * don't reach the Writer, and nothing set here reaches wp-admin's editor.
+     * Distraction free and the top toolbar are pinned on whatever was saved:
+     * they are how the writing surface works (no inserters, the block toolbar
+     * in our pill), not preferences.
+     */
+    wp_scripts()->add_data( 'wp-preferences', 'after', array( sprintf(
+        '( function() {
+            var key = "wfw:%d:editorPreferences";
+            wp.data.dispatch( wp.preferences.store ).setPersistenceLayer( {
+                get: function() {
+                    var saved = {};
+                    try {
+                        saved = JSON.parse( window.localStorage.getItem( key ) ) || {};
+                    } catch ( e ) {}
+                    saved.core = Object.assign( {}, saved.core, { distractionFree: true, fixedToolbar: true } );
+                    return Promise.resolve( saved );
+                },
+                set: function( data ) {
+                    try {
+                        window.localStorage.setItem( key, JSON.stringify( data ) );
+                    } catch ( e ) {}
+                },
+            } );
+        } )();',
+        get_current_user_id()
+    ) ) );
+
     wp_enqueue_style( 'wfw-editor', WFW_URL . 'assets/editor.css', array( 'wp-components', 'wp-block-editor', 'wp-editor', 'wp-format-library', 'wp-block-library' ), wfw_asset_version( 'assets/editor.css' ) );
     wp_add_inline_style( 'wfw-editor', wfw_appearance_css() );
     $deps = array( 'wp-api-fetch', 'wp-block-editor', 'wp-block-library', 'wp-blocks', 'wp-components', 'wp-compose', 'wp-core-data', 'wp-data', 'wp-editor', 'wp-element', 'wp-format-library', 'wp-html-entities', 'wp-i18n', 'wp-keyboard-shortcuts', 'wp-plugins', 'wp-preferences', 'wp-theme' );
