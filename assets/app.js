@@ -77,8 +77,6 @@
         view: loadPref( 'view', { type: 'all' } ),
         search: '',
         notes: [],
-        page: 1,
-        totalPages: 1,
         loading: false,
         activeId: null,
         counts: {},
@@ -274,16 +272,34 @@
         renderListHeader();
     }
 
-    async function loadNotes( { append = false } = {} ) {
+    /*
+     * The list loads LIST_PAGE notes at a time as it scrolls, by offset rather
+     * than page number. A reload after a save, trash, restore and the like
+     * (keep) fetches again as many notes as are loaded, in requests of up to
+     * LIST_MAX (the REST API's cap), so a writer deep in a long list keeps their
+     * place instead of being sent back to the first notes on every autosave.
+     */
+    const LIST_PAGE = 30;
+    const LIST_MAX = 100;
+
+    async function fetchNotes( params, offset, count ) {
+        const response = await apiFetch( {
+            path: '/wp/v2/posts?' + new URLSearchParams( { ...params, offset, per_page: count } ),
+            parse: false,
+        } );
+        return {
+            items: await response.json(),
+            total: parseInt( response.headers.get( 'X-WP-Total' ), 10 ) || 0,
+        };
+    }
+
+    async function loadNotes( { append = false, keep = false } = {} ) {
         const requestId = ++listRequest;
         state.loading = true;
-        const page = append ? state.page + 1 : 1;
         const params = {
             status: currentStatus(),
             orderby: state.list.orderby,
             order: state.list.order,
-            per_page: 30,
-            page,
             context: 'edit',
             // Each note's image, featured or from its content, is one small field, worked out only while images show.
             _fields: 'id,title,excerpt,date_gmt,modified_gmt,status,sticky' + ( state.list.images ? ',wfw_thumbnail' : '' ),
@@ -298,37 +314,63 @@
         }
         // Each note's permalink, for View post and Copy link in its context menu.
         params._fields += ',link';
-        if ( ! append ) {
+        if ( ! append && ! keep ) {
             renderListItems();
         }
+        let added = null;
         try {
-            const response = await apiFetch( { path: '/wp/v2/posts?' + new URLSearchParams( params ), parse: false } );
-            const items = await response.json();
+            let items;
+            let total;
+            if ( append ) {
+                ( { items, total } = await fetchNotes( params, state.notes.length, LIST_PAGE ) );
+            } else {
+                const count = keep ? Math.max( state.notes.length, LIST_PAGE ) : LIST_PAGE;
+                const offsets = [];
+                for ( let offset = 0; offset < count; offset += LIST_MAX ) {
+                    offsets.push( offset );
+                }
+                const chunks = await Promise.all( offsets.map( ( offset ) => fetchNotes( params, offset, Math.min( LIST_MAX, count - offset ) ) ) );
+                items = chunks.flatMap( ( chunk ) => chunk.items );
+                total = chunks[ 0 ].total;
+            }
             if ( requestId !== listRequest ) {
                 return;
             }
-            state.totalPages = parseInt( response.headers.get( 'X-WP-TotalPages' ), 10 ) || 1;
-            state.total = parseInt( response.headers.get( 'X-WP-Total' ), 10 ) || 0;
-            state.page = page;
-            state.notes = append ? state.notes.concat( items ) : items;
+            state.total = total;
+            if ( append ) {
+                // A note saved meanwhile shifts the rest down one, so the next notes can repeat one already shown.
+                const shown = new Set( state.notes.map( ( n ) => n.id ) );
+                added = items.filter( ( n ) => ! shown.has( n.id ) );
+                state.notes = state.notes.concat( added );
+            } else {
+                state.notes = items;
+            }
             state.listError = false;
         } catch ( e ) {
             // A list that didn't load says so, rather than passing for an empty one.
-            if ( requestId === listRequest && ! append ) {
+            if ( requestId === listRequest && ! append && ! keep ) {
                 state.notes = [];
                 state.listError = true;
             }
         }
         if ( requestId === listRequest ) {
             state.loading = false;
-            renderListItems();
+            if ( added && state.notes.length > added.length ) {
+                appendListItems( added );
+            } else {
+                renderListItems();
+            }
             renderListMenu();
             contextTarget(); // Rings the note an open context menu is for again.
         }
     }
 
+    function hasMoreNotes() {
+        return state.notes.length < state.total;
+    }
+
     function refresh() {
-        return Promise.all( [ loadNotes(), loadCounts(), loadTerms() ] );
+        return Promise.all( [ loadNotes( { keep: true } ), loadCounts(), loadTerms() ] );
     }
 
     // ---- Rendering ---------------------------------------------------------
@@ -374,7 +416,7 @@
         }, 250 ) );
         const items = root.querySelector( '.wfw-list__items' );
         items.addEventListener( 'scroll', () => {
-            if ( ! state.loading && state.page < state.totalPages && items.scrollTop + items.clientHeight > items.scrollHeight - 200 ) {
+            if ( ! state.loading && hasMoreNotes() && items.scrollTop + items.clientHeight > items.scrollHeight - 200 ) {
                 loadNotes( { append: true } );
             }
         } );
@@ -752,8 +794,24 @@
             return;
         }
         container.innerHTML = state.notes.map( noteHtml ).join( '' );
-        // A thumbnail that fails to load, like a content image from another site that is gone, is dropped rather than shown broken.
-        container.querySelectorAll( '.wfw-note__thumb' ).forEach( ( img ) => {
+        dropBrokenThumbs( container.querySelectorAll( '.wfw-note__thumb' ) );
+    }
+
+    // The next notes as the list scrolls, added after those shown rather than redrawing them all.
+    function appendListItems( notes ) {
+        const container = root.querySelector( '.wfw-list__items' );
+        const before = container.lastElementChild;
+        container.insertAdjacentHTML( 'beforeend', notes.map( noteHtml ).join( '' ) );
+        const added = [];
+        for ( let el = before ? before.nextElementSibling : container.firstElementChild; el; el = el.nextElementSibling ) {
+            added.push( ...el.querySelectorAll( '.wfw-note__thumb' ) );
+        }
+        dropBrokenThumbs( added );
+    }
+
+    // A thumbnail that fails to load, like a content image from another site that is gone, is dropped rather than shown broken.
+    function dropBrokenThumbs( imgs ) {
+        imgs.forEach( ( img ) => {
             img.addEventListener( 'error', () => ( img.closest( '.wfw-note__thumb-btn' ) || img ).remove() );
         } );
     }
@@ -1226,7 +1284,7 @@
                     window.history.replaceState( null, '', '#note=' + data.id );
                 }
                 saveTabs();
-                loadNotes();
+                loadNotes( { keep: true } );
                 loadCounts();
                 break;
             }
@@ -1878,7 +1936,7 @@
         host.setAttribute( 'aria-label', kind === 'image' ? __( 'Featured image', 'wordpress-for-writers' ) : __( 'Categories and tags', 'wordpress-for-writers' ) );
         editor.appendChild( host );
         const panelRoot = wp.element.createRoot( host );
-        panelRoot.render( module.el( module.Panel, { ...props, postId: id, onBack: () => openNote( id ), onSaved: () => { loadNotes(); if ( kind === 'terms' ) { loadTerms(); } } } ) );
+        panelRoot.render( module.el( module.Panel, { ...props, postId: id, onBack: () => openNote( id ), onSaved: () => { loadNotes( { keep: true } ); if ( kind === 'terms' ) { loadTerms(); } } } ) );
         state.panel = { id, root: panelRoot };
     }
 
