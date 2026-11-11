@@ -19,7 +19,12 @@ html {
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    padding: 72px 40px 180px;
+    /*
+     * Room under the note for the formatting pill (52px tall, 16px up, and a few px spare)
+     * plus four lines, so the last paragraph can sit four lines above the pill.
+     * editor.js scrolls it there while writing (keepClearOfPill()).
+     */
+    padding: 72px 40px calc( 72px + 6.4em + var( --wfw-keyboard, 0px ) );
 }
 
 /*
@@ -335,7 +340,7 @@ html {
 
 @media ( max-width: 600px ) {
     .editor-styles-wrapper {
-        padding: 64px 20px calc( 140px + var( --wfw-keyboard, 0px ) );
+        padding: 64px 20px calc( 68px + 6.4em + var( --wfw-keyboard, 0px ) );
     }
 
     .editor-styles-wrapper .wfw-title h1 {

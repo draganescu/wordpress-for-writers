@@ -699,6 +699,68 @@
         } );
     }
 
+    // ---- Room above the formatting pill --------------------------------------
+
+    /*
+     * While writing, keep what is being written clear of the formatting pill.
+     * In the note's last block the block's bottom stays four lines above the
+     * pill (the canvas's bottom padding leaves room for that), so new lines and
+     * wrapping text push the page up rather than slipping behind the pill.
+     * Elsewhere the caret's line keeps the same distance. Only typing moves the
+     * page: scrolling still lets text pass behind the pill.
+     */
+    const PILL_CLEAR_LINES = 4;
+    let pillFrame = 0;
+
+    function keepClearOfPill() {
+        pillFrame = 0;
+        const win = canvas.win;
+        const frame = canvas.frame;
+        const pill = document.querySelector( '.wfw-pill' );
+        const selection = win && win.getSelection();
+        if ( ! frame || ! pill || ! selection || ! selection.rangeCount || ! selection.isCollapsed ) {
+            return;
+        }
+        const node = selection.focusNode;
+        const element = node && ( node.nodeType === 1 ? node : node.parentElement );
+        const body = element && element.closest( '.wfw-body' );
+        if ( ! body ) {
+            return;
+        }
+        const blocks = body.querySelectorAll( ':scope > .block-editor-block-list__block' );
+        const last = blocks[ blocks.length - 1 ];
+        const inLast = !! last && last.contains( element );
+
+        // A collapsed range on an empty line can measure as nothing; use its element then.
+        let caret = selection.getRangeAt( 0 ).getBoundingClientRect();
+        if ( ! caret.height ) {
+            caret = element.getBoundingClientRect();
+        }
+        const style = win.getComputedStyle( element );
+        const line = parseFloat( style.lineHeight ) || parseFloat( style.fontSize ) * 1.6;
+        const pillTop = pill.getBoundingClientRect().top - frame.getBoundingClientRect().top;
+        const limit = pillTop - PILL_CLEAR_LINES * line;
+        const bottom = inLast ? last.getBoundingClientRect().bottom : caret.bottom;
+        // Never scroll the caret itself out of view at the top.
+        const by = Math.min( bottom - limit, caret.top - 80 );
+        if ( by > 0 ) {
+            win.scrollBy( 0, by );
+        }
+    }
+
+    // After the edit has rendered: Enter moves the caret into a new block a moment later.
+    function queueClearOfPill() {
+        if ( ! pillFrame ) {
+            pillFrame = requestAnimationFrame( keepClearOfPill );
+        }
+    }
+
+    canvasListeners.add( ( doc ) => {
+        if ( doc ) {
+            [ 'input', 'keyup' ].forEach( ( type ) => doc.addEventListener( type, queueClearOfPill, true ) );
+        }
+    } );
+
     // ---- Saving and the frame protocol ---------------------------------------
 
     function waitForSave() {
