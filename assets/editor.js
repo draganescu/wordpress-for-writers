@@ -126,11 +126,13 @@
      * touch screens). Each link asks the app to open its panel in place of the
      * editor. A link's label says what the note has: the names of its
      * categories or tags (read through core-data, like the editor's own
-     * panels), or an invitation to add some.
+     * panels), or an invitation to add some. An (i) button closes the row and
+     * opens the note's word count and reading time in a small flydown.
      */
     const ICONS = {
         image: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z',
         categories: 'M12.848 8a1 1 0 0 1-.914-.594l-.723-1.63a.5.5 0 0 0-.447-.276H5a.5.5 0 0 0-.5.5v11.5a.5.5 0 0 0 .5.5h14a.5.5 0 0 0 .5-.5v-9A.5.5 0 0 0 19 8h-6.152Zm.612-1.5a.5.5 0 0 1-.462-.31l-.445-1.084A2 2 0 0 0 10.763 4H5a2 2 0 0 0-2 2v11.5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-5.54Z',
+        info: 'M12 3.2c-4.8 0-8.8 3.9-8.8 8.8 0 4.8 3.9 8.8 8.8 8.8 4.8 0 8.8-3.9 8.8-8.8 0-4.8-4-8.8-8.8-8.8zm0 16c-4 0-7.2-3.3-7.2-7.2C4.8 8 8 4.8 12 4.8s7.2 3.3 7.2 7.2c0 4-3.2 7.2-7.2 7.2zM11 17h2v-6h-2v6zm0-8h2V7h-2v2z',
         tags: 'M20.5 5.5h-3.1l.7-3.3-1.5-.3-.7 3.6H10l.7-3.3-1.5-.3-.7 3.6H4.5V7h3.7l-.9 4.5H3.5V13h3.5l-.7 3.3 1.5.3.7-3.6H14l-.7 3.3 1.5.3.7-3.6h4V11.5h-3.7l.9-4.5h3.8V5.5Zm-6.2 6h-5.5L9.7 7h5.5l-.9 4.5Z',
     };
 
@@ -162,11 +164,105 @@
         el( 'span', { title: label }, label ) );
     }
 
+    /*
+     * Word count and reading time, under the (i) at the end of the row. Counted as the
+     * editor's own WordCount and TimeToRead do: wp.wordcount with the
+     * translatable count type (characters for languages that don't split on
+     * spaces) and an average of 189 words a minute, a moment after typing stops.
+     */
+    const READING_RATE = 189;
+    const STATS_DELAY = 300;
+
+    function countNote( content ) {
+        /*
+         * translators: If your word count is based on single characters (e.g. East Asian characters),
+         * enter 'characters_excluding_spaces' or 'characters_including_spaces'. Otherwise, enter 'words'.
+         * Do not translate into your own language.
+         */
+        const unit = wp.i18n._x( 'words', 'Word count type. Do not translate!', 'wordpress-for-writers' );
+        return { unit, count: wp.wordcount.count( content, unit ) };
+    }
+
+    function NoteStats() {
+        const content = useSelect( ( s ) => s( editorStore ).getEditedPostAttribute( 'content' ) || '', [] );
+        const [ stats, setStats ] = useState( () => countNote( content ) );
+        useEffect( () => {
+            const timer = setTimeout( () => setStats( countNote( content ) ), STATS_DELAY );
+            return () => clearTimeout( timer );
+        }, [ content ] );
+        const [ isOpen, setOpen ] = useState( false );
+        const ref = useRef();
+
+        // The flydown closes on a click or tap anywhere else, and on Escape (back to the button).
+        useEffect( () => {
+            if ( ! isOpen ) {
+                return;
+            }
+            const doc = ref.current.ownerDocument;
+            const onPointerDown = ( event ) => ! ref.current.contains( event.target ) && setOpen( false );
+            const onKeyDown = ( event ) => {
+                if ( event.key === 'Escape' ) {
+                    event.stopPropagation();
+                    setOpen( false );
+                    ref.current.querySelector( 'button' ).focus();
+                }
+            };
+            doc.addEventListener( 'pointerdown', onPointerDown, true );
+            doc.addEventListener( 'keydown', onKeyDown, true );
+            return () => {
+                doc.removeEventListener( 'pointerdown', onPointerDown, true );
+                doc.removeEventListener( 'keydown', onKeyDown, true );
+            };
+        }, [ isOpen ] );
+
+        const { unit, count } = stats;
+        const minutes = Math.round( count / READING_RATE );
+        const amount = unit === 'words'
+            /* translators: %s: number of words. */
+            ? sprintf( _n( '%s word', '%s words', count, 'wordpress-for-writers' ), count.toLocaleString() )
+            /* translators: %s: number of characters. */
+            : sprintf( _n( '%s character', '%s characters', count, 'wordpress-for-writers' ), count.toLocaleString() );
+        const time = minutes < 1
+            ? __( 'Under a minute', 'wordpress-for-writers' )
+            /* translators: %s: number of minutes. */
+            : sprintf( _n( '%s minute', '%s minutes', minutes, 'wordpress-for-writers' ), minutes.toLocaleString() );
+        const label = __( 'Word count', 'wordpress-for-writers' );
+
+        return el( 'span', {
+            ref,
+            className: 'wfw-title-info' + ( isOpen ? ' is-open' : '' ),
+            // Moving focus out of it (Tab) closes it too.
+            onBlur: ( event ) => ! ref.current.contains( event.relatedTarget ) && setOpen( false ),
+        },
+        el( 'button', {
+            type: 'button',
+            className: 'wfw-title-link wfw-title-link--info',
+            'aria-label': label,
+            title: label,
+            'aria-expanded': isOpen,
+            'aria-controls': 'wfw-title-info',
+            onClick: () => setOpen( ! isOpen ),
+        },
+        el( 'svg', { viewBox: '0 0 24 24', width: 18, height: 18, 'aria-hidden': true, focusable: false }, el( 'path', { d: ICONS.info } ) ) ),
+        isOpen && el( 'div', { id: 'wfw-title-info', className: 'wfw-title-info__card', role: 'dialog', 'aria-label': label },
+            el( 'dl', null,
+                el( 'div', null,
+                    el( 'dt', null, unit === 'words' ? __( 'Words', 'wordpress-for-writers' ) : __( 'Characters', 'wordpress-for-writers' ) ),
+                    el( 'dd', null, amount )
+                ),
+                el( 'div', null,
+                    el( 'dt', null, __( 'Reading time', 'wordpress-for-writers' ) ),
+                    el( 'dd', null, time )
+                )
+            )
+        ) );
+    }
+
     function TitleLinks() {
         const hasImage = useSelect( ( s ) => !! s( editorStore ).getEditedPostAttribute( 'featured_media' ), [] );
         const categories = useTermNames( 'categories', 'category' );
         const tags = useTermNames( 'tags', 'post_tag' );
-        if ( ! inApp || ! ( config.featuredImages || config.categories || config.tags ) ) {
+        if ( ! inApp ) {
             return null;
         }
         return el( 'div', { className: 'wfw-title-links', contentEditable: false },
@@ -190,7 +286,8 @@
                     ? __( 'Add tags', 'wordpress-for-writers' )
                     /* translators: %d: number of tags. */
                     : tags.names || sprintf( _n( '%d tag', '%d tags', tags.count, 'wordpress-for-writers' ), tags.count ),
-            } )
+            } ),
+            el( NoteStats )
         );
     }
 
