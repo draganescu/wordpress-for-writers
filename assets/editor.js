@@ -711,6 +711,59 @@
         } );
     }
 
+    // ---- Room above the formatting pill --------------------------------------
+
+    /*
+     * While writing, the line with the caret stays four lines above the
+     * formatting pill (the canvas's bottom padding leaves room for that, even
+     * at the end of the note), so new lines push the page up rather than
+     * slipping behind the pill. Only typing moves the page: scrolling still
+     * lets text pass behind it. Core's typewriter (useTypewriter) only runs
+     * inside VisualEditor, which this editor doesn't use, and keeps the caret
+     * wherever it was rather than clear of the pill.
+     */
+    const PILL_CLEAR_LINES = 4;
+    let pillFrame = 0;
+
+    function keepClearOfPill() {
+        pillFrame = 0;
+        const win = canvas.win;
+        const pill = document.querySelector( '.wfw-pill' );
+        const selection = win && win.getSelection();
+        if ( ! pill || ! selection || ! selection.rangeCount || ! selection.isCollapsed ) {
+            return;
+        }
+        const node = selection.focusNode;
+        const element = node.nodeType === 1 ? node : node.parentElement;
+        if ( ! element || ! element.isContentEditable ) {
+            return;
+        }
+        // A collapsed range on an empty line can measure as nothing; use its element then.
+        let caret = selection.getRangeAt( 0 ).getBoundingClientRect();
+        if ( ! caret.height ) {
+            caret = element.getBoundingClientRect();
+        }
+        const line = parseFloat( win.getComputedStyle( element ).lineHeight );
+        const pillTop = pill.getBoundingClientRect().top - canvas.frame.getBoundingClientRect().top;
+        const by = caret.bottom - ( pillTop - PILL_CLEAR_LINES * line );
+        if ( by > 0 ) {
+            win.scrollBy( 0, by );
+        }
+    }
+
+    // After the edit has rendered: Enter moves the caret into a new block a moment later.
+    function queueClearOfPill() {
+        if ( ! pillFrame ) {
+            pillFrame = requestAnimationFrame( keepClearOfPill );
+        }
+    }
+
+    canvasListeners.add( ( doc ) => {
+        if ( doc ) {
+            [ 'input', 'keyup' ].forEach( ( type ) => doc.addEventListener( type, queueClearOfPill, true ) );
+        }
+    } );
+
     // ---- Saving and the frame protocol ---------------------------------------
 
     function waitForSave() {
