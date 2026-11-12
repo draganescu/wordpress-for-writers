@@ -372,7 +372,7 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
 
     wp_enqueue_style( 'wfw-editor', WFW_URL . 'assets/editor.css', array( 'wp-components', 'wp-block-editor', 'wp-editor', 'wp-format-library', 'wp-block-library' ), wfw_asset_version( 'assets/editor.css' ) );
     wp_add_inline_style( 'wfw-editor', wfw_appearance_css() );
-    $deps = array( 'wp-api-fetch', 'wp-block-editor', 'wp-block-library', 'wp-blocks', 'wp-components', 'wp-compose', 'wp-core-data', 'wp-data', 'wp-editor', 'wp-element', 'wp-format-library', 'wp-html-entities', 'wp-i18n', 'wp-keyboard-shortcuts', 'wp-plugins', 'wp-preferences', 'wp-theme' );
+    $deps = array( 'wp-api-fetch', 'wp-block-editor', 'wp-block-library', 'wp-blocks', 'wp-components', 'wp-compose', 'wp-core-data', 'wp-data', 'wp-editor', 'wp-element', 'wp-format-library', 'wp-html-entities', 'wp-i18n', 'wp-keyboard-shortcuts', 'wp-plugins', 'wp-preferences', 'wp-theme', 'wp-wordcount' );
     wp_enqueue_script(
         'wfw-editor',
         WFW_URL . 'assets/editor.js',

@@ -106,6 +106,29 @@ html:has( body.wfw-editor-page ) {
     right: calc( 300px + 12px );
 }
 
+/* Word count and reading time: quiet, like the save state beside it. */
+.wfw-stats {
+    color: var( --wfw-muted );
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.wfw-stats--actions {
+    margin-right: 4px;
+}
+
+/* With the settings open the sheet shows them; on phones there's no room up top. */
+.wfw-ed.has-settings .wfw-stats--actions {
+    display: none;
+}
+
+@media ( max-width: 600px ) {
+    .wfw-stats--actions {
+        display: none;
+    }
+}
+
 .wfw-actions .components-button {
     height: 32px;
     padding: 0 14px;
