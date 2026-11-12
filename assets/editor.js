@@ -378,6 +378,22 @@
      * (bottom). Drafts save themselves every few seconds, so their "Draft
      * saved." toast isn't shown; explicit Update/Publish confirmations still are.
      */
+    /*
+     * Pressing a notice or toast takes focus out of the canvas, but the block
+     * editor still thinks the block is selected, so tapping that block again
+     * doesn't bring the caret back until something else is selected. Drop the
+     * selection along with the focus, as after dismissing the iOS keyboard.
+     */
+    function dropBlockSelection() {
+        const editable = canvas.doc && canvas.doc.activeElement;
+        if ( editable && editable.isContentEditable ) {
+            editable.blur();
+        }
+        if ( select( blockEditorStore ).getSelectionStart().clientId ) {
+            dispatch( blockEditorStore ).clearSelectedBlock();
+        }
+    }
+
     function NoticeContent( { notice } ) {
         return notice.__unstableHTML ? el( RawHTML, null, notice.content ) : notice.content;
     }
@@ -412,7 +428,7 @@
         if ( ! notices.length ) {
             return null;
         }
-        return el( 'div', { className: 'wfw-notices' }, notices.map( ( notice ) => el( 'div', {
+        return el( 'div', { className: 'wfw-notices', onPointerDown: dropBlockSelection }, notices.map( ( notice ) => el( 'div', {
             key: notice.id,
             className: 'wfw-notice is-' + notice.status,
             role: notice.status === 'error' ? 'alert' : 'status',
@@ -449,7 +465,7 @@
         if ( ! notices.length ) {
             return null;
         }
-        return el( 'div', { className: 'wfw-toasts' }, notices.slice( -3 ).map( ( notice ) => el( Snackbar, { key: notice.id, notice } ) ) );
+        return el( 'div', { className: 'wfw-toasts', onPointerDown: dropBlockSelection }, notices.slice( -3 ).map( ( notice ) => el( Snackbar, { key: notice.id, notice } ) ) );
     }
 
     function Layout() {
@@ -670,11 +686,7 @@
             if ( focused && focused !== document.body && focused !== canvas.frame ) {
                 return;
             }
-            const editable = canvas.doc && canvas.doc.activeElement;
-            if ( editable && editable.isContentEditable ) {
-                editable.blur();
-            }
-            dispatch( blockEditorStore ).clearSelectedBlock();
+            dropBlockSelection();
         }, 250 );
     }
 
