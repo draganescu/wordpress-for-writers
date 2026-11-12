@@ -10,7 +10,7 @@
  * placed where the app wants them. Colors come in through ThemeProvider.
  *
  * It also talks to the app (frame protocol: ready, title, saved, painted,
- * flush, appearance, visibility), saves drafts as you type, and keeps the
+ * stats, flush, appearance, visibility), saves drafts as you type, and keeps the
  * toolbar above the iOS on-screen keyboard.
  */
 ( function () {
@@ -211,44 +211,31 @@
     // ---- Chrome --------------------------------------------------------------
 
     /*
-     * Word count and reading time, counted from the note's content as the
-     * editor's own WordCount and TimeToRead do: wp.wordcount with the
-     * translatable count type (characters for languages that don't split on
-     * spaces) and an average of 189 words a minute.
+     * Word count and reading time, for the app's info button. Counted from the
+     * note's content as the editor's own WordCount and TimeToRead do:
+     * wp.wordcount with the translatable count type (characters for languages
+     * that don't split on spaces) and an average of 189 words a minute. Sent
+     * to the app a moment after typing stops.
      */
     const READING_RATE = 189;
+    const STATS_DELAY = 300;
 
-    function useNoteStats() {
+    function StatsReporter() {
         const content = useSelect( ( s ) => s( editorStore ).getEditedPostAttribute( 'content' ) || '', [] );
-        /*
-         * translators: If your word count is based on single characters (e.g. East Asian characters),
-         * enter 'characters_excluding_spaces' or 'characters_including_spaces'. Otherwise, enter 'words'.
-         * Do not translate into your own language.
-         */
-        const type = wp.i18n._x( 'words', 'Word count type. Do not translate!', 'wordpress-for-writers' );
-        const count = wp.wordcount.count( content, type );
-        return { count, type, minutes: Math.round( count / READING_RATE ) };
-    }
-
-    function NoteStats( { className } ) {
-        const { count, type, minutes } = useNoteStats();
-        if ( ! count ) {
-            return null;
-        }
-        const words = type === 'words'
-            /* translators: %s: number of words. */
-            ? sprintf( _n( '%s word', '%s words', count, 'wordpress-for-writers' ), count.toLocaleString() )
-            /* translators: %s: number of characters. */
-            : sprintf( _n( '%s character', '%s characters', count, 'wordpress-for-writers' ), count.toLocaleString() );
-        const time = minutes < 1
-            ? __( 'Under a minute to read', 'wordpress-for-writers' )
-            /* translators: %s: number of minutes. */
-            : sprintf( _n( '%s min read', '%s min read', minutes, 'wordpress-for-writers' ), minutes.toLocaleString() );
-        return el( 'span', { className: 'wfw-stats' + ( className ? ' ' + className : '' ) },
-            el( 'span', null, words ),
-            el( 'span', { 'aria-hidden': true }, ' · ' ),
-            el( 'span', null, time )
-        );
+        useEffect( () => {
+            const timer = setTimeout( () => {
+                /*
+                 * translators: If your word count is based on single characters (e.g. East Asian characters),
+                 * enter 'characters_excluding_spaces' or 'characters_including_spaces'. Otherwise, enter 'words'.
+                 * Do not translate into your own language.
+                 */
+                const unit = wp.i18n._x( 'words', 'Word count type. Do not translate!', 'wordpress-for-writers' );
+                const count = wp.wordcount.count( content, unit );
+                post( { type: 'stats', id: editorSelect().getCurrentPostId(), count, unit, minutes: Math.round( count / READING_RATE ) } );
+            }, STATS_DELAY );
+            return () => clearTimeout( timer );
+        }, [ content ] );
+        return null;
     }
 
     // Save state and Save / Publish / Update, at the top right.
@@ -263,7 +250,6 @@
         }, [] );
         const { togglePublishSidebar } = useDispatch( editorStore );
         return el( 'div', { className: 'wfw-actions' },
-            el( NoteStats, { className: 'wfw-stats--actions' } ),
             el( editor.PostSavedState ),
             el( editor.PostPublishButton, { isToggle, isOpen: isPublishPanelOpen, onToggle: togglePublishSidebar } )
         );
@@ -383,7 +369,6 @@
             panels.map( ( name ) => el( editor[ name ], { key: name } ) ),
             editor.PluginDocumentSettingPanel && editor.PluginDocumentSettingPanel.Slot && el( editor.PluginDocumentSettingPanel.Slot ),
             el( 'div', { className: 'wfw-sheet__footer' },
-                el( NoteStats ),
                 isPublished && editor.PostSwitchToDraftButton && el( editor.PostSwitchToDraftButton ),
                 config.fullEditorUrl && el( ExternalLink, { href: config.fullEditorUrl }, __( 'Open in the full editor', 'wordpress-for-writers' ) )
             )
@@ -538,6 +523,7 @@
             el( Snackbars ),
             settingsOpen && el( SettingsSheet, { onClose: () => setSettingsOpen( false ) } ),
             el( PublishPanel ),
+            inApp && el( StatsReporter ),
             el( editor.PostLockedModal ),
             el( editor.AutosaveMonitor ),
             el( editor.LocalAutosaveMonitor ),

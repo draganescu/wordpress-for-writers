@@ -1015,6 +1015,59 @@ body.wfw-takeover #wpbody-content {
     background: var( --wfw-editor-bg ) !important;
 }
 
+/* Word count: the note in view's numbers in a small card. Shown once its editor has counted them. */
+.wfw-info-toggle {
+    display: none;
+    box-shadow: none !important;
+    opacity: 0.6;
+    background: var( --wfw-editor-bg ) !important;
+}
+
+.wfw.has-note.has-stats .wfw-info-toggle {
+    display: inline-flex;
+}
+
+.wfw-info-toggle[aria-expanded="true"] {
+    opacity: 1;
+}
+
+/* The menus' card, at the button (app.js keeps it inside the window). */
+.wfw-info {
+    position: fixed;
+    z-index: 1060;
+    min-width: 200px;
+    padding: 10px 14px;
+    color: var( --wfw-list-fg );
+    background: var( --wfw-list-bg );
+    border: 1px solid var( --wfw-border );
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
+    outline: none;
+}
+
+.wfw-info dl {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+}
+
+.wfw-info dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    font-size: 13px;
+}
+
+.wfw-info dt {
+    color: var( --wfw-list-muted );
+}
+
+.wfw-info dd {
+    margin: 0;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
 /*
  * Switch tab: the open editors as a menu, next to Focus mode, for when Editing
  * now is out of sight: the sidebar hidden or focus mode on, and always on
@@ -1331,6 +1384,7 @@ body.wfw-takeover #wpbody-content {
          */
         .wfw-note,
         .wfw-menu,
+        .wfw-info,
         .wfw-theme__preview,
         .wfw-segmented,
         .wfw .wfw-media__current,
