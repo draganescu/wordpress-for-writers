@@ -37,7 +37,6 @@
         link: '<path d="M10 17.389H8.444A5.194 5.194 0 1 1 8.444 7H10v1.5H8.444a3.694 3.694 0 0 0 0 7.389H10v1.5ZM14 7h1.556a5.194 5.194 0 0 1 0 10.39H14v-1.5h1.556a3.694 3.694 0 0 0 0-7.39H14V7Zm-4.5 6h5v-1.5h-5V13Z"/>', // link
         duplicate: '<path fill-rule="evenodd" clip-rule="evenodd" d="M5 4.5h11a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5ZM3 5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm17 3v10.75c0 .69-.56 1.25-1.25 1.25H6v1.5h12.75a2.75 2.75 0 0 0 2.75-2.75V8H20Z"/>', // copy
         pin: '<path d="m21.5 9.1-6.6-6.6-4.2 5.6c-1.2-.1-2.4.1-3.6.7-.1 0-.1.1-.2.1-.5.3-.9.6-1.2.9l3.7 3.7-5.7 5.7v1.1h1.1l5.7-5.7 3.7 3.7c.4-.4.7-.8.9-1.2.1-.1.1-.2.2-.3.6-1.1.8-2.4.6-3.6l5.6-4.1zm-7.3 3.5.1.9c.1.9 0 1.8-.4 2.6l-6-6c.8-.4 1.7-.5 2.6-.4l.9.1L15 4.9 19.1 9l-4.9 3.6z"/>', // pin
-        info: '<path d="M12 3.2c-4.8 0-8.8 3.9-8.8 8.8 0 4.8 3.9 8.8 8.8 8.8 4.8 0 8.8-3.9 8.8-8.8 0-4.8-4-8.8-8.8-8.8zm0 16c-4 0-7.2-3.3-7.2-7.2C4.8 8 8 4.8 12 4.8s7.2 3.3 7.2 7.2c0 4-3.2 7.2-7.2 7.2zM11 17h2v-6h-2v6zm0-8h2V7h-2v2z"/>', // info
     };
 
     // A tag's icon in the sidebar, like the # its list title starts with.
@@ -353,13 +352,11 @@
                 <div class="wfw-editor__corner">
                     <button class="wfw-back" data-action="back">${ icon( 'back' ) }${ esc( __( 'Notes', 'wordpress-for-writers' ) ) }</button>
                     <button class="wfw-icon-btn wfw-focus-toggle" data-action="toggle-focus" title="${ esc( __( 'Focus mode', 'wordpress-for-writers' ) ) }">${ icon( 'focus' ) }</button>
-                    <button class="wfw-icon-btn wfw-info-toggle" data-action="info" aria-haspopup="dialog" aria-expanded="false" aria-controls="wfw-info" title="${ esc( __( 'Word count', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Word count', 'wordpress-for-writers' ) ) }">${ icon( 'info' ) }</button>
                     <button class="wfw-icon-btn wfw-tabs-toggle" data-action="tabs-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="wfw-tabs-menu" title="${ esc( __( 'Switch tab', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Switch tab', 'wordpress-for-writers' ) ) }">${ icon( 'tabs' ) }<span class="wfw-tabs-toggle__count" aria-hidden="true"></span></button>
                 </div>
                 <div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>
             </main>
             <div class="wfw-menu wfw-menu--context wfw-menu--tabs" id="wfw-tabs-menu" role="menu" aria-label="${ esc( __( 'Editing now', 'wordpress-for-writers' ) ) }" tabindex="-1" hidden></div>
-            <div class="wfw-info" id="wfw-info" role="dialog" aria-label="${ esc( __( 'Word count', 'wordpress-for-writers' ) ) }" tabindex="-1" hidden></div>
             <div class="wfw-menu wfw-menu--context" id="wfw-context-menu" role="menu" tabindex="-1" hidden></div>
             <div class="wfw-palette" hidden>
                 <div class="wfw-palette__card" role="dialog" aria-modal="true" aria-label="${ esc( __( 'Commands', 'wordpress-for-writers' ) ) }">
@@ -594,79 +591,6 @@
         tabsMenuOpen = false;
         tabsMenuEl().hidden = true;
         const button = root.querySelector( '.wfw-tabs-toggle' );
-        button?.setAttribute( 'aria-expanded', 'false' );
-        if ( returnFocus ) {
-            button?.focus( { preventScroll: true } );
-        }
-    }
-
-    /*
-     * Word count and reading time for the note in view, under the (i) button
-     * next to Focus mode. Each tab's editor counts its own note and sends the
-     * numbers (see editor.js); the button shows once the one in view has.
-     */
-    let infoOpen = false;
-
-    function infoEl() {
-        return root.querySelector( '#wfw-info' );
-    }
-
-    function infoHtml( stats ) {
-        const count = stats.count.toLocaleString();
-        const words = stats.unit === 'words'
-            /* translators: %s: number of words. */
-            ? sprintf( _n( '%s word', '%s words', stats.count, 'wordpress-for-writers' ), count )
-            /* translators: %s: number of characters. */
-            : sprintf( _n( '%s character', '%s characters', stats.count, 'wordpress-for-writers' ), count );
-        const time = stats.minutes < 1
-            ? __( 'Under a minute', 'wordpress-for-writers' )
-            /* translators: %s: number of minutes. */
-            : sprintf( _n( '%s minute', '%s minutes', stats.minutes, 'wordpress-for-writers' ), stats.minutes.toLocaleString() );
-        return `<dl>
-            <div><dt>${ esc( stats.unit === 'words' ? __( 'Words', 'wordpress-for-writers' ) : __( 'Characters', 'wordpress-for-writers' ) ) }</dt><dd>${ esc( words ) }</dd></div>
-            <div><dt>${ esc( __( 'Reading time', 'wordpress-for-writers' ) ) }</dt><dd>${ esc( time ) }</dd></div>
-        </dl>`;
-    }
-
-    // After a tab switch or new numbers: the button follows the note in view, and an open card its numbers.
-    function syncInfo() {
-        const stats = current?.stats;
-        root.classList.toggle( 'has-stats', !! stats );
-        if ( ! infoOpen ) {
-            return;
-        }
-        if ( stats ) {
-            infoEl().innerHTML = infoHtml( stats );
-        } else {
-            closeInfo( false );
-        }
-    }
-
-    function openInfo() {
-        if ( ! current?.stats ) {
-            return;
-        }
-        closeContextMenu( { focus: false } );
-        closeUserMenu( false );
-        closeTabsMenu( false );
-        const box = infoEl();
-        const button = root.querySelector( '.wfw-info-toggle' );
-        infoOpen = true;
-        box.innerHTML = infoHtml( current.stats );
-        box.hidden = false;
-        button.setAttribute( 'aria-expanded', 'true' );
-        const rect = button.getBoundingClientRect();
-        placeContextMenu( box, { x: rect.left, y: rect.bottom + 4 } );
-        box.focus( { preventScroll: true } );
-    }
-
-    function closeInfo( returnFocus = true ) {
-        if ( ! infoOpen ) {
-            return;
-        }
-        infoOpen = false;
-        infoEl().hidden = true;
-        const button = root.querySelector( '.wfw-info-toggle' );
         button?.setAttribute( 'aria-expanded', 'false' );
         if ( returnFocus ) {
             button?.focus( { preventScroll: true } );
@@ -1067,7 +991,6 @@
         state.activeId = tab ? tab.id : null;
         tabs.forEach( ( t ) => setHidden( t, t !== tab ) );
         root.classList.toggle( 'has-note', !! tab );
-        syncInfo();
         if ( ! tab ) {
             editor.insertAdjacentHTML( 'beforeend', `<div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>` );
         } else if ( ! tab.frame || tab.frame.classList.contains( 'is-loading' ) ) {
@@ -1284,13 +1207,6 @@
             }
             case 'painted': {
                 revealEditor( tab );
-                break;
-            }
-            case 'stats': {
-                tab.stats = { count: Number( data.count ) || 0, unit: data.unit === 'words' ? 'words' : 'characters', minutes: Number( data.minutes ) || 0 };
-                if ( tab === current ) {
-                    syncInfo();
-                }
                 break;
             }
             case 'title': {
@@ -2142,23 +2058,10 @@
         if ( tabsMenuOpen && ! event.target.closest( '.wfw-tabs-toggle, .wfw-menu--tabs' ) ) {
             closeTabsMenu( false );
         }
-        if ( infoOpen && ! event.target.closest( '.wfw-info-toggle, .wfw-info' ) ) {
-            closeInfo( false );
-        }
     } );
     window.addEventListener( 'blur', () => {
         closeUserMenu( false );
         closeTabsMenu( false );
-        closeInfo( false );
-    } );
-    root.addEventListener( 'keydown', ( event ) => {
-        if ( infoOpen && ( event.key === 'Escape' || event.key === 'Tab' ) && event.target.closest( '.wfw-info, .wfw-info-toggle' ) ) {
-            if ( event.key === 'Escape' ) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            closeInfo( event.key === 'Escape' );
-        }
     } );
     window.addEventListener( 'resize', () => closeTabsMenu( tabsMenuEl().contains( document.activeElement ) ) );
 
@@ -3041,13 +2944,6 @@
                 }
                 break;
             }
-            case 'info':
-                if ( infoOpen ) {
-                    closeInfo();
-                } else {
-                    openInfo();
-                }
-                break;
             case 'tabs-menu':
                 if ( tabsMenuOpen ) {
                     closeTabsMenu();

@@ -105,6 +105,7 @@ html:has( body.wfw-editor-page ) {
 .wfw-ed.has-settings .wfw-actions {
     right: calc( 300px + 12px );
 }
+
 .wfw-actions .components-button {
     height: 32px;
     padding: 0 14px;
