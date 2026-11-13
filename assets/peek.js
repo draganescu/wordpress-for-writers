@@ -30,6 +30,7 @@
  *   restoreVersion( { id, title, content, excerpt, date } )
  *                        applies a past version in the note's editor; resolves to whether it could
  *   pickPeek()           opens the command palette asking which note to peek at
+ *   placeMenu( box, { x, y } )   puts a menu at a point, inside the window
  *   focusEditor()        gives focus back to the editor
  *
  * A tab's own sheet waits on the tab as tab.peeks = { items, at, folded }
@@ -49,6 +50,7 @@ window.wfwPeek = function ( app ) {
     const FIND_MAX = 500; // matches marked at most: a letter or two in a long note would be thousands
     const FIND_WAIT = 150; // ms after typing in Find stops before the note is searched
     const SAVED_REFRESH = 10000; // ms: a note saved again and again (the one being written) refreshes in the sheet at most this often
+    const TAB_ROOM = 72; // px: a tab cut shorter than this is too little to read or to tap
     const DOCKS = [ 'right', 'left', 'bottom' ];
     const SIDE = 0.42; // share of the pane a sheet beside the editor takes, at first
     const BOTTOM = 0.5; // and a sheet under it
@@ -71,6 +73,8 @@ window.wfwPeek = function ( app ) {
         find: null, // { query, ranges, at }
     };
     let el = null; // the sheet, once init() has put it in the page
+    let menuEl = null; // the menu of the sheet's notes, at the app's root
+    let peekMenuOpen = false;
     let shownBody = null; // what the sheet's body shows now, so it is only rebuilt when that changes
     let peekPush = { dock: '', px: 0 };
     let peekPushTimer = 0;
@@ -167,6 +171,7 @@ window.wfwPeek = function ( app ) {
                 <header class="wfw-peek__head">
                     <span class="wfw-peek__handle" aria-hidden="true"></span>
                     <div class="wfw-peek__tabs" role="tablist"></div>
+                    <button class="wfw-icon-btn wfw-peek__switch" data-action="peek-switch" aria-haspopup="menu" aria-expanded="false" aria-controls="wfw-peek-menu" title="${ esc( __( 'Switch note', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Switch note', 'wordpress-for-writers' ) ) }"><span class="wfw-peek__switch-count" aria-hidden="true"></span>${ icon( 'dropdown' ) }</button>
                     <div class="wfw-peek__tools">
                         ${ tool( 'peek-find', 'search', __( 'Find in this note', 'wordpress-for-writers' ) ) }
                         ${ tool( 'peek-versions', 'restore', __( 'Past versions', 'wordpress-for-writers' ), ' aria-pressed="false"' ) }
@@ -319,6 +324,59 @@ window.wfwPeek = function ( app ) {
         renderPeek();
     }
 
+    /*
+     * Tabs want room: on a phone, or once a sheet is too narrow for its
+     * notes' titles, the header shows the note in view alone, and a button
+     * beside it lists the sheet's notes as a menu, the way Switch tab does
+     * for the editors.
+     */
+    function fitPeekTabs() {
+        // Put away, the header shows the one note anyway; measuring waits until the sheet is back.
+        if ( ! el || el.hidden || el.classList.contains( 'is-folded' ) ) {
+            return;
+        }
+        let crowded = peek.items.length > 1 && phoneLayout.matches;
+        if ( peek.items.length > 1 && ! crowded ) {
+            // As tabs, with the button out of the way: is any of them cut too short?
+            el.classList.remove( 'is-crowded' );
+            crowded = [ ...el.querySelector( '.wfw-peek__tabs' ).children ].some( ( tab ) => tab.scrollWidth > tab.clientWidth && tab.clientWidth < TAB_ROOM );
+        }
+        el.classList.toggle( 'is-crowded', crowded );
+        if ( ! crowded ) {
+            closePeekMenu( false );
+        }
+    }
+
+    function peekMenuHtml() {
+        const untitled = __( 'Untitled', 'wordpress-for-writers' );
+        return peek.items.map( ( item, i ) => `<button class="wfw-menu__item${ item.title ? '' : ' is-empty' }" role="menuitemradio" aria-checked="${ i === peek.at }" tabindex="-1" data-action="peek-tab" data-index="${ i }">${ i === peek.at ? icon( 'check' ) : '<span class="wfw-menu__spacer"></span>' }<span>${ esc( item.title || untitled ) }</span></button>` ).join( '' );
+    }
+
+    // From the keyboard focus goes to the note in view; otherwise to the menu itself, so its keys work from the start.
+    function openPeekMenu( { keyboard = false } = {} ) {
+        const button = el.querySelector( '.wfw-peek__switch' );
+        peekMenuOpen = true;
+        menuEl.innerHTML = peekMenuHtml();
+        menuEl.hidden = false;
+        button.setAttribute( 'aria-expanded', 'true' );
+        const rect = button.getBoundingClientRect();
+        app.placeMenu( menuEl, { x: rect.left, y: rect.bottom + 4 } );
+        ( keyboard ? menuEl.querySelector( '[aria-checked="true"]' ) || menuEl : menuEl ).focus( { preventScroll: true } );
+    }
+
+    function closePeekMenu( returnFocus = true ) {
+        if ( ! peekMenuOpen ) {
+            return;
+        }
+        peekMenuOpen = false;
+        menuEl.hidden = true;
+        const button = el.querySelector( '.wfw-peek__switch' );
+        button.setAttribute( 'aria-expanded', 'false' );
+        if ( returnFocus ) {
+            button.focus( { preventScroll: true } );
+        }
+    }
+
     function renderPeek() {
         const item = peekItem();
         if ( ! el || ! item ) {
@@ -326,6 +384,11 @@ window.wfwPeek = function ( app ) {
         }
         const untitled = __( 'Untitled', 'wordpress-for-writers' );
         el.querySelector( '.wfw-peek__tabs' ).innerHTML = peek.items.map( ( other, i ) => `<button class="wfw-peek__tab${ i === peek.at ? ' is-active' : '' }${ other.pinned ? ' is-pinned' : '' }" role="tab" aria-selected="${ i === peek.at }" data-action="peek-tab" data-index="${ i }">${ esc( other.title || untitled ) }</button>` ).join( '' );
+        el.querySelector( '.wfw-peek__switch-count' ).textContent = peek.items.length;
+        fitPeekTabs();
+        if ( peekMenuOpen ) {
+            menuEl.innerHTML = peekMenuHtml();
+        }
         const version = shownVersion( item );
         const title = el.querySelector( '.wfw-peek__title' );
         const shownTitle = version ? version.title : item.title;
@@ -830,6 +893,9 @@ window.wfwPeek = function ( app ) {
         const editor = root.querySelector( '.wfw-editor' );
         editor.insertAdjacentHTML( 'beforeend', peekShellHtml() );
         el = editor.querySelector( '.wfw-peek' );
+        // The menu is at the app's root, like its other menus: over the panes, and out of the sheet's own keys.
+        root.insertAdjacentHTML( 'beforeend', `<div class="wfw-menu wfw-menu--peek" id="wfw-peek-menu" role="menu" aria-label="${ esc( __( 'Peek', 'wordpress-for-writers' ) ) }" tabindex="-1" hidden></div>` );
+        menuEl = root.querySelector( '#wfw-peek-menu' );
         const drop = editor.querySelector( '.wfw-peek-drop' );
         let drag = null;
 
@@ -998,6 +1064,9 @@ window.wfwPeek = function ( app ) {
             if ( ( event.metaKey || event.ctrlKey ) && ! event.altKey && event.key.toLowerCase() === 'f' ) {
                 event.preventDefault();
                 openPeekFind();
+            } else if ( ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) && ! event.altKey && event.target.closest( '.wfw-peek__switch' ) ) {
+                event.preventDefault();
+                openPeekMenu( { keyboard: true } );
             } else if ( event.key === 'Enter' && event.target === input ) {
                 event.preventDefault();
                 if ( findTimer ) {
@@ -1032,6 +1101,26 @@ window.wfwPeek = function ( app ) {
             }
         };
         new ResizeObserver( relayout ).observe( editor );
+        // The tabs' room changes with the sheet's width; the menu goes with a click or a tap elsewhere,
+        // with the window's focus (a click into the editor's frame) and with its size.
+        new ResizeObserver( fitPeekTabs ).observe( el.querySelector( '.wfw-peek__tabs' ) );
+        document.addEventListener( 'pointerdown', ( event ) => {
+            if ( peekMenuOpen && ! event.target.closest( '.wfw-peek__switch, .wfw-menu--peek' ) ) {
+                closePeekMenu( false );
+            }
+        } );
+        window.addEventListener( 'blur', () => closePeekMenu( false ) );
+        window.addEventListener( 'resize', () => closePeekMenu( false ) );
+        // The arrows, Home, End and Space are the app's, for every menu; closing is the menu's own.
+        menuEl.addEventListener( 'keydown', ( event ) => {
+            if ( event.key === 'Escape' || event.key === 'Tab' ) {
+                if ( event.key === 'Escape' ) {
+                    event.preventDefault();
+                }
+                event.stopPropagation();
+                closePeekMenu();
+            }
+        } );
         phoneLayout.addEventListener( 'change', relayout );
         // Notes pinned on an earlier visit.
         if ( peekItem() ) {
@@ -1042,10 +1131,21 @@ window.wfwPeek = function ( app ) {
         }
     }
 
-    // What a click in or about the sheet does: from onClick, the header's taps and the command palette.
-    function onPeekAction( action, target ) {
+    // What a click in or about the sheet does: from onClick (with its event), the header's taps and the command palette.
+    function onPeekAction( action, target, event ) {
         const item = peekItem();
+        if ( action !== 'peek-switch' ) {
+            // Anything else done in the app puts the menu away; a note picked from it by keyboard leaves focus on its button.
+            closePeekMenu( action === 'peek-tab' && menuEl.contains( document.activeElement ) );
+        }
         switch ( action ) {
+            case 'peek-switch':
+                if ( peekMenuOpen ) {
+                    closePeekMenu();
+                } else {
+                    openPeekMenu( { keyboard: event?.detail === 0 } );
+                }
+                break;
             case 'peek-pick':
                 app.pickPeek();
                 break;
@@ -1148,6 +1248,7 @@ window.wfwPeek = function ( app ) {
 
     // The tab in view changed (`from` to `to`), or the pane did (a panel opened or closed): the sheet follows.
     function paneChanged( from, to ) {
+        closePeekMenu( false );
         switchPeeks( from, to );
         layoutPeek();
         renderPeek(); // Swapping is with the note in the editor, which may have changed.
@@ -1186,7 +1287,7 @@ window.wfwPeek = function ( app ) {
         open: peekNote, // ( id, { versions } )
         closeAll: closeAllPeeks,
         isOpen: () => peek.items.length > 0,
-        action: onPeekAction, // ( data-action, element ): true when it was the sheet's
+        action: onPeekAction, // ( data-action, element, click ): true when it was the sheet's
         paneChanged, // ( from, to ): the tab in view changed, or a panel opened or closed
         noteSaved: onNoteSavedForPeek, // ( id )
         keyboard: onKeyboardForPeek, // ( up ): the on-screen keyboard came or went

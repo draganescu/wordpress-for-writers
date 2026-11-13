@@ -1373,6 +1373,7 @@
         replaceNote,
         restoreVersion: restoreInEditor,
         pickPeek,
+        placeMenu: placeContextMenu,
         focusEditor: () => current?.frame?.focus(),
     } );
 
@@ -3083,7 +3084,7 @@
             return;
         }
         const id = Number( target.dataset.id ) || undefined;
-        if ( PEEK.action( target.dataset.action, target ) ) {
+        if ( PEEK.action( target.dataset.action, target, event ) ) {
             return;
         }
         switch ( target.dataset.action ) {

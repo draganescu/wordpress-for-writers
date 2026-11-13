@@ -311,6 +311,55 @@
     background: none;
 }
 
+/*
+ * Without room for tabs (a phone, a narrow sheet), the header shows the note
+ * in view alone, and a button beside it opens the sheet's notes as a menu.
+ */
+.wfw-peek.is-crowded .wfw-peek__tab:not( .is-active ) {
+    display: none;
+}
+
+.wfw-peek.is-crowded:not( .is-folded ) .wfw-peek__tab.is-active {
+    flex-shrink: 1;
+    max-width: none;
+    padding-left: 4px;
+    font-size: 14px;
+    background: none;
+}
+
+.wfw-peek__switch {
+    display: none;
+    flex: none;
+    width: auto;
+    min-width: 40px;
+    height: 30px;
+    padding: 0 4px 0 10px;
+    gap: 0;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var( --wfw-text ) !important;
+    background: var( --wfw-list-hover );
+    cursor: pointer;
+}
+
+.wfw-peek.is-crowded:not( .is-folded ) .wfw-peek__switch {
+    display: inline-flex;
+}
+
+/* The menu: the app's own card (app.css), placed by peek.js under the button and kept inside the window. */
+.wfw .wfw-menu--peek {
+    position: fixed;
+    right: auto;
+    bottom: auto;
+    z-index: 1060;
+    min-width: 200px;
+    max-width: min( 320px, calc( 100vw - 16px ) );
+    overflow-y: auto;
+    outline: none;
+}
+
 .wfw-peek__tools {
     flex: none;
     display: flex;
@@ -476,6 +525,20 @@
     .wfw-peek__tools .wfw-icon-btn {
         width: 34px;
         height: 34px;
+    }
+
+    .wfw-peek__switch {
+        min-width: 48px;
+        height: 34px;
+        border-radius: 17px;
+        font-size: 13px;
+    }
+
+    /* A finger's worth of each note in the menu. */
+    .wfw .wfw-menu--peek .wfw-menu__item {
+        min-height: 44px;
+        padding: 0 12px 0 8px;
+        font-size: 15px;
     }
 }
 
