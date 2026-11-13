@@ -60,23 +60,16 @@ html:has( body.wfw-editor-page ) {
     border-color: var( --wfw-border );
 }
 
-/* The word count flydown under the (i) above the title (NoteStats in editor.js). */
-.wfw-ed .wfw-title-info__popover .components-popover__content {
-    min-width: 200px;
-    padding: 10px 14px;
-    border: 1px solid var( --wfw-border );
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
-    outline: none;
-    font-family: var( --wfw-font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif );
-    font-size: 13px;
-    line-height: 1.3;
-}
-
+/* The word count flydown under the (i) above the title (NoteStats in editor.js), in the components' own popover frame. */
 .wfw-title-info__stats {
     display: grid;
     gap: 6px;
+    min-width: 200px;
     margin: 0;
+    padding: 10px 14px;
+    font-family: var( --wfw-font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif );
+    font-size: 13px;
+    line-height: 1.3;
 }
 
 .wfw-title-info__stats > div {
