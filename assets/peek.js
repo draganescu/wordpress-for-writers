@@ -46,6 +46,9 @@ window.wfwPeek = function ( app ) {
     const PEEK_TOP = 56; // px of the editor a full-height sheet leaves in sight, with the pane's buttons
     const PEEK_EASE = 300; // ms, as in the stylesheet
     const VERSIONS_KEPT = 10; // past versions kept loaded per note, to step back and forth without refetching
+    const FIND_MAX = 500; // matches marked at most: a letter or two in a long note would be thousands
+    const FIND_WAIT = 150; // ms after typing in Find stops before the note is searched
+    const SAVED_REFRESH = 10000; // ms: a note saved again and again (the one being written) refreshes in the sheet at most this often
     const DOCKS = [ 'right', 'left', 'bottom' ];
     const SIDE = 0.42; // share of the pane a sheet beside the editor takes, at first
     const BOTTOM = 0.5; // and a sheet under it
@@ -71,7 +74,11 @@ window.wfwPeek = function ( app ) {
     let shownBody = null; // what the sheet's body shows now, so it is only rebuilt when that changes
     let peekPush = { dock: '', px: 0 };
     let peekPushTimer = 0;
-    let peekHideTimer = 0;
+    let shown = null; // where the sheet sits while in sight: { box, dock } (dock null after it was carried off its edge)
+    let settleTimer = 0;
+    let settleThen = null;
+    let savedRefreshTimer = 0;
+    let savedRefreshAt = 0;
     let peekFoldedByKeyboard = false;
 
     function newPeekItem( id, title = '', pinned = false ) {
@@ -264,11 +271,12 @@ window.wfwPeek = function ( app ) {
         if ( ! item || ! el || peek.folded ) {
             return;
         }
-        if ( item.stale || ! item.html && ! item.failed ) {
+        // The note as it is now, unless a past version is in front of it.
+        if ( ( item.stale || ! item.html && ! item.failed ) && ! ( item.versions?.index >= 0 ) ) {
             loadPeek( item );
         }
-        if ( item.versions?.stale ) {
-            loadPeekVersions( item );
+        if ( item.versions?.stale && item.versions.list ) {
+            addNewVersions( item );
         }
     }
 
@@ -441,24 +449,39 @@ window.wfwPeek = function ( app ) {
         item.versions = item.versions ? null : { list: null, index: -1, cache: new Map(), stale: false };
         renderPeek();
         if ( item.versions ) {
-            loadPeekVersions( item, { step: true } );
+            loadPeekVersions( item );
         }
     }
 
     // The note's saved versions, newest first. `step` opens on the one before the last save.
-    async function loadPeekVersions( item, { step = false } = {} ) {
+    function versionsPath( item, count ) {
+        return '/wp/v2/posts/' + item.id + '/revisions?context=edit&per_page=' + count + '&_fields=id,date_gmt';
+    }
+
+    // The note's saved versions, newest first, opening on the one before the last save.
+    async function loadPeekVersions( item ) {
         const versions = item.versions;
         versions.stale = false;
-        const kept = versions.list && versions.index >= 0 ? versions.list[ versions.index ].id : 0;
-        const list = await apiFetch( { path: '/wp/v2/posts/' + item.id + '/revisions?context=edit&per_page=100&_fields=id,date_gmt' } ).catch( () => [] );
+        const list = await apiFetch( { path: versionsPath( item, 100 ) } ).catch( () => [] );
+        if ( item.versions === versions ) {
+            versions.list = list;
+            showPeekVersion( item, Math.min( 1, list.length - 1 ) );
+        }
+    }
+
+    // Saves since the list was loaded: only the newest few are asked for, and added at its top.
+    async function addNewVersions( item ) {
+        const versions = item.versions;
+        versions.stale = false;
+        const newest = await apiFetch( { path: versionsPath( item, 10 ) } ).catch( () => [] );
         if ( item.versions !== versions ) {
             return;
         }
-        versions.list = list;
-        if ( step ) {
-            showPeekVersion( item, Math.min( 1, list.length - 1 ) );
-        } else {
-            versions.index = kept ? list.findIndex( ( v ) => v.id === kept ) : -1;
+        const known = new Set( versions.list.map( ( v ) => v.id ) );
+        const added = newest.filter( ( v ) => ! known.has( v.id ) );
+        if ( added.length ) {
+            versions.list = [ ...added, ...versions.list ];
+            versions.index += versions.index >= 0 ? added.length : 0; // The same version stays in front.
             renderPeek();
         }
     }
@@ -470,7 +493,11 @@ window.wfwPeek = function ( app ) {
         }
         versions.index = index;
         renderPeek();
-        if ( index < 0 || shownVersion( item ) ) {
+        if ( index < 0 ) {
+            freshen(); // Back to now, which may have been saved meanwhile.
+            return;
+        }
+        if ( shownVersion( item ) ) {
             return;
         }
         const id = versions.list[ index ].id;
@@ -533,7 +560,7 @@ window.wfwPeek = function ( app ) {
         }
     }
 
-    // Marks every match in the note; the current one stands out and is scrolled to.
+    // Finds the matches in the note (up to FIND_MAX) and marks them all.
     function runPeekFind( { scroll = false } = {} ) {
         const find = peek.find;
         if ( ! el || ! find ) {
@@ -543,28 +570,44 @@ window.wfwPeek = function ( app ) {
         const ranges = [];
         if ( query ) {
             const walker = document.createTreeWalker( el.querySelector( '.wfw-peek__doc' ), NodeFilter.SHOW_TEXT );
-            for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+            search: for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
                 const text = node.nodeValue.toLowerCase();
                 for ( let from = text.indexOf( query ); from >= 0; from = text.indexOf( query, from + query.length ) ) {
                     const range = document.createRange();
                     range.setStart( node, from );
                     range.setEnd( node, from + query.length );
                     ranges.push( range );
+                    if ( ranges.length >= FIND_MAX ) {
+                        break search;
+                    }
                 }
             }
         }
         find.ranges = ranges;
         find.at = clamp( find.at, 0, ranges.length - 1 );
-        const now = ranges[ find.at ];
         if ( window.Highlight && window.CSS?.highlights ) {
             CSS.highlights.set( 'wfw-peek-find', new Highlight( ...ranges ) );
+        }
+        showPeekMatch( { scroll } );
+    }
+
+    // The match in view: it stands out, is counted, and is scrolled to. Stepping through matches only does this.
+    function showPeekMatch( { scroll = false } = {} ) {
+        const find = peek.find;
+        const { ranges } = find;
+        const now = ranges[ find.at ];
+        if ( window.Highlight && window.CSS?.highlights ) {
             CSS.highlights.set( 'wfw-peek-find-current', new Highlight( ...( now ? [ now ] : [] ) ) );
         }
-        el.querySelector( '.wfw-peek__count' ).textContent = ! query
+        const total = ranges.length >= FIND_MAX
+            /* translators: %d: the most matches Find marks in a note. */
+            ? sprintf( __( '%d+', 'wordpress-for-writers' ), FIND_MAX )
+            : String( ranges.length );
+        el.querySelector( '.wfw-peek__count' ).textContent = ! find.query
             ? ''
             : ranges.length
                 /* translators: 1: the match in view, 2: how many matches there are. */
-                ? sprintf( __( '%1$d of %2$d', 'wordpress-for-writers' ), find.at + 1, ranges.length )
+                ? sprintf( __( '%1$d of %2$s', 'wordpress-for-writers' ), find.at + 1, total )
                 : __( 'No matches', 'wordpress-for-writers' );
         if ( now && scroll ) {
             const scroller = el.querySelector( '.wfw-peek__scroll' );
@@ -580,7 +623,7 @@ window.wfwPeek = function ( app ) {
         const find = peek.find;
         if ( find?.ranges.length ) {
             find.at = ( find.at + by + find.ranges.length ) % find.ranges.length;
-            runPeekFind( { scroll: true } );
+            showPeekMatch( { scroll: true } );
         }
     }
 
@@ -626,12 +669,68 @@ window.wfwPeek = function ( app ) {
         Object.assign( target.style, { left: box.left + 'px', top: box.top + 'px', width: box.width + 'px', height: box.height + 'px' } );
     }
 
-    // Placed at once, without easing (a reflow in between, so the next placement eases from here).
-    function placeStill( box ) {
+    // Placed at once, without easing (a reflow in between, so the next change eases from here).
+    function placeStill( box, transform = '' ) {
         el.classList.add( 'is-still' );
         place( el, box );
+        el.style.transform = transform;
         el.getBoundingClientRect();
         el.classList.remove( 'is-still' );
+    }
+
+    /*
+     * The sheet moves by transform only, which the browser animates without
+     * laying the note out again on every frame. Between two boxes on the same
+     * edge it is laid out once at the larger of them (`cover`), slides, and
+     * takes its final size when it has arrived.
+     */
+    function cover( a, b, dock, { W, H } ) {
+        if ( dock === 'bottom' ) {
+            const height = Math.max( a.height, b.height );
+            return { left: 0, top: H - height, width: W, height };
+        }
+        const width = Math.max( a.width, b.width );
+        return { left: dock === 'left' ? 0 : W - width, top: 0, width, height: H };
+    }
+
+    // How far the cover box is moved to show `box`: down, or toward the edge it is docked on.
+    function offset( box, big, dock ) {
+        if ( dock === 'bottom' ) {
+            return `translate3d( 0, ${ box.top - big.top }px, 0 )`;
+        }
+        const dx = dock === 'left' ? box.left + box.width - big.left - big.width : box.left - big.left;
+        return `translate3d( ${ dx }px, 0, 0 )`;
+    }
+
+    // Finishes a slide under way at once: the sheet takes its final box.
+    function settle() {
+        clearTimeout( settleTimer );
+        const then = settleThen;
+        settleThen = null;
+        if ( then ) {
+            then();
+        }
+    }
+
+    function slide( from, to, dock, bounds, then = null ) {
+        settle();
+        const big = cover( from, to, dock, bounds );
+        placeStill( big, offset( from, big, dock ) );
+        el.style.transform = offset( to, big, dock );
+        settleThen = () => {
+            placeStill( to );
+            if ( then ) {
+                then();
+            }
+        };
+        settleTimer = setTimeout( settle, PEEK_EASE );
+    }
+
+    // From somewhere else (where it was let go after being carried) into its box: a move, and its size at once.
+    function flip( from, to ) {
+        settle();
+        placeStill( to, `translate3d( ${ from.left - to.left }px, ${ from.top - to.top }px, 0 )` );
+        el.style.transform = '';
     }
 
     // The editor gives way under the sheet (app.css's inset): after the sheet has slid over it when it grows, at once when it shrinks.
@@ -654,41 +753,50 @@ window.wfwPeek = function ( app ) {
             return;
         }
         const open = peek.items.length > 0 && ! app.panel();
-        const shown = ! el.hidden;
         if ( ! open && ! shown ) {
             return; // Nothing to place, and nothing to take away.
         }
         const bounds = peekBounds();
         const dock = peekDock( bounds );
         const box = peekGeometry( dock, bounds );
-        DOCKS.forEach( ( d ) => el.classList.toggle( 'is-' + d, d === dock ) );
-        el.classList.toggle( 'is-folded', peek.folded );
         const fold = el.querySelector( '[data-action="peek-fold"]' );
         setLabel( fold, peek.folded ? __( 'Bring back', 'wordpress-for-writers' ) : __( 'Put away', 'wordpress-for-writers' ) );
         fold.setAttribute( 'aria-expanded', String( ! peek.folded ) );
         el.classList.toggle( 'is-over', box.push < ( dock === 'bottom' ? box.height : box.width ) );
-        clearTimeout( peekHideTimer );
         if ( ! open ) {
             // Goes back out past its edge.
-            place( el, peekOffstage( dock, box, bounds ) );
-            peekHideTimer = setTimeout( () => ( el.hidden = true ), PEEK_EASE );
+            const { box: last, dock: edge } = shown;
+            shown = null;
+            slide( last, peekOffstage( edge || dock, last, bounds ), edge || dock, bounds, () => ( el.hidden = true ) );
             setPeekPush( 0, dock );
             return;
         }
         if ( ! bounds.W || ! bounds.H ) {
             return; // The pane is out of the layout (a phone showing the list).
         }
+        // Its look for the dock and fold. Folding away, the sheet keeps its full look while it slides, and folds when it's there.
+        const look = () => {
+            DOCKS.forEach( ( d ) => el.classList.toggle( 'is-' + d, d === dock ) );
+            el.classList.toggle( 'is-folded', peek.folded );
+        };
+        const foldsAway = peek.folded && ! el.classList.contains( 'is-folded' ) && shown?.dock === dock;
+        if ( ! foldsAway ) {
+            look();
+        }
         if ( ! shown ) {
             // Comes in from its edge.
             el.hidden = false;
-            placeStill( peekOffstage( dock, box, bounds ) );
             renderPeek();
-        }
-        if ( animate ) {
-            place( el, box );
-        } else {
+            slide( peekOffstage( dock, box, bounds ), box, dock, bounds );
+        } else if ( ! animate ) {
+            settle();
             placeStill( box );
+        } else if ( shown.dock !== dock ) {
+            flip( shown.box, box );
+        } else {
+            slide( shown.box, box, dock, bounds, foldsAway ? look : null );
         }
+        shown = { box, dock };
         setPeekPush( box.push, dock );
     }
 
@@ -710,9 +818,10 @@ window.wfwPeek = function ( app ) {
             try {
                 event.currentTarget.setPointerCapture( event.pointerId );
             } catch ( e ) {}
+            settle();
             const bounds = peekBounds();
             const dock = peekDock( bounds );
-            drag = { mode, dock, bounds, x: event.clientX, y: event.clientY, box: peekGeometry( dock, bounds ), moved: false, to: dock, size: 0, speed: 0, lastY: event.clientY, lastTime: event.timeStamp };
+            drag = { mode, dock, bounds, frame: 0, next: null, x: event.clientX, y: event.clientY, box: peekGeometry( dock, bounds ), moved: false, to: dock, size: 0, speed: 0, lastY: event.clientY, lastTime: event.timeStamp };
         };
 
         const move = ( event ) => {
@@ -727,6 +836,11 @@ window.wfwPeek = function ( app ) {
                 }
                 drag.moved = true;
                 root.classList.add( 'is-peek-dragging' );
+                if ( drag.mode === 'size' && drag.dock !== 'bottom' ) {
+                    // Its text keeps the width it had while the edge moves, and wraps again once, when let go.
+                    inner.style.width = el.offsetWidth + 'px';
+                    el.classList.add( 'is-sizing' );
+                }
                 // Under the editor, pulling the header up or down is a resize; carrying it off sideways moves it.
                 if ( drag.mode === 'move' && drag.dock === 'bottom' && Math.abs( dy ) > Math.abs( dx ) * 1.2 ) {
                     drag.mode = 'size';
@@ -751,10 +865,18 @@ window.wfwPeek = function ( app ) {
                     drag.lastTime = event.timeStamp;
                 }
                 drag.size = clamp( drag.box.height - dy, PEEK_STRIP, H - PEEK_TOP );
-                place( el, { ...drag.box, top: H - drag.size, height: drag.size } );
+                drag.next = { ...drag.box, top: H - drag.size, height: drag.size };
             } else {
                 drag.size = clamp( drag.box.width + ( drag.dock === 'left' ? dx : -dx ), PEEK_RAIL, W - 80 );
-                place( el, { ...drag.box, left: drag.dock === 'left' ? 0 : W - drag.size, width: drag.size } );
+                drag.next = { ...drag.box, left: drag.dock === 'left' ? 0 : W - drag.size, width: drag.size };
+            }
+            // Pointer events can come faster than frames: the sheet is placed once a frame.
+            if ( ! drag.frame ) {
+                const sizing = drag;
+                sizing.frame = requestAnimationFrame( () => {
+                    sizing.frame = 0;
+                    place( el, sizing.next );
+                } );
             }
         };
 
@@ -765,6 +887,7 @@ window.wfwPeek = function ( app ) {
             const done = drag;
             drag = null;
             drop.hidden = true;
+            cancelAnimationFrame( done.frame );
             const { W, H } = done.bounds;
             if ( ! done.moved ) {
                 if ( event.type !== 'pointerup' || done.mode === 'size' && ! event.target.closest( '.wfw-peek__head' ) ) {
@@ -779,23 +902,30 @@ window.wfwPeek = function ( app ) {
             if ( done.mode === 'move' ) {
                 // Let go where it is, then settle into the dock.
                 const rect = el.getBoundingClientRect();
-                el.style.transform = '';
-                place( el, { left: rect.left - done.bounds.left, top: rect.top - done.bounds.top, width: rect.width, height: rect.height } );
-                el.getBoundingClientRect();
+                shown = { box: { left: rect.left - done.bounds.left, top: rect.top - done.bounds.top, width: rect.width, height: rect.height }, dock: null };
                 peek.dock = done.to;
                 peek.folded = false;
-            } else if ( done.dock === 'bottom' ) {
-                // A flick carries it on: down folds it, up opens it all the way.
-                const aim = done.size - done.speed * 220;
-                peek.folded = aim < 120;
-                if ( ! peek.folded ) {
-                    peek.bottom = aim > H * 0.82 ? 1 : Math.max( 0.2, aim / H );
-                }
             } else {
-                // Dragged down to almost nothing, it is put away.
-                peek.folded = done.size < 200;
-                if ( ! peek.folded ) {
-                    peek.side = clamp( done.size / W, 0.2, 0.8 );
+                // Its text wraps to the new width once, here; it slides on from where it was let go.
+                inner.style.width = '';
+                el.classList.remove( 'is-sizing' );
+                if ( done.next ) {
+                    placeStill( done.next );
+                    shown = { box: done.next, dock: done.dock };
+                }
+                if ( done.dock === 'bottom' ) {
+                    // A flick carries it on: down folds it, up opens it all the way.
+                    const aim = done.size - done.speed * 220;
+                    peek.folded = aim < 120;
+                    if ( ! peek.folded ) {
+                        peek.bottom = aim > H * 0.82 ? 1 : Math.max( 0.2, aim / H );
+                    }
+                } else {
+                    // Dragged down to almost nothing, it is put away.
+                    peek.folded = done.size < 200;
+                    if ( ! peek.folded ) {
+                        peek.side = clamp( done.size / W, 0.2, 0.8 );
+                    }
                 }
             }
             root.classList.remove( 'is-peek-dragging' );
@@ -806,6 +936,7 @@ window.wfwPeek = function ( app ) {
 
         const head = el.querySelector( '.wfw-peek__head' );
         const grip = el.querySelector( '.wfw-peek__grip' );
+        const inner = el.querySelector( '.wfw-peek__inner' );
         head.addEventListener( 'pointerdown', ( event ) => begin( event, phoneLayout.matches ? 'size' : 'move' ) );
         grip.addEventListener( 'pointerdown', ( event ) => begin( event, 'size' ) );
         [ head, grip ].forEach( ( part ) => {
@@ -822,13 +953,21 @@ window.wfwPeek = function ( app ) {
             layoutPeek();
         } );
 
+        // The note is searched once typing pauses; Enter searches at once, so it never steps through stale matches.
         const input = el.querySelector( '.wfw-peek__find input' );
-        input.addEventListener( 'input', () => {
-            if ( peek.find ) {
+        let findTimer = 0;
+        const search = () => {
+            clearTimeout( findTimer );
+            findTimer = 0;
+            if ( peek.find && peek.find.query !== input.value ) {
                 peek.find.query = input.value;
                 peek.find.at = 0;
                 runPeekFind( { scroll: true } );
             }
+        };
+        input.addEventListener( 'input', () => {
+            clearTimeout( findTimer );
+            findTimer = setTimeout( search, FIND_WAIT );
         } );
         el.addEventListener( 'keydown', ( event ) => {
             if ( ( event.metaKey || event.ctrlKey ) && ! event.altKey && event.key.toLowerCase() === 'f' ) {
@@ -836,7 +975,11 @@ window.wfwPeek = function ( app ) {
                 openPeekFind();
             } else if ( event.key === 'Enter' && event.target === input ) {
                 event.preventDefault();
-                stepPeekFind( event.shiftKey ? -1 : 1 );
+                if ( findTimer ) {
+                    search();
+                } else {
+                    stepPeekFind( event.shiftKey ? -1 : 1 );
+                }
             } else if ( event.key === 'Escape' ) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -949,8 +1092,13 @@ window.wfwPeek = function ( app ) {
                 item.versions.stale = true;
             }
         } ) );
-        if ( ! el.hidden ) {
-            freshen();
+        // Autosaves of the note being written come every pause in typing: the sheet catches up with them now and then.
+        if ( ! el.hidden && ! savedRefreshTimer ) {
+            savedRefreshTimer = setTimeout( () => {
+                savedRefreshTimer = 0;
+                savedRefreshAt = Date.now();
+                freshen();
+            }, Math.max( 0, savedRefreshAt + SAVED_REFRESH - Date.now() ) );
         }
     }
 

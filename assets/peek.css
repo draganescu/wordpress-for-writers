@@ -19,13 +19,19 @@
     box-sizing: border-box;
     background: var( --wfw-editor-bg );
     color: var( --wfw-text );
-    transition-property: left, top, width, height, border-radius, box-shadow;
+    /* Only the transform eases (see peek.js): moving it lays nothing out again. */
+    transition-property: transform, border-radius, box-shadow;
     transition-duration: 0.3s;
     transition-timing-function: cubic-bezier( 0.2, 0.9, 0.25, 1 );
 }
 
 .wfw-peek[hidden] {
     display: none;
+}
+
+/* While its inner edge is dragged, the note keeps its width and the sheet shows what fits. */
+.wfw-peek.is-sizing {
+    overflow: hidden;
 }
 
 /* The sheet's content is clipped to its shape by this box, so the resize grip can reach past the sheet's edge. */
@@ -444,6 +450,11 @@
 
 .wfw-peek__body figure {
     margin-inline: 0;
+}
+
+/* wp-admin takes list markers away; a note keeps them. */
+.wfw-peek__body :is( ul, ol ) {
+    list-style: revert;
 }
 
 ::highlight( wfw-peek-find ) {
