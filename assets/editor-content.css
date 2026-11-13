@@ -138,62 +138,25 @@ html {
     white-space: nowrap;
 }
 
-/* The (i) at the end of the row, and the word count flydown under it. */
+/* The (i) at the end of the row. Its word count flydown is drawn outside the canvas (editor.css). */
 .editor-styles-wrapper .wfw-title-info {
-    position: relative;
     flex: none;
     display: inline-flex;
 }
 
+/* No 50% cap here: its wrapper shrinks to fit it, so the cap would halve the button. */
 .editor-styles-wrapper .wfw-title-link--info {
+    max-width: none;
     padding: 4px 6px;
 }
 
-.editor-styles-wrapper .wfw-title-info.is-open .wfw-title-link--info {
+.editor-styles-wrapper .wfw-title-link--info[aria-expanded="true"] {
     color: var( --wfw-text );
     background: var( --wfw-code-bg );
 }
 
-.editor-styles-wrapper .wfw-title-info__card {
-    position: absolute;
-    top: calc( 100% + 4px );
-    right: 0;
-    z-index: 10;
-    min-width: 200px;
-    padding: 10px 14px;
-    color: var( --wfw-text );
-    background: var( --wfw-editor-bg );
-    border: 1px solid var( --wfw-border );
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.16 );
-    font-family: var( --wfw-font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif );
-    font-size: 13px;
-    line-height: 1.3;
-}
-
-.editor-styles-wrapper .wfw-title-info__card dl {
-    display: grid;
-    gap: 6px;
-    margin: 0;
-}
-
-.editor-styles-wrapper .wfw-title-info__card dl > div {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-}
-
-.editor-styles-wrapper .wfw-title-info__card dt {
-    color: var( --wfw-muted );
-}
-
-.editor-styles-wrapper .wfw-title-info__card dd {
-    margin: 0;
-    font-variant-numeric: tabular-nums;
-}
-
 /* The row stays up while the flydown is open (a rule of its own, so a browser without :has() keeps the rest). */
-.editor-styles-wrapper .wfw-title-links:has( .wfw-title-info.is-open ) {
+.editor-styles-wrapper .wfw-title-links:has( [aria-expanded="true"] ) {
     opacity: 1;
 }
 
