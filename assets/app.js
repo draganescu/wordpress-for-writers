@@ -2541,6 +2541,10 @@
         if ( event.pointerType !== 'touch' ) {
             return;
         }
+        // The first finger down is the only one: any other still counted is one whose lifting never got here.
+        if ( event.isPrimary ) {
+            touches.clear();
+        }
         touches.set( event.pointerId, { x: event.clientX, y: event.clientY } );
         const el = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
         if ( touches.size === 1 ) {
@@ -2562,7 +2566,8 @@
         }
     } );
 
-    root.addEventListener( 'pointerup', ( event ) => {
+    // On the document: a finger lifted from an item the list has since re-rendered is heard there, and nowhere in the app.
+    document.addEventListener( 'pointerup', ( event ) => {
         if ( ! touches.delete( event.pointerId ) || touches.size ) {
             return;
         }
@@ -2574,17 +2579,38 @@
         }
     } );
 
-    root.addEventListener( 'pointercancel', ( event ) => {
+    document.addEventListener( 'pointercancel', ( event ) => {
         touches.delete( event.pointerId );
         twoFinger = null;
     } );
 
-    // Where a browser still makes a click of one of the fingers, it doesn't open the note or view.
+    /*
+     * Where a browser still makes a click of one of the fingers, it doesn't open
+     * the note or view. iOS makes its own of the two together: a click with the
+     * Command key set and no such key pressed, its way of opening a link in a new
+     * tab. That click is the two-finger tap however the fingers were followed
+     * above: it never opens the note in a tab, and opens the menu if nothing has.
+     */
+    let metaHeld = false;
+    [ 'keydown', 'keyup' ].forEach( ( type ) => document.addEventListener( type, ( event ) => {
+        metaHeld = event.metaKey;
+    }, true ) );
+    window.addEventListener( 'blur', () => {
+        metaHeld = false;
+    } );
+
     root.addEventListener( 'click', ( event ) => {
-        if ( suppressClick ) {
-            suppressClick = false;
-            event.preventDefault();
-            event.stopPropagation();
+        const twoFingerClick = event.metaKey && ! metaHeld && ( event.pointerType || lastPointerType ) === 'touch';
+        if ( ! suppressClick && ! twoFingerClick ) {
+            return;
+        }
+        suppressClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+        const el = twoFingerClick && ! contextMenu && event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        if ( el ) {
+            cancelLongPress();
+            openContextMenu( el );
         }
     }, true );
 
