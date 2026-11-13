@@ -9,8 +9,9 @@
  * versions, and swap places with the note in the editor.
  *
  * The sheet shows the note as saved (the site's rendered content, cleaned
- * of anything that runs), in the editor's typography. It is the app's own
- * markup rather than another editor, so it opens at once.
+ * of anything that runs), set as in the editor (note-flow.css, shared with
+ * the canvas). It is the app's own markup rather than another editor, so it
+ * opens at once.
  *
  * This file is the whole feature (its styles are peek.css). app.js creates
  * it once with window.wfwPeek( app ) and talks to it only through what that
@@ -18,6 +19,8 @@
  *
  *   root, esc, icon, loadPref, savePref, htmlToText, phoneLayout
  *                        the app's element and helpers
+ *   statuses             the post statuses a note can have, for the REST API
+ *   blockStylesUrl       core's block styles, loaded with the first peek
  *   current()            the tab in view ({ id, title, peeks, ... }) or null
  *   tabs()               every open tab
  *   panel()              whether a panel has the editor pane to itself
@@ -42,29 +45,55 @@ window.wfwPeek = function ( app ) {
     const PEEK_RAIL = 44; // px: the same beside the editor, where the header stands on end
     const PEEK_TOP = 56; // px of the editor a full-height sheet leaves in sight, with the pane's buttons
     const PEEK_EASE = 300; // ms, as in the stylesheet
+    const VERSIONS_KEPT = 10; // past versions kept loaded per note, to step back and forth without refetching
+    const DOCKS = [ 'right', 'left', 'bottom' ];
+    const SIDE = 0.42; // share of the pane a sheet beside the editor takes, at first
+    const BOTTOM = 0.5; // and a sheet under it
+
+    // `min` wins when the range is empty (an index into an empty list is 0).
+    const clamp = ( value, min, max ) => Math.max( min, Math.min( max, value ) );
+
+    // Note ids as kept in preferences: numbers, at most a sheet's worth.
+    const peekIds = ( list ) => ( Array.isArray( list ) ? list : [] ).map( Number ).filter( ( id ) => id > 0 ).slice( 0, PEEK_MAX );
+
     const peekSaved = loadPref( 'peek', {} ) || {};
     const peek = {
-        // { id, title, html, loading, failed, pinned, versions: null | { list, index }, version }; the pinned ones first.
-        items: ( Array.isArray( peekSaved.pins ) ? peekSaved.pins : [] ).map( Number ).filter( ( id ) => id > 0 ).slice( 0, PEEK_MAX ).map( ( id ) => ( { ...newPeekItem( id ), pinned: true } ) ),
+        // { id, title, html, loading, failed, stale, pinned, versions: null | { list, index, cache, stale } }; the pinned ones first.
+        items: peekIds( peekSaved.pins ).map( ( id ) => newPeekItem( id, '', true ) ),
         at: 0,
-        dock: [ 'right', 'left', 'bottom' ].includes( peekSaved.dock ) ? peekSaved.dock : null, // null: wherever there is room
-        side: Math.min( 0.8, Math.max( 0.2, Number( peekSaved.side ) || 0.42 ) ),
-        bottom: Math.min( 1, Math.max( 0.2, Number( peekSaved.bottom ) || 0.5 ) ),
+        dock: DOCKS.includes( peekSaved.dock ) ? peekSaved.dock : null, // null: wherever there is room
+        side: clamp( Number( peekSaved.side ) || SIDE, 0.2, 0.8 ),
+        bottom: clamp( Number( peekSaved.bottom ) || BOTTOM, 0.2, 1 ),
         folded: false,
-        shown: false,
         find: null, // { query, ranges, at }
     };
+    let el = null; // the sheet, once init() has put it in the page
+    let shownBody = null; // what the sheet's body shows now, so it is only rebuilt when that changes
     let peekPush = { dock: '', px: 0 };
     let peekPushTimer = 0;
     let peekHideTimer = 0;
     let peekFoldedByKeyboard = false;
 
-    function peekEl() {
-        return root.querySelector( '.wfw-peek' );
+    function newPeekItem( id, title = '', pinned = false ) {
+        return { id, title, html: '', loading: true, failed: false, stale: false, pinned, versions: null };
     }
 
     function peekItem() {
         return peek.items[ peek.at ] || null;
+    }
+
+    // The past version the sheet shows, once loaded; null when it shows the note as it is.
+    function shownVersion( item ) {
+        const versions = item?.versions;
+        return versions?.list && versions.index >= 0 ? versions.cache.get( versions.list[ versions.index ].id ) || null : null;
+    }
+
+    const pinnedFirst = ( items ) => [ ...items.filter( ( item ) => item.pinned ), ...items.filter( ( item ) => ! item.pinned ) ];
+    const ownPeeks = () => peek.items.filter( ( item ) => ! item.pinned );
+
+    function setLabel( button, label ) {
+        button.title = label;
+        button.setAttribute( 'aria-label', label );
     }
 
     // Where the sheet docks and how big it is are the device's; which notes it holds is each tab's, kept with the tabs.
@@ -87,14 +116,14 @@ window.wfwPeek = function ( app ) {
             return;
         }
         const shown = peekItem();
-        const pinned = peek.items.filter( ( item ) => item.pinned );
-        const own = peek.items.filter( ( item ) => ! item.pinned );
         const next = ( to || noTabPeeks ).peeks;
         if ( ! from && to && ! next?.items.length ) {
             noTabPeeks.peeks = null;
             return; // The sheet that was open with no tab stays, now this tab's.
         }
+        const own = ownPeeks();
         ( from || noTabPeeks ).peeks = { items: own, at: Math.max( 0, own.indexOf( shown ) ), folded: peek.folded };
+        const pinned = peek.items.filter( ( item ) => item.pinned );
         const theirs = next?.items || [];
         closePeekFind();
         peek.items = [ ...pinned, ...theirs ];
@@ -105,13 +134,8 @@ window.wfwPeek = function ( app ) {
             peek.folded = theirs.length ? !! next.folded : peek.folded;
             peekFoldedByKeyboard = false;
         }
-        loadUnreadPeeks( shown?.pinned ? null : peekItem() );
-    }
-
-    // Notes that came back with a tab or a reload have no title or text yet; `again` is loaded
-    // either way, as it may have been saved since it was last in view.
-    function loadUnreadPeeks( again = null ) {
-        peek.items.filter( ( item ) => item === again || ! item.html && ! item.failed ).forEach( loadPeek );
+        loadTitles();
+        freshen();
     }
 
     // Keeps the note in the sheet across tabs, or hands it back to this tab alone.
@@ -121,21 +145,16 @@ window.wfwPeek = function ( app ) {
             return;
         }
         item.pinned = ! item.pinned;
-        peek.items = [ ...peek.items.filter( ( other ) => other.pinned ), ...peek.items.filter( ( other ) => ! other.pinned ) ];
+        peek.items = pinnedFirst( peek.items );
         peek.at = peek.items.indexOf( item );
         savePeek();
         renderPeek();
     }
 
-    function newPeekItem( id, title = '' ) {
-        return { id, title, html: '', loading: true, failed: false, versions: null, version: null };
-    }
-
     function peekShellHtml() {
-        const t = ( text ) => esc( text );
-        const tool = ( action, name, label, extra = '' ) => `<button class="wfw-icon-btn" data-action="${ action }" title="${ t( label ) }" aria-label="${ t( label ) }"${ extra }>${ icon( name ) }</button>`;
+        const tool = ( action, name, label, extra = '' ) => `<button class="wfw-icon-btn" data-action="${ action }" title="${ esc( label ) }" aria-label="${ esc( label ) }"${ extra }>${ icon( name ) }</button>`;
         return `
-            <aside class="wfw-peek" aria-label="${ t( __( 'Peek', 'wordpress-for-writers' ) ) }" hidden>
+            <aside class="wfw-peek" aria-label="${ esc( __( 'Peek', 'wordpress-for-writers' ) ) }" hidden>
                 <div class="wfw-peek__grip" aria-hidden="true"></div>
                 <div class="wfw-peek__inner">
                 <header class="wfw-peek__head">
@@ -143,7 +162,7 @@ window.wfwPeek = function ( app ) {
                     <div class="wfw-peek__tabs" role="tablist"></div>
                     <div class="wfw-peek__tools">
                         ${ tool( 'peek-find', 'search', __( 'Find in this note', 'wordpress-for-writers' ) ) }
-                        ${ tool( 'peek-versions', 'versions', __( 'Past versions', 'wordpress-for-writers' ), ' aria-pressed="false"' ) }
+                        ${ tool( 'peek-versions', 'restore', __( 'Past versions', 'wordpress-for-writers' ), ' aria-pressed="false"' ) }
                         ${ tool( 'peek-swap', 'swap', __( 'Swap with the note in the editor', 'wordpress-for-writers' ) ) }
                         ${ tool( 'peek-pin', 'pin', __( 'Keep in every tab', 'wordpress-for-writers' ), ' aria-pressed="false"' ) }
                         ${ tool( 'peek-fold', 'forward', __( 'Put away', 'wordpress-for-writers' ) ) }
@@ -151,7 +170,7 @@ window.wfwPeek = function ( app ) {
                     </div>
                 </header>
                 <div class="wfw-peek__bar wfw-peek__find" hidden>
-                    <input type="search" placeholder="${ t( __( 'Find', 'wordpress-for-writers' ) ) }" aria-label="${ t( __( 'Find in this note', 'wordpress-for-writers' ) ) }" autocomplete="off" spellcheck="false" />
+                    <label class="wfw-search">${ icon( 'search' ) }<input type="search" placeholder="${ esc( __( 'Find', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Find in this note', 'wordpress-for-writers' ) ) }" autocomplete="off" spellcheck="false" /></label>
                     <span class="wfw-peek__count" aria-live="polite"></span>
                     ${ tool( 'peek-find-prev', 'back', __( 'Previous match', 'wordpress-for-writers' ) ) }
                     ${ tool( 'peek-find-next', 'forward', __( 'Next match', 'wordpress-for-writers' ) ) }
@@ -160,66 +179,70 @@ window.wfwPeek = function ( app ) {
                     ${ tool( 'peek-older', 'back', __( 'Older version', 'wordpress-for-writers' ) ) }
                     <span class="wfw-peek__when" aria-live="polite"></span>
                     ${ tool( 'peek-newer', 'forward', __( 'Newer version', 'wordpress-for-writers' ) ) }
-                    <button class="wfw-peek__restore" data-action="peek-restore">${ t( __( 'Restore', 'wordpress-for-writers' ) ) }</button>
+                    <button class="wfw-peek__restore" data-action="peek-restore">${ esc( __( 'Restore', 'wordpress-for-writers' ) ) }</button>
                 </div>
                 <div class="wfw-peek__scroll" tabindex="-1">
-                    <article class="wfw-peek__doc"><h1 class="wfw-peek__title"></h1><div class="wfw-peek__body"></div></article>
+                    <article class="wfw-peek__doc"><h1 class="wfw-peek__title"></h1><div class="wfw-peek__body wfw-body"></div></article>
                 </div>
                 </div>
             </aside>
             <div class="wfw-peek-drop" aria-hidden="true" hidden></div>`;
     }
 
-    // The site's rendered content, minus anything that runs or posts: it is only read here.
+    /*
+     * The site's rendered content, minus anything that runs or posts, and
+     * embeds and forms, which have no place in a note read beside another.
+     * wp.dom.safeHTML only takes out scripts and on* handlers, so it isn't
+     * enough here.
+     */
     function peekFragment( html ) {
-        const doc = new DOMParser().parseFromString( '<body>' + ( html || '' ) + '</body>', 'text/html' );
-        doc.querySelectorAll( 'script, style, link, meta, base, object, embed, iframe, form, input, button, textarea, select' ).forEach( ( el ) => el.remove() );
-        doc.querySelectorAll( '*' ).forEach( ( el ) => {
-            [ ...el.attributes ].forEach( ( attr ) => {
+        const template = document.createElement( 'template' );
+        template.innerHTML = html || '';
+        const content = template.content;
+        content.querySelectorAll( 'script, style, link, meta, base, object, embed, iframe, form, input, button, textarea, select' ).forEach( ( node ) => node.remove() );
+        content.querySelectorAll( '*' ).forEach( ( node ) => {
+            [ ...node.attributes ].forEach( ( attr ) => {
                 const name = attr.name.toLowerCase();
                 if ( name.startsWith( 'on' ) || name === 'srcdoc' || name === 'contenteditable' || name === 'style' && /expression|url\s*\(/i.test( attr.value ) ) {
-                    el.removeAttribute( attr.name );
+                    node.removeAttribute( attr.name );
                 } else if ( [ 'href', 'src', 'action', 'formaction', 'xlink:href' ].includes( name ) && /^\s*(javascript|data|vbscript):/i.test( attr.value ) && ! /^\s*data:image\//i.test( attr.value ) ) {
-                    el.removeAttribute( attr.name );
+                    node.removeAttribute( attr.name );
                 }
             } );
-            if ( el.tagName === 'A' ) {
-                el.setAttribute( 'target', '_blank' );
-                el.setAttribute( 'rel', 'noopener' );
+            if ( node.tagName === 'A' ) {
+                node.setAttribute( 'target', '_blank' );
+                node.setAttribute( 'rel', 'noopener' );
             }
         } );
-        const fragment = document.createDocumentFragment();
-        [ ...doc.body.childNodes ].forEach( ( node ) => fragment.appendChild( document.importNode( node, true ) ) );
-        return fragment;
+        return content;
     }
 
-    // "Today, 21:10", "Yesterday, 08:40", "Wed 11 Nov, 22:15": when a version was saved.
+    // When a version was saved, in the site's timezone and the writer's own date and time formats: "Today, 9:40 pm".
     function versionWhen( gmt ) {
-        const date = new Date( gmt + 'Z' );
-        const time = date.toLocaleTimeString( [], { hour: '2-digit', minute: '2-digit' } );
-        const days = Math.round( ( new Date().setHours( 0, 0, 0, 0 ) - new Date( date ).setHours( 0, 0, 0, 0 ) ) / 86400000 );
-        if ( days === 0 ) {
+        const { formats } = wp.date.getSettings();
+        const saved = gmt + 'Z';
+        const day = ( value ) => wp.date.dateI18n( 'Y-m-d', value );
+        const yesterday = new Date( Date.now() - 86400000 );
+        const time = wp.date.dateI18n( formats.time, saved );
+        if ( day( saved ) === day( new Date() ) ) {
             /* translators: %s: a time of day. */
             return sprintf( __( 'Today, %s', 'wordpress-for-writers' ), time );
         }
-        if ( days === 1 ) {
+        if ( day( saved ) === day( yesterday ) ) {
             /* translators: %s: a time of day. */
             return sprintf( __( 'Yesterday, %s', 'wordpress-for-writers' ), time );
         }
-        const options = { weekday: 'short', day: 'numeric', month: 'short' };
-        if ( date.getFullYear() !== new Date().getFullYear() ) {
-            options.year = 'numeric';
-        }
-        return date.toLocaleDateString( [], options ) + ', ' + time;
+        return wp.date.dateI18n( formats.date, saved ) + ', ' + time;
     }
 
     async function loadPeek( item ) {
         item.loading = ! item.html;
         item.failed = false;
+        item.stale = false;
         renderPeek();
         const id = item.id;
         try {
-            const note = await apiFetch( { path: '/wp/v2/posts/' + id + '?context=edit&_fields=id,title,content,status' } );
+            const note = await apiFetch( { path: '/wp/v2/posts/' + id + '?context=edit&_fields=title.raw,title.rendered,content.rendered' } );
             if ( item.id !== id ) {
                 return;
             }
@@ -235,42 +258,72 @@ window.wfwPeek = function ( app ) {
         renderPeek();
     }
 
-    function renderPeek() {
-        const box = peekEl();
+    // The note in front gets its text when it has none yet, or when it has been saved since.
+    function freshen() {
         const item = peekItem();
-        if ( ! box || ! item ) {
+        if ( ! item || ! el || peek.folded ) {
+            return;
+        }
+        if ( item.stale || ! item.html && ! item.failed ) {
+            loadPeek( item );
+        }
+        if ( item.versions?.stale ) {
+            loadPeekVersions( item );
+        }
+    }
+
+    // Notes that came back with a tab or a reload have no title yet: one request for all of them.
+    async function loadTitles() {
+        const untitled = peek.items.filter( ( item ) => ! item.title && ! item.html );
+        if ( ! untitled.length ) {
+            return;
+        }
+        const notes = await apiFetch( { path: '/wp/v2/posts?' + new URLSearchParams( { include: untitled.map( ( item ) => item.id ).join( ',' ), per_page: PEEK_MAX, status: app.statuses, context: 'edit', _fields: 'id,title' } ) } ).catch( () => [] );
+        const titles = new Map( notes.map( ( note ) => [ note.id, note.title.raw || htmlToText( note.title.rendered ) ] ) );
+        untitled.forEach( ( item ) => {
+            item.title = item.title || titles.get( item.id ) || '';
+        } );
+        renderPeek();
+    }
+
+    function renderPeek() {
+        const item = peekItem();
+        if ( ! el || ! item ) {
             return;
         }
         const untitled = __( 'Untitled', 'wordpress-for-writers' );
-        box.querySelector( '.wfw-peek__tabs' ).innerHTML = peek.items.map( ( other, i ) => `<button class="wfw-peek__tab${ i === peek.at ? ' is-active' : '' }${ other.pinned ? ' is-pinned' : '' }" role="tab" aria-selected="${ i === peek.at }" data-action="peek-tab" data-index="${ i }">${ esc( other.title || untitled ) }</button>` ).join( '' );
-        const version = item.versions && item.versions.index >= 0 ? item.version : null;
-        const title = box.querySelector( '.wfw-peek__title' );
-        const body = box.querySelector( '.wfw-peek__body' );
-        const shown = version ? version.title : item.title;
-        title.textContent = shown || untitled;
-        title.classList.toggle( 'is-empty', ! shown );
-        body.replaceChildren();
-        if ( item.failed ) {
-            body.innerHTML = `<p class="wfw-peek__note">${ esc( __( 'This note couldn’t be loaded.', 'wordpress-for-writers' ) ) }</p>`;
-        } else if ( item.loading || ( item.versions && item.versions.index >= 0 && ! version ) ) {
-            body.innerHTML = '<div class="wfw-peek__loading"><span></span><span></span><span></span></div>';
-        } else {
-            body.appendChild( peekFragment( version ? version.html : item.html ) );
+        el.querySelector( '.wfw-peek__tabs' ).innerHTML = peek.items.map( ( other, i ) => `<button class="wfw-peek__tab${ i === peek.at ? ' is-active' : '' }${ other.pinned ? ' is-pinned' : '' }" role="tab" aria-selected="${ i === peek.at }" data-action="peek-tab" data-index="${ i }">${ esc( other.title || untitled ) }</button>` ).join( '' );
+        const version = shownVersion( item );
+        const title = el.querySelector( '.wfw-peek__title' );
+        const shownTitle = version ? version.title : item.title;
+        title.textContent = shownTitle || untitled;
+        title.classList.toggle( 'is-empty', ! shownTitle );
+        // The body is only rebuilt when what it shows changes, so the reader keeps their place.
+        const waiting = item.loading || ( item.versions?.index >= 0 && ! version );
+        const body = item.failed ? 'failed' : waiting ? 'loading' : version ? version.html : item.html;
+        if ( body !== shownBody ) {
+            shownBody = body;
+            const box = el.querySelector( '.wfw-peek__body' );
+            if ( item.failed ) {
+                box.innerHTML = `<p class="wfw-peek__note">${ esc( __( 'This note couldn’t be loaded.', 'wordpress-for-writers' ) ) }</p>`;
+            } else if ( waiting ) {
+                box.innerHTML = '<div class="wfw-editor__skeleton-column"><span></span><span></span><span></span></div>';
+            } else {
+                box.replaceChildren( peekFragment( body ) );
+            }
+            runPeekFind();
         }
         // Its tools: past versions, and swapping (not with itself).
-        const versions = box.querySelector( '.wfw-peek__versions' );
+        const versions = el.querySelector( '.wfw-peek__versions' );
         versions.hidden = ! item.versions;
-        box.querySelector( '[data-action="peek-versions"]' ).setAttribute( 'aria-pressed', item.versions ? 'true' : 'false' );
-        box.querySelector( '[data-action="peek-swap"]' ).disabled = ! app.current() || app.current().id === item.id || !! app.panel();
-        const pin = box.querySelector( '[data-action="peek-pin"]' );
-        const pinLabel = item.pinned ? __( 'Keep in this tab only', 'wordpress-for-writers' ) : __( 'Keep in every tab', 'wordpress-for-writers' );
-        pin.setAttribute( 'aria-pressed', item.pinned ? 'true' : 'false' );
-        pin.title = pinLabel;
-        pin.setAttribute( 'aria-label', pinLabel );
+        el.querySelector( '[data-action="peek-versions"]' ).setAttribute( 'aria-pressed', String( !! item.versions ) );
+        el.querySelector( '[data-action="peek-swap"]' ).disabled = ! app.current() || app.current().id === item.id || app.panel();
+        const pin = el.querySelector( '[data-action="peek-pin"]' );
+        pin.setAttribute( 'aria-pressed', String( item.pinned ) );
+        setLabel( pin, item.pinned ? __( 'Keep in this tab only', 'wordpress-for-writers' ) : __( 'Keep in every tab', 'wordpress-for-writers' ) );
         if ( item.versions ) {
             const { list, index } = item.versions;
-            const when = versions.querySelector( '.wfw-peek__when' );
-            when.textContent = ! list
+            versions.querySelector( '.wfw-peek__when' ).textContent = ! list
                 ? __( 'Loading versions…', 'wordpress-for-writers' )
                 : index < 0
                     ? ( list.length ? __( 'Now', 'wordpress-for-writers' ) : __( 'No earlier versions yet', 'wordpress-for-writers' ) )
@@ -279,7 +332,17 @@ window.wfwPeek = function ( app ) {
             versions.querySelector( '[data-action="peek-newer"]' ).disabled = ! list || index < 0;
             versions.querySelector( '.wfw-peek__restore' ).disabled = ! version;
         }
-        runPeekFind();
+    }
+
+    // Core's block styles, for galleries, images and the like in a peeked note: loaded with the first peek.
+    function loadBlockStyles() {
+        if ( app.blockStylesUrl && ! document.getElementById( 'wp-block-library-css' ) ) {
+            const link = document.createElement( 'link' );
+            link.id = 'wp-block-library-css';
+            link.rel = 'stylesheet';
+            link.href = app.blockStylesUrl;
+            document.head.appendChild( link );
+        }
     }
 
     // Opens a note in the sheet, or brings it forward if it's there already.
@@ -287,6 +350,7 @@ window.wfwPeek = function ( app ) {
         if ( ! id ) {
             return;
         }
+        loadBlockStyles();
         let at = peek.items.findIndex( ( item ) => item.id === id );
         if ( at < 0 ) {
             if ( peek.items.length >= PEEK_MAX ) {
@@ -299,7 +363,7 @@ window.wfwPeek = function ( app ) {
         peek.folded = false;
         closePeekFind();
         const item = peek.items[ at ];
-        loadPeek( item );
+        item.stale = true; // Opened again: show it as it is now.
         if ( versions && ! item.versions ) {
             togglePeekVersions();
         }
@@ -307,6 +371,7 @@ window.wfwPeek = function ( app ) {
         root.classList.remove( 'is-sidebar-open' );
         savePeek();
         layoutPeek();
+        freshen();
     }
 
     function closePeek( index = peek.at ) {
@@ -314,11 +379,12 @@ window.wfwPeek = function ( app ) {
             return;
         }
         peek.items.splice( index, 1 );
-        peek.at = Math.max( 0, Math.min( peek.at > index ? peek.at - 1 : peek.at, peek.items.length - 1 ) );
+        peek.at = clamp( peek.at > index ? peek.at - 1 : peek.at, 0, peek.items.length - 1 );
         closePeekFind();
         savePeek();
         if ( peek.items.length ) {
             renderPeek();
+            freshen();
         } else if ( ! app.current() ) {
             root.classList.remove( 'has-note' );
         }
@@ -346,25 +412,23 @@ window.wfwPeek = function ( app ) {
         }
         const leavingId = leaving.id;
         const leavingTitle = leaving.title;
-        peekEl().classList.add( 'is-swapping' );
-        setTimeout( () => peekEl()?.classList.remove( 'is-swapping' ), PEEK_EASE );
+        el.classList.add( 'is-swapping' );
+        setTimeout( () => el.classList.remove( 'is-swapping' ), PEEK_EASE );
         // In this tab, whose sheet it is, even when the note has a tab of its own elsewhere.
         if ( ! ( await app.replaceNote( item.id, item.title ) ) ) {
             return; // The writer kept the note in the editor (unsaved changes to a published note).
         }
-        if ( leavingId ) {
-            // The pin was the other note's: the one now in the sheet is this tab's.
-            Object.assign( item, { id: leavingId, title: leavingTitle, html: '', versions: null, version: null, pinned: false } );
-            peek.items = [ ...peek.items.filter( ( other ) => other.pinned ), ...peek.items.filter( ( other ) => ! other.pinned ) ];
-            // A note in the sheet twice is one too many.
-            peek.items = peek.items.filter( ( other ) => other === item || other.id !== leavingId );
-            peek.at = peek.items.indexOf( item );
-            closePeekFind();
-            savePeek();
-            loadPeek( item );
-        } else {
+        if ( ! leavingId ) {
             closePeek( peek.items.indexOf( item ) );
+            return;
         }
+        // The pin was the other note's: the one now in the sheet is this tab's. A note in the sheet twice is one too many.
+        Object.assign( item, newPeekItem( leavingId, leavingTitle ) );
+        peek.items = pinnedFirst( peek.items.filter( ( other ) => other === item || other.id !== leavingId ) );
+        peek.at = peek.items.indexOf( item );
+        closePeekFind();
+        savePeek();
+        loadPeek( item );
     }
 
     // ---- Peek: past versions
@@ -374,20 +438,17 @@ window.wfwPeek = function ( app ) {
         if ( ! item ) {
             return;
         }
-        if ( item.versions ) {
-            item.versions = null;
-            item.version = null;
-            renderPeek();
-            return;
-        }
-        item.versions = { list: null, index: -1, cache: {} };
+        item.versions = item.versions ? null : { list: null, index: -1, cache: new Map(), stale: false };
         renderPeek();
-        loadPeekVersions( item, { step: true } );
+        if ( item.versions ) {
+            loadPeekVersions( item, { step: true } );
+        }
     }
 
     // The note's saved versions, newest first. `step` opens on the one before the last save.
     async function loadPeekVersions( item, { step = false } = {} ) {
         const versions = item.versions;
+        versions.stale = false;
         const kept = versions.list && versions.index >= 0 ? versions.list[ versions.index ].id : 0;
         const list = await apiFetch( { path: '/wp/v2/posts/' + item.id + '/revisions?context=edit&per_page=100&_fields=id,date_gmt' } ).catch( () => [] );
         if ( item.versions !== versions ) {
@@ -408,85 +469,80 @@ window.wfwPeek = function ( app ) {
             return;
         }
         versions.index = index;
-        item.version = index < 0 ? null : versions.cache[ versions.list[ index ].id ] || null;
         renderPeek();
-        if ( index < 0 || item.version ) {
+        if ( index < 0 || shownVersion( item ) ) {
             return;
         }
         const id = versions.list[ index ].id;
-        const revision = await apiFetch( { path: '/wp/v2/posts/' + item.id + '/revisions/' + id + '?context=edit&_fields=id,date_gmt,title,content,excerpt' } ).catch( () => null );
+        const revision = await apiFetch( { path: '/wp/v2/posts/' + item.id + '/revisions/' + id + '?context=edit&_fields=date_gmt,title,content,excerpt' } ).catch( () => null );
         if ( ! revision || item.versions !== versions ) {
             return;
         }
-        versions.cache[ id ] = {
-            id,
+        versions.cache.set( id, {
             date: revision.date_gmt,
             title: revision.title.raw || htmlToText( revision.title.rendered ),
             html: revision.content.rendered || '',
             raw: revision.content.raw || '',
-            excerpt: revision.excerpt ? revision.excerpt.raw : undefined,
-        };
-        if ( versions.index === index ) {
-            item.version = versions.cache[ id ];
-            renderPeek();
+            excerpt: revision.excerpt?.raw,
+        } );
+        if ( versions.cache.size > VERSIONS_KEPT ) {
+            versions.cache.delete( versions.cache.keys().next().value ); // The one loaded longest ago.
         }
+        renderPeek();
     }
 
     // Brings the version in the sheet back into its note, in the editor, as an edit Undo takes back.
     async function restorePeekVersion() {
         const item = peekItem();
-        const version = item?.version;
+        const version = shownVersion( item );
         if ( ! version ) {
             return;
         }
         const restore = { id: item.id, title: version.title, content: version.raw, excerpt: version.excerpt, date: versionWhen( version.date ) };
-        if ( ! ( await app.restoreVersion( restore ) ) ) {
-            return;
+        if ( await app.restoreVersion( restore ) ) {
+            showPeekVersion( item, -1 );
         }
-        showPeekVersion( item, -1 );
     }
 
     // ---- Peek: find
 
     function openPeekFind() {
-        const box = peekEl();
         if ( ! peekItem() ) {
             return;
         }
         if ( peek.folded ) {
             peek.folded = false;
             layoutPeek();
+            freshen();
         }
         peek.find = peek.find || { query: '', ranges: [], at: 0 };
-        box.querySelector( '.wfw-peek__find' ).hidden = false;
-        const input = box.querySelector( '.wfw-peek__find input' );
+        el.querySelector( '.wfw-peek__find' ).hidden = false;
+        const input = el.querySelector( '.wfw-peek__find input' );
         input.focus();
         input.select();
     }
 
     function closePeekFind() {
-        const box = peekEl();
         peek.find = null;
         window.CSS?.highlights?.delete( 'wfw-peek-find' );
         window.CSS?.highlights?.delete( 'wfw-peek-find-current' );
-        if ( box ) {
-            box.querySelector( '.wfw-peek__find' ).hidden = true;
-            box.querySelector( '.wfw-peek__find input' ).value = '';
-            box.querySelector( '.wfw-peek__count' ).textContent = '';
+        if ( el ) {
+            el.querySelector( '.wfw-peek__find' ).hidden = true;
+            el.querySelector( '.wfw-peek__find input' ).value = '';
+            el.querySelector( '.wfw-peek__count' ).textContent = '';
         }
     }
 
     // Marks every match in the note; the current one stands out and is scrolled to.
     function runPeekFind( { scroll = false } = {} ) {
-        const box = peekEl();
         const find = peek.find;
-        if ( ! box || ! find ) {
+        if ( ! el || ! find ) {
             return;
         }
         const query = find.query.toLowerCase();
         const ranges = [];
         if ( query ) {
-            const walker = document.createTreeWalker( box.querySelector( '.wfw-peek__doc' ), NodeFilter.SHOW_TEXT );
+            const walker = document.createTreeWalker( el.querySelector( '.wfw-peek__doc' ), NodeFilter.SHOW_TEXT );
             for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
                 const text = node.nodeValue.toLowerCase();
                 for ( let from = text.indexOf( query ); from >= 0; from = text.indexOf( query, from + query.length ) ) {
@@ -498,20 +554,20 @@ window.wfwPeek = function ( app ) {
             }
         }
         find.ranges = ranges;
-        find.at = Math.max( 0, Math.min( find.at, ranges.length - 1 ) );
+        find.at = clamp( find.at, 0, ranges.length - 1 );
         const now = ranges[ find.at ];
         if ( window.Highlight && window.CSS?.highlights ) {
             CSS.highlights.set( 'wfw-peek-find', new Highlight( ...ranges ) );
             CSS.highlights.set( 'wfw-peek-find-current', new Highlight( ...( now ? [ now ] : [] ) ) );
         }
-        box.querySelector( '.wfw-peek__count' ).textContent = ! query
+        el.querySelector( '.wfw-peek__count' ).textContent = ! query
             ? ''
             : ranges.length
                 /* translators: 1: the match in view, 2: how many matches there are. */
                 ? sprintf( __( '%1$d of %2$d', 'wordpress-for-writers' ), find.at + 1, ranges.length )
                 : __( 'No matches', 'wordpress-for-writers' );
         if ( now && scroll ) {
-            const scroller = box.querySelector( '.wfw-peek__scroll' );
+            const scroller = el.querySelector( '.wfw-peek__scroll' );
             const rect = now.getBoundingClientRect();
             const bounds = scroller.getBoundingClientRect();
             if ( rect.top < bounds.top + 40 || rect.bottom > bounds.bottom - 40 ) {
@@ -551,13 +607,13 @@ window.wfwPeek = function ( app ) {
     function peekGeometry( dock, bounds = peekBounds() ) {
         const { W, H } = bounds;
         if ( dock === 'bottom' ) {
-            const height = peek.folded ? PEEK_STRIP : Math.round( Math.min( H - PEEK_TOP, Math.max( 160, H * peek.bottom ) ) );
+            const height = peek.folded ? PEEK_STRIP : Math.round( clamp( H * peek.bottom, 160, H - PEEK_TOP ) );
             return { left: 0, top: H - height, width: W, height, push: Math.min( height, Math.round( H * 0.6 ) ) };
         }
         if ( peek.folded ) {
             return { left: dock === 'left' ? 0 : W - PEEK_RAIL, top: 0, width: PEEK_RAIL, height: H, push: PEEK_RAIL };
         }
-        const width = Math.round( Math.min( W - 80, Math.max( 300, W * peek.side ) ) );
+        const width = Math.round( clamp( W * peek.side, 300, W - 80 ) );
         return { left: dock === 'left' ? 0 : W - width, top: 0, width, height: H, push: W - width >= 420 ? width : 0 };
     }
 
@@ -566,76 +622,73 @@ window.wfwPeek = function ( app ) {
         return dock === 'bottom' ? { ...box, top: H } : { ...box, left: dock === 'left' ? -box.width : W };
     }
 
-    function placePeek( box ) {
-        const el = peekEl();
-        el.style.left = box.left + 'px';
-        el.style.top = box.top + 'px';
-        el.style.width = box.width + 'px';
-        el.style.height = box.height + 'px';
+    function place( target, box ) {
+        Object.assign( target.style, { left: box.left + 'px', top: box.top + 'px', width: box.width + 'px', height: box.height + 'px' } );
     }
 
-    // The editor gives way under the sheet: after the sheet has slid over it when it grows, at once when it shrinks.
+    // Placed at once, without easing (a reflow in between, so the next placement eases from here).
+    function placeStill( box ) {
+        el.classList.add( 'is-still' );
+        place( el, box );
+        el.getBoundingClientRect();
+        el.classList.remove( 'is-still' );
+    }
+
+    // The editor gives way under the sheet (app.css's inset): after the sheet has slid over it when it grows, at once when it shrinks.
     function setPeekPush( px, dock ) {
         const apply = () => {
             peekPush = { dock, px };
-            root.querySelector( '.wfw-editor' ).style.setProperty( '--wfw-peek-push', px + 'px' );
-            [ 'right', 'left', 'bottom' ].forEach( ( d ) => root.classList.toggle( 'is-push-' + d, px > 0 && d === dock ) );
+            const editor = root.querySelector( '.wfw-editor' );
+            DOCKS.forEach( ( side ) => editor.style.setProperty( '--wfw-editor-inset-' + side, side === dock && px ? px + 'px' : '0px' ) );
         };
         clearTimeout( peekPushTimer );
         if ( px > 0 && ( px > peekPush.px || dock !== peekPush.dock ) ) {
             peekPushTimer = setTimeout( apply, PEEK_EASE );
-        } else {
+        } else if ( px !== peekPush.px || dock !== peekPush.dock ) {
             apply();
         }
     }
 
     function layoutPeek( { animate = true } = {} ) {
-        const el = peekEl();
         if ( ! el ) {
             return;
         }
         const open = peek.items.length > 0 && ! app.panel();
+        const shown = ! el.hidden;
+        if ( ! open && ! shown ) {
+            return; // Nothing to place, and nothing to take away.
+        }
         const bounds = peekBounds();
         const dock = peekDock( bounds );
         const box = peekGeometry( dock, bounds );
-        root.classList.toggle( 'has-peek', open );
-        [ 'right', 'left', 'bottom' ].forEach( ( d ) => el.classList.toggle( 'is-' + d, d === dock ) );
+        DOCKS.forEach( ( d ) => el.classList.toggle( 'is-' + d, d === dock ) );
         el.classList.toggle( 'is-folded', peek.folded );
         const fold = el.querySelector( '[data-action="peek-fold"]' );
-        const foldLabel = peek.folded ? __( 'Bring back', 'wordpress-for-writers' ) : __( 'Put away', 'wordpress-for-writers' );
-        fold.title = foldLabel;
-        fold.setAttribute( 'aria-label', foldLabel );
-        fold.setAttribute( 'aria-expanded', peek.folded ? 'false' : 'true' );
+        setLabel( fold, peek.folded ? __( 'Bring back', 'wordpress-for-writers' ) : __( 'Put away', 'wordpress-for-writers' ) );
+        fold.setAttribute( 'aria-expanded', String( ! peek.folded ) );
         el.classList.toggle( 'is-over', box.push < ( dock === 'bottom' ? box.height : box.width ) );
         clearTimeout( peekHideTimer );
         if ( ! open ) {
-            if ( peek.shown ) {
-                peek.shown = false;
-                placePeek( peekOffstage( dock, box, bounds ) );
-                peekHideTimer = setTimeout( () => ( el.hidden = true ), PEEK_EASE );
-            }
+            // Goes back out past its edge.
+            place( el, peekOffstage( dock, box, bounds ) );
+            peekHideTimer = setTimeout( () => ( el.hidden = true ), PEEK_EASE );
             setPeekPush( 0, dock );
             return;
         }
         if ( ! bounds.W || ! bounds.H ) {
             return; // The pane is out of the layout (a phone showing the list).
         }
-        if ( ! peek.shown ) {
+        if ( ! shown ) {
             // Comes in from its edge.
-            peek.shown = true;
             el.hidden = false;
-            el.classList.add( 'is-still' );
-            placePeek( peekOffstage( dock, box, bounds ) );
-            el.getBoundingClientRect();
-            el.classList.remove( 'is-still' );
+            placeStill( peekOffstage( dock, box, bounds ) );
             renderPeek();
-        } else if ( ! animate ) {
-            el.classList.add( 'is-still' );
-            placePeek( box );
-            el.getBoundingClientRect();
-            el.classList.remove( 'is-still' );
         }
-        placePeek( box );
+        if ( animate ) {
+            place( el, box );
+        } else {
+            placeStill( box );
+        }
         setPeekPush( box.push, dock );
     }
 
@@ -643,7 +696,7 @@ window.wfwPeek = function ( app ) {
     function initPeek() {
         const editor = root.querySelector( '.wfw-editor' );
         editor.insertAdjacentHTML( 'beforeend', peekShellHtml() );
-        const el = peekEl();
+        el = editor.querySelector( '.wfw-peek' );
         const drop = editor.querySelector( '.wfw-peek-drop' );
         let drag = null;
 
@@ -686,8 +739,7 @@ window.wfwPeek = function ( app ) {
                 const x = ( event.clientX - drag.bounds.left ) / W;
                 const y = ( event.clientY - drag.bounds.top ) / H;
                 drag.to = y > 0.66 ? 'bottom' : x < 0.5 ? 'left' : 'right';
-                const target = peekGeometry( drag.to, drag.bounds );
-                Object.assign( drop.style, { left: target.left + 'px', top: target.top + 'px', width: target.width + 'px', height: target.height + 'px' } );
+                place( drop, peekGeometry( drag.to, drag.bounds ) );
                 drop.hidden = drag.to === drag.dock;
                 return;
             }
@@ -698,11 +750,11 @@ window.wfwPeek = function ( app ) {
                     drag.lastY = event.clientY;
                     drag.lastTime = event.timeStamp;
                 }
-                drag.size = Math.min( H - PEEK_TOP, Math.max( PEEK_STRIP, drag.box.height - dy ) );
-                placePeek( { ...drag.box, top: H - drag.size, height: drag.size } );
+                drag.size = clamp( drag.box.height - dy, PEEK_STRIP, H - PEEK_TOP );
+                place( el, { ...drag.box, top: H - drag.size, height: drag.size } );
             } else {
-                drag.size = Math.min( W - 80, Math.max( PEEK_RAIL, drag.box.width + ( drag.dock === 'left' ? dx : -dx ) ) );
-                placePeek( { ...drag.box, left: drag.dock === 'left' ? 0 : W - drag.size, width: drag.size } );
+                drag.size = clamp( drag.box.width + ( drag.dock === 'left' ? dx : -dx ), PEEK_RAIL, W - 80 );
+                place( el, { ...drag.box, left: drag.dock === 'left' ? 0 : W - drag.size, width: drag.size } );
             }
         };
 
@@ -715,25 +767,20 @@ window.wfwPeek = function ( app ) {
             drop.hidden = true;
             const { W, H } = done.bounds;
             if ( ! done.moved ) {
-                // A tap on another note's tab shows it (the header holds the pointer, so the tab gets no click
-                // of its own); anywhere else on the header it folds the sheet under the editor, or brings it back.
-                const tab = document.elementFromPoint( event.clientX, event.clientY )?.closest( '.wfw-peek__tab:not( .is-active )' );
                 if ( event.type !== 'pointerup' || done.mode === 'size' && ! event.target.closest( '.wfw-peek__head' ) ) {
                     return;
                 }
-                if ( tab ) {
-                    onPeekAction( 'peek-tab', tab );
-                } else if ( done.mode === 'move' || peek.folded || done.dock === 'bottom' ) {
-                    peek.folded = ! peek.folded;
-                    layoutPeek();
-                }
+                // A tap on another note's tab shows it (the header holds the pointer, so the tab gets no click
+                // of its own); anywhere else on the header it folds the sheet away, or brings it back.
+                const tab = document.elementFromPoint( event.clientX, event.clientY )?.closest( '.wfw-peek__tab:not( .is-active )' );
+                onPeekAction( tab ? 'peek-tab' : 'peek-fold', tab );
                 return;
             }
             if ( done.mode === 'move' ) {
                 // Let go where it is, then settle into the dock.
                 const rect = el.getBoundingClientRect();
                 el.style.transform = '';
-                placePeek( { left: rect.left - done.bounds.left, top: rect.top - done.bounds.top, width: rect.width, height: rect.height } );
+                place( el, { left: rect.left - done.bounds.left, top: rect.top - done.bounds.top, width: rect.width, height: rect.height } );
                 el.getBoundingClientRect();
                 peek.dock = done.to;
                 peek.folded = false;
@@ -748,12 +795,13 @@ window.wfwPeek = function ( app ) {
                 // Dragged down to almost nothing, it is put away.
                 peek.folded = done.size < 200;
                 if ( ! peek.folded ) {
-                    peek.side = Math.min( 0.8, Math.max( 0.2, done.size / W ) );
+                    peek.side = clamp( done.size / W, 0.2, 0.8 );
                 }
             }
             root.classList.remove( 'is-peek-dragging' );
             savePeek();
             layoutPeek();
+            freshen();
         };
 
         const head = el.querySelector( '.wfw-peek__head' );
@@ -768,8 +816,8 @@ window.wfwPeek = function ( app ) {
         // Double-click the edge: back to where the pane would put the sheet, at its usual size.
         grip.addEventListener( 'dblclick', () => {
             peek.dock = null;
-            peek.side = 0.42;
-            peek.bottom = 0.5;
+            peek.side = SIDE;
+            peek.bottom = BOTTOM;
             savePeek();
             layoutPeek();
         } );
@@ -805,16 +853,28 @@ window.wfwPeek = function ( app ) {
             }
         } );
 
-        new ResizeObserver( () => layoutPeek( { animate: false } ) ).observe( editor );
-        phoneLayout.addEventListener( 'change', () => layoutPeek( { animate: false } ) );
+        // The pane changes size with the window, the sidebar and the phone's keyboard: once a frame at most.
+        let frame = 0;
+        const relayout = () => {
+            if ( ! frame && ( peek.items.length || ! el.hidden ) ) {
+                frame = requestAnimationFrame( () => {
+                    frame = 0;
+                    layoutPeek( { animate: false } );
+                } );
+            }
+        };
+        new ResizeObserver( relayout ).observe( editor );
+        phoneLayout.addEventListener( 'change', relayout );
         // Notes pinned on an earlier visit.
         if ( peekItem() ) {
-            loadUnreadPeeks();
+            loadBlockStyles();
+            loadTitles();
             layoutPeek();
+            freshen();
         }
     }
 
-    // What a click in or about the sheet does (from onClick).
+    // What a click in or about the sheet does: from onClick, the header's taps and the command palette.
     function onPeekAction( action, target ) {
         const item = peekItem();
         switch ( action ) {
@@ -832,11 +892,8 @@ window.wfwPeek = function ( app ) {
                     peek.at = index;
                     closePeekFind();
                     savePeek();
-                    if ( ! peekItem().html ) {
-                        loadPeek( peekItem() );
-                    } else {
-                        renderPeek();
-                    }
+                    renderPeek();
+                    freshen();
                 }
                 break;
             }
@@ -846,6 +903,7 @@ window.wfwPeek = function ( app ) {
             case 'peek-fold':
                 peek.folded = ! peek.folded;
                 layoutPeek();
+                freshen();
                 break;
             case 'peek-swap':
                 swapPeek();
@@ -882,16 +940,18 @@ window.wfwPeek = function ( app ) {
         return true;
     }
 
-    // A save is a new version, and new text for a sheet showing that note.
+    // A save is a new version, and new text: the note is marked in every sheet, and only the one in front loads it now.
     function onNoteSavedForPeek( id ) {
-        peek.items.filter( ( item ) => item.id === id ).forEach( ( item ) => {
+        const sheets = [ peek, noTabPeeks.peeks, ...app.tabs().map( ( tab ) => tab.peeks ) ];
+        sheets.forEach( ( sheet ) => sheet?.items.filter( ( item ) => item.id === id ).forEach( ( item ) => {
+            item.stale = true;
             if ( item.versions ) {
-                loadPeekVersions( item );
+                item.versions.stale = true;
             }
-            if ( item === peekItem() || item.html ) {
-                loadPeek( item );
-            }
-        } );
+        } ) );
+        if ( ! el.hidden ) {
+            freshen();
+        }
     }
 
     // The keyboard leaves room for one note, the one being written: the sheet folds away under it.
@@ -899,7 +959,7 @@ window.wfwPeek = function ( app ) {
         if ( ! peek.items.length || peekDock() !== 'bottom' ) {
             return;
         }
-        if ( up && ! peek.folded && ! peekEl().contains( document.activeElement ) ) {
+        if ( up && ! peek.folded && ! el.contains( document.activeElement ) ) {
             peek.folded = true;
             peekFoldedByKeyboard = true;
             layoutPeek();
@@ -907,25 +967,33 @@ window.wfwPeek = function ( app ) {
             peekFoldedByKeyboard = false;
             peek.folded = false;
             layoutPeek();
+            freshen();
         }
     }
 
     // ---- What the app sees of it
 
+    // The tab in view changed (`from` to `to`), or the pane did (a panel opened or closed): the sheet follows.
+    function paneChanged( from, to ) {
+        switchPeeks( from, to );
+        layoutPeek();
+        renderPeek(); // Swapping is with the note in the editor, which may have changed.
+    }
+
     // A tab's own peeks, as they are kept with the tab across reloads: { peeks: [ ids ], at }, or null.
     function savedPeeks( tab ) {
         const mine = tab === app.current();
         // Its own: the pinned ones are everyone's, and kept apart.
-        const own = mine ? peek.items.filter( ( item ) => ! item.pinned ) : tab.peeks?.items || [];
+        const own = mine ? ownPeeks() : tab.peeks?.items || [];
         const at = mine ? Math.max( 0, own.indexOf( peekItem() ) ) : tab.peeks?.at || 0;
         return own.length ? { peeks: own.map( ( item ) => item.id ), at } : null;
     }
 
     // Gives a tab back the sheet savedPeeks() kept for it.
     function restorePeeks( tab, saved ) {
-        const ids = ( Array.isArray( saved?.peeks ) ? saved.peeks : [] ).map( Number ).filter( ( id ) => id > 0 ).slice( 0, PEEK_MAX );
+        const ids = peekIds( saved?.peeks );
         if ( ids.length ) {
-            tab.peeks = { items: ids.map( ( id ) => newPeekItem( id ) ), at: Math.max( 0, Math.min( Number( saved.at ) || 0, ids.length - 1 ) ), folded: false };
+            tab.peeks = { items: ids.map( ( id ) => newPeekItem( id ) ), at: clamp( Number( saved.at ) || 0, 0, ids.length - 1 ), folded: false };
         }
     }
 
@@ -935,7 +1003,7 @@ window.wfwPeek = function ( app ) {
         app.tabs().forEach( ( tab ) => {
             if ( tab.peeks ) {
                 tab.peeks.items = tab.peeks.items.filter( ( item ) => item.id !== id );
-                tab.peeks.at = Math.max( 0, Math.min( tab.peeks.at, tab.peeks.items.length - 1 ) );
+                tab.peeks.at = clamp( tab.peeks.at, 0, tab.peeks.items.length - 1 );
             }
         } );
     }
@@ -944,12 +1012,9 @@ window.wfwPeek = function ( app ) {
         init: initPeek, // once the app's shell is in the page
         open: peekNote, // ( id, { versions } )
         closeAll: closeAllPeeks,
-        swap: swapPeek,
         isOpen: () => peek.items.length > 0,
-        action: onPeekAction, // ( data-action, element ): true when the click was the sheet's
-        layout: layoutPeek, // the pane changed: a tab came into view, a panel opened or closed
-        render: renderPeek,
-        switchTabs: switchPeeks, // ( from, to ): the tab in view changed
+        action: onPeekAction, // ( data-action, element ): true when it was the sheet's
+        paneChanged, // ( from, to ): the tab in view changed, or a panel opened or closed
         noteSaved: onNoteSavedForPeek, // ( id )
         keyboard: onKeyboardForPeek, // ( up ): the on-screen keyboard came or went
         saved: savedPeeks,

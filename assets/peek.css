@@ -2,34 +2,15 @@
  * Peek: a note to read beside the one being written, in a sheet over the
  * editor pane (see peek.js). The sheet is placed by peek.js in the pane’s own
  * pixels: beside the editor, under it, or over it where there is no room; the
- * editor gives way by --wfw-peek-push on the side the sheet is docked.
+ * editor gives way through app.css's --wfw-editor-inset-* on the docked side.
+ * The note's text looks as in the editor: note-flow.css.
  */
 .wfw-peek-toggle {
     display: none;
-    box-shadow: none !important;
-    opacity: 0.6;
-    background: var( --wfw-editor-bg ) !important;
 }
 
 .wfw.has-note .wfw-peek-toggle {
     display: inline-flex;
-}
-
-.wfw.is-push-right .wfw-editor > :is( iframe, .wfw-editor__skeleton, .wfw-editor__placeholder ) {
-    width: calc( 100% - var( --wfw-peek-push ) );
-}
-
-.wfw.is-push-left .wfw-editor > :is( iframe, .wfw-editor__skeleton, .wfw-editor__placeholder ) {
-    left: var( --wfw-peek-push );
-    width: calc( 100% - var( --wfw-peek-push ) );
-}
-
-.wfw.is-push-left .wfw-editor__corner {
-    left: calc( var( --wfw-peek-push ) + 12px );
-}
-
-.wfw.is-push-bottom .wfw-editor > :is( iframe, .wfw-editor__skeleton, .wfw-editor__placeholder ) {
-    height: calc( 100% - var( --wfw-peek-push ) );
 }
 
 .wfw-peek {
@@ -38,13 +19,9 @@
     box-sizing: border-box;
     background: var( --wfw-editor-bg );
     color: var( --wfw-text );
-    transition:
-        left 0.3s cubic-bezier( 0.2, 0.9, 0.25, 1 ),
-        top 0.3s cubic-bezier( 0.2, 0.9, 0.25, 1 ),
-        width 0.3s cubic-bezier( 0.2, 0.9, 0.25, 1 ),
-        height 0.3s cubic-bezier( 0.2, 0.9, 0.25, 1 ),
-        border-radius 0.3s ease,
-        box-shadow 0.3s ease;
+    transition-property: left, top, width, height, border-radius, box-shadow;
+    transition-duration: 0.3s;
+    transition-timing-function: cubic-bezier( 0.2, 0.9, 0.25, 1 );
 }
 
 .wfw-peek[hidden] {
@@ -363,24 +340,6 @@
     display: none;
 }
 
-.wfw .wfw-peek__find input {
-    flex: 1;
-    min-width: 0;
-    height: 32px;
-    padding: 0 12px;
-    border: 1px solid var( --wfw-border );
-    border-radius: 16px;
-    background: var( --wfw-editor-bg );
-    color: var( --wfw-text );
-    font: inherit;
-    box-shadow: none;
-    outline: none;
-}
-
-.wfw .wfw-peek__find input:focus {
-    border-color: var( --wfw-accent );
-}
-
 .wfw-peek__count {
     flex: none;
     padding: 0 6px;
@@ -452,6 +411,11 @@
     overflow-wrap: break-word;
 }
 
+/* The editor's loading lines (app.css), at the sheet's own type. */
+.wfw-peek__body .wfw-editor__skeleton-column {
+    font-size: inherit;
+}
+
 .wfw-peek__title {
     margin: 0 0 0.9em;
     font-family: inherit;
@@ -467,111 +431,19 @@
     color: var( --wfw-list-muted );
 }
 
+/* Blocks sit as in the editor: note-flow.css spaces them, with nothing of wp-admin's own paragraph margins. */
 .wfw-peek__body > * {
-    margin-block: 0 1.1em;
+    margin-block: 0;
 }
 
-.wfw-peek__body :is( h1, h2, h3, h4, h5, h6 ) {
-    margin-block: 1.6em 0.6em;
-    font-family: inherit;
-    font-weight: 700;
-    line-height: 1.3;
-    color: inherit;
-}
-
-.wfw-peek__body h1 { font-size: 1.6em; }
-.wfw-peek__body h2 { font-size: 1.35em; }
-.wfw-peek__body h3 { font-size: 1.15em; }
-.wfw-peek__body :is( h4, h5, h6 ) { font-size: 1em; }
-
-.wfw-peek__body p {
-    font-size: inherit;
-    line-height: inherit;
-}
-
-.wfw-peek__body a {
-    color: var( --wfw-accent );
-}
-
-.wfw-peek__body :is( ul, ol ) {
-    padding-left: 1.4em;
-    list-style: revert;
-}
-
-.wfw-peek__body li {
-    margin: 0 0 0.3em;
-}
-
-.wfw-peek__body blockquote {
-    margin-inline: 0;
-    padding: 0.1em 0 0.1em 1em;
-    border-left: 3px solid var( --wfw-accent );
-    color: color-mix( in srgb, var( --wfw-text ) 75%, transparent );
-}
-
-.wfw-peek__body blockquote cite {
-    display: block;
-    margin-top: 0.4em;
-    font-size: 0.8em;
-    font-style: normal;
-}
-
+/* Images and video fit the sheet; the rest of the note's look is note-flow.css, shared with the editor. */
 .wfw-peek__body :is( img, video ) {
     max-width: 100%;
     height: auto;
-    border-radius: 4px;
 }
 
 .wfw-peek__body figure {
     margin-inline: 0;
-}
-
-.wfw-peek__body figcaption {
-    margin-top: 0.4em;
-    font-size: 0.8em;
-    color: var( --wfw-list-muted );
-    text-align: center;
-}
-
-.wfw-peek__body :is( code, kbd ) {
-    padding: 0.1em 0.35em;
-    border-radius: 4px;
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 0.85em;
-    background: color-mix( in srgb, var( --wfw-text ) 8%, transparent );
-}
-
-.wfw-peek__body pre {
-    padding: 0.9em 1em;
-    border-radius: 6px;
-    overflow-x: auto;
-    font-size: 0.85em;
-    line-height: 1.5;
-    background: color-mix( in srgb, var( --wfw-text ) 6%, transparent );
-}
-
-.wfw-peek__body pre code {
-    padding: 0;
-    font-size: inherit;
-    background: none;
-}
-
-.wfw-peek__body hr {
-    margin-block: 2em;
-    border: 0;
-    border-top: 1px solid var( --wfw-border );
-}
-
-.wfw-peek__body table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9em;
-}
-
-.wfw-peek__body :is( th, td ) {
-    padding: 0.4em 0.6em;
-    border: 1px solid var( --wfw-border );
-    text-align: left;
 }
 
 ::highlight( wfw-peek-find ) {
@@ -581,23 +453,6 @@
 ::highlight( wfw-peek-find-current ) {
     background-color: #f59e0b;
     color: #111;
-}
-
-/* While the note loads: a few faint lines, like the editor's own placeholder. */
-.wfw-peek__loading span {
-    display: block;
-    height: 0.9em;
-    margin: 0 0 0.8em;
-    border-radius: 4px;
-    background: color-mix( in srgb, var( --wfw-text ) 8%, transparent );
-}
-
-.wfw-peek__loading span:nth-child( 2 ) {
-    width: 92%;
-}
-
-.wfw-peek__loading span:last-child {
-    width: 60%;
 }
 
 @media ( max-width: 700px ) {

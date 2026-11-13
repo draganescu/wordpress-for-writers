@@ -216,12 +216,28 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     }
 }, 1 );
 
+/**
+ * Where core's block styles (wp-block-library) are served from, with their version.
+ *
+ * @return string
+ */
+function wfw_block_styles_url() {
+    $styles = wp_styles();
+    $style  = $styles->query( 'wp-block-library' );
+    if ( ! $style || ! $style->src ) {
+        return '';
+    }
+    $src = preg_match( '|^(https?:)?//|', $style->src ) ? $style->src : $styles->base_url . $style->src;
+    return add_query_arg( 'ver', $style->ver ? $style->ver : $styles->default_version, $src );
+}
+
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
     if ( 'toplevel_page_' . WFW_PAGE === $hook ) {
         wp_enqueue_style( 'wfw-app', WFW_URL . 'assets/app.css', array( 'wp-components' ), wfw_asset_version( 'assets/app.css' ) );
-        // Peek (a note read in a sheet beside the editor) is its own script and styles; core's block styles are for the blocks of the note it shows.
-        wp_enqueue_style( 'wfw-peek', WFW_URL . 'assets/peek.css', array( 'wfw-app', 'wp-block-library' ), wfw_asset_version( 'assets/peek.css' ) );
-        wp_register_script( 'wfw-peek', WFW_URL . 'assets/peek.js', array( 'wp-api-fetch', 'wp-i18n' ), wfw_asset_version( 'assets/peek.js' ), true );
+        // Peek (a note read in a sheet beside the editor) is its own script and styles; its note reads as in the editor (note-flow.css).
+        wp_register_style( 'wfw-note-flow', WFW_URL . 'assets/note-flow.css', array(), wfw_asset_version( 'assets/note-flow.css' ) );
+        wp_enqueue_style( 'wfw-peek', WFW_URL . 'assets/peek.css', array( 'wfw-app', 'wfw-note-flow' ), wfw_asset_version( 'assets/peek.css' ) );
+        wp_register_script( 'wfw-peek', WFW_URL . 'assets/peek.js', array( 'wp-api-fetch', 'wp-i18n', 'wp-date' ), wfw_asset_version( 'assets/peek.js' ), true );
         wp_add_inline_style( 'wfw-app', wfw_appearance_css() );
         wp_enqueue_script( 'wfw-app', WFW_URL . 'assets/app.js', array( 'wfw-peek', 'wp-api-fetch', 'wp-hooks', 'wp-i18n', 'wp-element', 'wp-components', 'wp-data', 'wp-core-data', 'wp-media-utils' ), wfw_asset_version( 'assets/app.js' ), true );
         $user = wp_get_current_user();
@@ -250,6 +266,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             'logoutUrl'         => wp_logout_url(),
             // The Writer editor's page; each tab loads it for its note (see includes/editor.php).
             'editorUrl'         => wfw_editor_url(),
+            // Core's block styles, for the blocks of a note in a peek sheet: loaded with the first peek, as most visits never open one.
+            'blockStylesUrl'    => wfw_block_styles_url(),
             // Core's update notices are hidden on the app page, so the account menu shows the
             // pending count instead, to the same people core shows it to (zero for everyone else).
             'updatesCount'      => current_user_can( 'update_core' ) || current_user_can( 'update_plugins' ) || current_user_can( 'update_themes' )
