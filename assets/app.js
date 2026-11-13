@@ -1,6 +1,6 @@
 ( function () {
     const apiFetch = wp.apiFetch;
-    const { __, _n, sprintf } = wp.i18n;
+    const { __, _n, _x, sprintf } = wp.i18n;
     const settings = window.wfwSettings;
     const root = document.getElementById( 'wfw-app' );
 
@@ -18,6 +18,9 @@
         compose: '<path d="M18.5 5.5V8H20V5.5h2.5V4H20V1.5h-1.5V4H16v1.5h2.5zM12 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-6h-1.5v6a.5.5 0 01-.5.5H6a.5.5 0 01-.5-.5V6a.5.5 0 01.5-.5h6V4z"/>', // add-card
         sidebar: '<path fill-rule="evenodd" clip-rule="evenodd" d="M18 4H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8.5 18.5H6c-.3 0-.5-.2-.5-.5V6c0-.3.2-.5.5-.5h2.5v13zm10-.5c0 .3-.2.5-.5.5h-8v-13h8c.3 0 .5.2.5.5v12z"/>', // drawer-left
         focus: '<path d="M7 18h4.5v1.5h-7v-7H6V17L17 6h-4.5V4.5h7v7H18V7L7 18Z"/>', // resize-corner-ne
+        peek: '<path fill-rule="evenodd" clip-rule="evenodd" d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm.5 1.5v11h8v-11h-8Z"/>',
+        swap: '<path d="M7 7.25h9.19l-2.22-2.22 1.06-1.06L19.06 8l-4.03 4.03-1.06-1.06 2.22-2.22H7v-1.5Zm10 9.5H7.81l2.22 2.22-1.06 1.06L4.94 16l4.03-4.03 1.06 1.06-2.22 2.22H17v1.5Z"/>',
+        forward: '<path d="M9.4 7l1.2-1L16 12l-5.4 6-1.2-1 4.6-5z"/>', // chevron-right
         restore: '<path d="M13.75 4.194a8 8 0 0 0-4.812.415l-.301.132a8 8 0 0 0-3.203 2.692L4 6.001v4h4L6.517 8.516q.333-.526.758-.977l.011-.012q.341-.359.733-.662l.025-.02a6.5 6.5 0 0 1 2.469-1.172l.034-.008q.117-.027.236-.05l.015-.002q.32-.06.65-.088.08-.008.16-.013a7 7 0 0 1 .323-.01L12 5.5h.05l.203.005.101.003q.146.008.293.023l.12.014.158.02q.103.015.205.033l.058.011q.107.02.212.043l.068.016a6.5 6.5 0 0 1 1.447.521l.02.01a7 7 0 0 1 .452.25l.02.014a7 7 0 0 1 .468.317l.07.054a7 7 0 0 1 .403.334l.034.03q.091.084.18.172l.047.045q.293.294.548.627l.03.038.07.097.096.135q.037.053.072.107a6 6 0 0 1 .167.265l.042.073q.236.411.413.857l.027.07a6.5 6.5 0 0 1 .418 2.014 6.6 6.6 0 0 1-.034 1.04 6 6 0 0 1-.063.424q-.109.597-.32 1.152-.016.034-.028.07a6.5 6.5 0 0 1-.413.856l-.042.073a6 6 0 0 1-.327.497l-.087.118-.02.028a7 7 0 0 1-.526.604l-.035.035-.035.032q-.089.088-.18.172l-.034.03a7 7 0 0 1-.38.317l-.093.071q-.09.067-.183.13l-.076.053q-.112.076-.227.146-.218.133-.446.247l-.028.015-.192.093-.081.036a6.5 6.5 0 0 1-1.184.396l-.058.012a7 7 0 0 1-.475.087q-.08.012-.157.02l-.122.014q-.145.015-.292.023l-.136.005-.139.003L12 18.5q-.053-.002-.104-.003l-.127-.004-.162-.007q-.08-.005-.159-.013a7 7 0 0 1-.65-.088q-.008 0-.015-.002a7 7 0 0 1-.236-.05l-.034-.008a6.5 6.5 0 0 1-4.14-3.077l-1.3.75a8 8 0 0 0 3.564 3.26l.301.131a8 8 0 0 0 11.055-7.061l.007-.33c0-1.76-.581-3.473-1.653-4.87l-.206-.256a8 8 0 0 0-4.07-2.6zM12 7.75a.75.75 0 0 0-.75.75V12a.75.75 0 0 0 .218.529l1.282-.839-1.28.84 2.5 2.5a.75.75 0 1 0 1.06-1.06l-2.28-2.28V8.5a.75.75 0 0 0-.75-.75"/>', // backup
         close: '<path d="m13.06 12 6.47-6.47-1.06-1.06L12 10.94 5.53 4.47 4.47 5.53 10.94 12l-6.47 6.47 1.06 1.06L12 13.06l6.47 6.47 1.06-1.06L13.06 12Z"/>', // close
         back: '<path d="M14.6 7l-1.2-1L8 12l5.4 6 1.2-1-4.6-5z"/>', // chevron-left
@@ -104,6 +107,8 @@
     const appearance = { ...settings.appearance.current };
 
     const compactLayout = window.matchMedia( '(max-width: 1100px)' );
+    // Phones show one pane at a time; a peek sheet only docks under the editor there.
+    const phoneLayout = window.matchMedia( '(max-width: 700px)' );
 
     /*
      * The open editors, listed under Editing now: the one in view, and those
@@ -394,6 +399,8 @@
                 <div class="wfw-editor__corner">
                     <button class="wfw-back" data-action="back">${ icon( 'back' ) }${ esc( __( 'Notes', 'wordpress-for-writers' ) ) }</button>
                     <button class="wfw-icon-btn wfw-focus-toggle" data-action="toggle-focus" title="${ esc( __( 'Focus mode', 'wordpress-for-writers' ) ) }">${ icon( 'focus' ) }</button>
+                    <button class="wfw-icon-btn wfw-peek-toggle" data-action="peek-pick" title="${ esc( __( 'Peek at a note', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Peek at a note', 'wordpress-for-writers' ) ) }">${ icon( 'peek' ) }</button>
+                    <button class="wfw-icon-btn wfw-peek-toggle" data-action="peek-this-versions" title="${ esc( __( 'Past versions of this note', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Past versions of this note', 'wordpress-for-writers' ) ) }">${ icon( 'restore' ) }</button>
                     <button class="wfw-icon-btn wfw-tabs-toggle" data-action="tabs-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="wfw-tabs-menu" title="${ esc( __( 'Switch tab', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Switch tab', 'wordpress-for-writers' ) ) }">${ icon( 'tabs' ) }<span class="wfw-tabs-toggle__count" aria-hidden="true"></span></button>
                 </div>
                 <div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>
@@ -421,6 +428,7 @@
             }
         } );
         applyLayout();
+        PEEK.init();
     }
 
     function applyLayout() {
@@ -958,6 +966,16 @@
         tab.frame = null;
         tab.ready = false;
         tab.hiddenSince = 0;
+        tab.outbox = null; // Messages for this editor go with it.
+    }
+
+    // Sends a message to a tab's editor, now or, while it is still loading, once it is ready.
+    function postToEditor( tab, message ) {
+        if ( tab.frame && tab.ready ) {
+            tab.frame.contentWindow.postMessage( { source: 'wfw', ...message }, window.location.origin );
+        } else {
+            ( tab.outbox = tab.outbox || [] ).push( message );
+        }
     }
 
     /*
@@ -1049,6 +1067,7 @@
         state.activeId = tab ? tab.id : null;
         tabs.forEach( ( t ) => setHidden( t, t !== tab ) );
         root.classList.toggle( 'has-note', !! tab );
+        PEEK.paneChanged( previous, tab );
         if ( ! tab ) {
             editor.insertAdjacentHTML( 'beforeend', `<div class="wfw-editor__placeholder">${ icon( 'notes' ) }<span>${ esc( __( 'Select a note or start a new one', 'wordpress-for-writers' ) ) }</span></div>` );
         } else if ( ! tab.frame || tab.frame.classList.contains( 'is-loading' ) ) {
@@ -1094,16 +1113,27 @@
         }
         const here = tabToReuse();
         if ( here ) {
-            if ( ! ( await canLeaveEditor( here ) ) ) {
-                return;
-            }
-            here.id = id;
-            here.title = noteTitle( id );
-            dropFrame( here );
-            showTab( here );
+            await retargetTab( here, id );
             return;
         }
         showTab( addTab( id ) );
+    }
+
+    /*
+     * Puts another note in a tab, in place of its own, once a draft's last
+     * changes are saved, and shows it. False when the writer kept the note
+     * there (a published note's unsaved changes), or moved elsewhere meanwhile.
+     */
+    async function retargetTab( tab, id, title = noteTitle( id ) ) {
+        const was = current;
+        if ( ! ( await canLeaveEditor( tab ) ) || current !== was || ! tabs.includes( tab ) ) {
+            return false;
+        }
+        tab.id = id;
+        tab.title = title;
+        dropFrame( tab );
+        await showTab( tab );
+        return true;
     }
 
     // The tab a note opens in when it isn't opened in a new one: the tab in view,
@@ -1148,15 +1178,7 @@
     }
 
     async function newNote() {
-        const reuse = tabToReuse();
-        if ( reuse && ! ( await canLeaveEditor( reuse ) ) ) {
-            return;
-        }
-        const tab = reuse || addTab( null, '' );
-        tab.id = null;
-        tab.title = '';
-        dropFrame( tab );
-        showTab( tab );
+        await retargetTab( tabToReuse() || addTab( null, '' ), null, '' );
     }
 
     // Closes a tab's editor, after saving a draft's last changes. The next tab
@@ -1185,7 +1207,8 @@
      * tabs are restored, so the browser holds nothing of what the notes say.
      */
     function saveTabs() {
-        savePref( 'tabs', tabs.filter( ( t ) => t.id ).map( ( t ) => ( { id: t.id } ) ) );
+        // With each, the notes in its peek sheet.
+        savePref( 'tabs', tabs.filter( ( t ) => t.id ).map( ( t ) => ( { id: t.id, ...PEEK.saved( t ) } ) ) );
     }
 
     // A title changes with every keystroke in it: those are saved once typing pauses.
@@ -1202,7 +1225,11 @@
         if ( ! saved.length ) {
             return;
         }
-        const restored = saved.slice( 0, MAX_TABS ).map( ( t ) => addTab( Number( t.id ), '' ) );
+        const restored = saved.slice( 0, MAX_TABS ).map( ( t ) => {
+            const tab = addTab( Number( t.id ), '' );
+            PEEK.restore( tab, t );
+            return tab;
+        } );
         renderSidebar();
         const ids = restored.map( ( t ) => t.id );
         const notes = await apiFetch( {
@@ -1222,6 +1249,7 @@
     // A note that went to the trash or was deleted closes its tabs, with nothing to save.
     function closeNoteTab( id ) {
         tabs.filter( ( t ) => t.id === id ).forEach( ( t ) => closeTab( t, { save: false } ) );
+        PEEK.forget( id );
     }
 
     function setTabTitle( tab, title ) {
@@ -1254,6 +1282,8 @@
                 tab.ready = true;
                 postAppearance( tab );
                 postVisibility( tab ); // An editor that loaded behind a panel starts out hidden.
+                ( tab.outbox || [] ).forEach( ( message ) => postToEditor( tab, message ) );
+                tab.outbox = null;
                 if ( data.id && tab.id !== data.id ) {
                     tab.id = data.id;
                     if ( tab === current ) {
@@ -1279,6 +1309,7 @@
             case 'saved': {
                 tab.id = data.id;
                 twinsOf( tab ).forEach( ( t ) => ( t.stale = true ) );
+                PEEK.noteSaved( data.id );
                 if ( tab === current ) {
                     state.activeId = data.id;
                     window.history.replaceState( null, '', '#note=' + data.id );
@@ -1321,6 +1352,67 @@
             }
         }
     } );
+
+    // ---- Peek --------------------------------------------------------------
+
+    /*
+     * Peek, a note to read in a sheet beside the one being written, is its own
+     * file: peek.js, which says there what it is and what it needs. This is
+     * the whole of the app's side of it: what the app hands over, and the few
+     * things about tabs, editors and the palette that are the app's to do.
+     */
+    const PEEK = window.wfwPeek( {
+        root, esc, icon, loadPref, savePref, htmlToText, phoneLayout,
+        statuses: STATUS_VIEWS[ 0 ].status,
+        blockStylesUrl: settings.blockStylesUrl,
+        current: () => current,
+        tabs: () => tabs,
+        panel: () => !! state.panel,
+        titleOf: ( id ) => noteTitle( id ) || tabFor( id )?.title || '',
+        saveTabs,
+        replaceNote,
+        restoreVersion: restoreInEditor,
+        pickPeek,
+        focusEditor: () => current?.frame?.focus(),
+    } );
+
+    // Puts another note in the tab in view, in place of its own.
+    function replaceNote( id, title ) {
+        return current && ! state.panel ? retargetTab( current, id, title || noteTitle( id ) ) : Promise.resolve( false );
+    }
+
+    // Applies a past version of a note in its editor, opening the note if it isn't the one in view.
+    async function restoreInEditor( restore ) {
+        if ( current?.id !== restore.id || state.panel ) {
+            await openNote( restore.id );
+        }
+        const tab = current?.id === restore.id ? current : null;
+        if ( ! tab ) {
+            return false;
+        }
+        postToEditor( tab, { type: 'restore-version', ...restore } );
+        tab.frame?.focus();
+        return true;
+    }
+
+    /*
+     * The palette's word for peeking: "peek" and a few letters of a note's
+     * title look for a note to read in a sheet. The writer's own language's
+     * word works, and so does the English one.
+     */
+    const PEEK_WORD = _x( 'peek', 'command palette: the word that starts a search for a note to peek at', 'wordpress-for-writers' );
+    const PEEK_PREFIX = new RegExp( '^(' + [ PEEK_WORD, 'peek' ].map( ( word ) => word.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) ).join( '|' ) + ')(\\s+|$)', 'i' );
+
+    // The palette, asking which note to peek at.
+    function pickPeek() {
+        if ( ! palette ) {
+            openPalette();
+        }
+        const input = paletteEl().querySelector( 'input' );
+        input.value = PEEK_WORD + ' ';
+        setPaletteQuery( input.value );
+        input.focus();
+    }
 
     // ---- Featured image ----------------------------------------------------
 
@@ -1938,6 +2030,7 @@
         const panelRoot = wp.element.createRoot( host );
         panelRoot.render( module.el( module.Panel, { ...props, postId: id, onBack: () => openNote( id ), onSaved: () => { loadNotes( { keep: true } ); if ( kind === 'terms' ) { loadTerms(); } } } ) );
         state.panel = { id, root: panelRoot };
+        PEEK.paneChanged( current, current ); // A panel has the pane to itself.
     }
 
     function openFeatured( id ) {
@@ -2177,6 +2270,8 @@
             { command: 'open', icon: 'open', label: __( 'Open', 'wordpress-for-writers' ) },
             // A tab of the app's own, under Editing now, rather than another browser tab.
             { command: 'open-tab', icon: 'external', label: __( 'Open in new tab', 'wordpress-for-writers' ) },
+            // To read beside the note being written, in a sheet.
+            { command: 'peek', icon: 'peek', label: __( 'Peek', 'wordpress-for-writers' ) },
             { command: 'duplicate', icon: 'duplicate', label: __( 'Duplicate', 'wordpress-for-writers' ) },
         ];
         if ( note.link ) {
@@ -2303,6 +2398,9 @@
                 break;
             case 'open-tab':
                 openNoteInTab( menu.id );
+                break;
+            case 'peek':
+                PEEK.open( menu.id );
                 break;
             case 'duplicate':
                 duplicateNote( menu.id );
@@ -2575,6 +2673,12 @@
             { command: 'focus', icon: 'focus', label: state.focus ? __( 'Leave focus mode', 'wordpress-for-writers' ) : __( 'Focus mode', 'wordpress-for-writers' ) },
             { command: 'sidebar', icon: 'sidebar', label: sidebarShown ? __( 'Hide sidebar', 'wordpress-for-writers' ) : __( 'Show sidebar', 'wordpress-for-writers' ) },
             { command: 'appearance', icon: 'appearance', label: __( 'Appearance', 'wordpress-for-writers' ) },
+            { command: 'peek-pick', icon: 'peek', label: __( 'Peek at a note…', 'wordpress-for-writers' ) },
+            ...( current?.id && ! state.panel ? [ { command: 'peek-this-versions', icon: 'restore', label: __( 'Past versions of this note', 'wordpress-for-writers' ) } ] : [] ),
+            ...( PEEK.isOpen() ? [
+                { command: 'peek-swap', icon: 'swap', label: __( 'Swap the peeked note with the editor', 'wordpress-for-writers' ) },
+                { command: 'peek-close', icon: 'close', label: __( 'Close peek', 'wordpress-for-writers' ) },
+            ] : [] ),
         ];
     }
 
@@ -2583,6 +2687,20 @@
         const query = palette.query.toLowerCase();
         const matches = ( text ) => ! query || text.toLowerCase().includes( query );
         const untitled = __( 'Untitled', 'wordpress-for-writers' );
+        if ( palette.peek ) {
+            // "peek" and a few letters: the notes that match, to read in a sheet. With nothing more typed, the list's latest.
+            const source = palette.search
+                ? palette.notes
+                : state.notes.filter( ( note ) => note.status !== 'trash' ).slice( 0, 8 ).map( ( note ) => ( { id: note.id, title: note.title.raw || htmlToText( note.title.rendered ) } ) );
+            const items = source.map( ( note ) => ( {
+                command: 'peek',
+                id: note.id,
+                icon: 'peek',
+                /* translators: %s: a note's title. */
+                label: sprintf( __( 'Peek: %s', 'wordpress-for-writers' ), note.title || untitled ),
+            } ) );
+            return items.length ? [ { label: __( 'Peek', 'wordpress-for-writers' ), items } ] : [];
+        }
         const tabItems = tabs
             .map( ( tab ) => ( {
                 command: 'tab',
@@ -2653,7 +2771,7 @@
         if ( ! palette ) {
             return;
         }
-        const query = palette.query;
+        const query = palette.search;
         const requestId = ++paletteRequest;
         const params = { search: query, per_page: 8, status: STATUS_VIEWS[ 0 ].status, context: 'edit', _fields: 'id,title,status' };
         const notes = await apiFetch( { path: '/wp/v2/posts?' + new URLSearchParams( params ) } ).catch( () => [] );
@@ -2667,11 +2785,15 @@
 
     function setPaletteQuery( query ) {
         palette.query = query.trim();
+        // "peek …" looks for a note to read in a sheet, by the words after it.
+        const prefix = palette.query.match( PEEK_PREFIX );
+        palette.peek = !! prefix;
+        palette.search = prefix ? palette.query.slice( prefix[ 0 ].length ) : palette.query;
         palette.index = 0;
         palette.notes = [];
-        palette.searching = !! palette.query;
+        palette.searching = !! palette.search;
         renderPalette();
-        if ( palette.query ) {
+        if ( palette.search ) {
             searchPaletteNotes();
         } else {
             paletteRequest++; // A reply to an earlier search is no longer wanted.
@@ -2685,7 +2807,7 @@
         closeUserMenu( false );
         closeTabsMenu( false );
         toggleListMenu( false );
-        palette = { query: '', notes: [], items: [], index: 0, searching: false, from };
+        palette = { query: '', search: '', peek: false, notes: [], items: [], index: 0, searching: false, from };
         const box = paletteEl();
         const input = box.querySelector( 'input' );
         input.value = '';
@@ -2708,6 +2830,10 @@
     }
 
     function runPaletteItem( item ) {
+        if ( item.command === 'peek-pick' ) {
+            pickPeek(); // The palette stays open, now asking which note.
+            return;
+        }
         // Opening or switching notes moves focus itself; the rest leave it where it was.
         closePalette( { focus: ! [ 'tab', 'open', 'new' ].includes( item.command ) } );
         switch ( item.command ) {
@@ -2736,6 +2862,14 @@
             case 'appearance':
                 openAppearance();
                 break;
+            case 'peek':
+                PEEK.open( item.id );
+                break;
+            case 'peek-close':
+                PEEK.closeAll(); // Every peek, where the sheet's own close button closes the one in front.
+                break;
+            default:
+                PEEK.action( item.command ); // The sheet's own actions, by the same names.
         }
     }
 
@@ -2944,10 +3078,14 @@
 
     function onClick( event ) {
         const target = event.target.closest( '[data-action]' );
-        if ( ! target || ! root.contains( target ) ) {
+        // A peeked note is someone's writing, not the app's: nothing in it is a command.
+        if ( ! target || ! root.contains( target ) || target.closest( '.wfw-peek__body' ) ) {
             return;
         }
         const id = Number( target.dataset.id ) || undefined;
+        if ( PEEK.action( target.dataset.action, target ) ) {
+            return;
+        }
         switch ( target.dataset.action ) {
             case 'view':
                 state.view = id ? { type: target.dataset.type, id } : { type: target.dataset.type };
@@ -2980,7 +3118,10 @@
             }
             case 'open':
                 // Cmd- or Ctrl-click opens the note in a tab of its own, as it would a link in a browser.
-                if ( event.metaKey || event.ctrlKey ) {
+                if ( event.altKey ) {
+                    // Option- or Alt-click peeks at it, beside the note being written.
+                    PEEK.open( id );
+                } else if ( event.metaKey || event.ctrlKey ) {
                     openNoteInTab( id );
                 } else {
                     openNote( id );
@@ -3170,6 +3311,9 @@
             const keyboardUp = fullHeight - visible.height > 80 && visible.scale < 1.01;
             if ( keyboardUp && ( window.scrollY || visible.offsetTop ) ) {
                 window.scrollTo( 0, 0 );
+            }
+            if ( keyboardUp !== root.classList.contains( 'has-keyboard' ) ) {
+                PEEK.keyboard( keyboardUp );
             }
             root.classList.toggle( 'has-keyboard', keyboardUp );
             root.style.top = keyboardUp ? visible.offsetTop + 'px' : '';
