@@ -638,6 +638,35 @@
         );
     }
 
+    // ---- Restoring a version ---------------------------------------------------
+
+    /*
+     * The app hands over a past version of the note, picked in a peek sheet
+     * beside the editor: it becomes an edit of the note, as typing it would, so
+     * Undo takes it back and a draft saves it as usual. A published note keeps
+     * it as unsaved changes until Update.
+     */
+    function restoreVersion( { title, content, excerpt, date } ) {
+        if ( ! editorSelect().getCurrentPostId() ) {
+            return;
+        }
+        // One edit (one step of undo): the title, the text, and its blocks for the canvas.
+        const edits = { title: title || '', content: content || '', blocks: wp.blocks.parse( content || '' ) };
+        if ( excerpt !== undefined ) {
+            edits.excerpt = excerpt;
+        }
+        dispatch( editorStore ).editPost( edits );
+        dispatch( noticesStore ).createSuccessNotice(
+            /* translators: %s: when the restored version was saved. */
+            sprintf( __( 'Restored the version from %s.', 'wordpress-for-writers' ), date ),
+            {
+                type: 'snackbar',
+                id: 'wfw-version-restored',
+                actions: [ { label: __( 'Undo', 'wordpress-for-writers' ), onClick: () => dispatch( editorStore ).undo() } ],
+            }
+        );
+    }
+
     // ---- Visibility (Writer Members) -------------------------------------------
 
     /*
@@ -993,6 +1022,10 @@
         }
         if ( type === 'visibility' ) {
             setHidden( !! event.data.hidden );
+            return;
+        }
+        if ( type === 'restore-version' ) {
+            restoreVersion( event.data );
             return;
         }
         if ( type !== 'flush' ) {
