@@ -3078,7 +3078,8 @@
 
     function onClick( event ) {
         const target = event.target.closest( '[data-action]' );
-        if ( ! target || ! root.contains( target ) ) {
+        // A peeked note is someone's writing, not the app's: nothing in it is a command.
+        if ( ! target || ! root.contains( target ) || target.closest( '.wfw-peek__body' ) ) {
             return;
         }
         const id = Number( target.dataset.id ) || undefined;

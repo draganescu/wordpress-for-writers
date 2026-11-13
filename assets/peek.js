@@ -197,28 +197,53 @@ window.wfwPeek = function ( app ) {
     }
 
     /*
-     * The site's rendered content, minus anything that runs or posts, and
-     * embeds and forms, which have no place in a note read beside another.
+     * The site's rendered content, made safe to read inside the app. A note
+     * can be someone else's: WordPress lets any author keep ids, data-*
+     * attributes, classes and inline styles, which here would reach the app
+     * itself (its buttons act on data-action, it finds its menus by id), so
+     * only what reads as text, links and images is kept:
+     *
+     * - nothing that runs, posts or embeds (scripts, frames, forms, SVG animation);
+     * - no event handlers, and links and sources only to http(s), mail, phone
+     *   and inline images (parsed as the browser would, so "jav&#9;ascript:" is caught);
+     * - no ids, names or data-* attributes, and none of the app's own classes.
+     *
      * wp.dom.safeHTML only takes out scripts and on* handlers, so it isn't
-     * enough here.
+     * enough here. The sheet also contains what is left (peek.css), so no
+     * style can reach past it.
      */
+    const PEEK_DROP = 'script, style, link, meta, base, object, embed, iframe, frame, form, input, button, textarea, select, animate, set, animatemotion, animatetransform';
+    const PEEK_URL_ATTRS = [ 'href', 'src', 'xlink:href', 'action', 'formaction', 'poster' ];
+
+    function safeUrl( value ) {
+        try {
+            const { protocol } = new URL( value, document.baseURI );
+            return /^(https?|mailto|tel):$/.test( protocol ) || protocol === 'data:' && /^\s*data:image\//i.test( value );
+        } catch ( e ) {
+            return false;
+        }
+    }
+
     function peekFragment( html ) {
         const template = document.createElement( 'template' );
         template.innerHTML = html || '';
         const content = template.content;
-        content.querySelectorAll( 'script, style, link, meta, base, object, embed, iframe, form, input, button, textarea, select' ).forEach( ( node ) => node.remove() );
+        content.querySelectorAll( PEEK_DROP ).forEach( ( node ) => node.remove() );
         content.querySelectorAll( '*' ).forEach( ( node ) => {
             [ ...node.attributes ].forEach( ( attr ) => {
                 const name = attr.name.toLowerCase();
-                if ( name.startsWith( 'on' ) || name === 'srcdoc' || name === 'contenteditable' || name === 'style' && /expression|url\s*\(/i.test( attr.value ) ) {
-                    node.removeAttribute( attr.name );
-                } else if ( [ 'href', 'src', 'action', 'formaction', 'xlink:href' ].includes( name ) && /^\s*(javascript|data|vbscript):/i.test( attr.value ) && ! /^\s*data:image\//i.test( attr.value ) ) {
+                const drop = name.startsWith( 'on' ) || name.startsWith( 'data-' ) || [ 'id', 'name', 'srcdoc', 'contenteditable', 'tabindex', 'autofocus' ].includes( name )
+                    || name === 'style' && /expression|url\s*\(/i.test( attr.value )
+                    || PEEK_URL_ATTRS.includes( name ) && ! safeUrl( attr.value );
+                if ( drop ) {
                     node.removeAttribute( attr.name );
                 }
             } );
-            if ( node.tagName === 'A' ) {
+            [ ...node.classList ].filter( ( name ) => name.startsWith( 'wfw-' ) ).forEach( ( name ) => node.classList.remove( name ) );
+            if ( node.localName === 'a' ) {
+                // HTML and SVG links alike open on their own, away from the app.
                 node.setAttribute( 'target', '_blank' );
-                node.setAttribute( 'rel', 'noopener' );
+                node.setAttribute( 'rel', 'noopener noreferrer' );
             }
         } );
         return content;

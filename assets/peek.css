@@ -394,6 +394,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* What the note holds stays in the sheet: fixed or absolute content is placed and clipped here, never over the app. */
+    contain: paint;
     overscroll-behavior: contain;
     outline: none;
     user-select: text;
