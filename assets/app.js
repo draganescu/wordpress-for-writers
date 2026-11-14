@@ -2600,7 +2600,8 @@
     } );
 
     root.addEventListener( 'click', ( event ) => {
-        const twoFingerClick = event.metaKey && ! metaHeld && ( event.pointerType || lastPointerType ) === 'touch';
+        // Safari calls that click a mouse's, so it is told by what last touched the screen.
+        const twoFingerClick = event.metaKey && ! metaHeld && lastPointerType === 'touch';
         if ( ! suppressClick && ! twoFingerClick ) {
             return;
         }
