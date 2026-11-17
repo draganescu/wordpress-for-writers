@@ -30,6 +30,10 @@
         plugin: '<path d="M10.5 4v4h3V4H15v4h1.5a1 1 0 0 1 1 1v4l-3 4v2a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-2l-3-4V9a1 1 0 0 1 1-1H9V4h1.5zm.5 12.5v2h2v-2l3-4v-3H8v3l3 4z"/>', // plugins
         profile: '<path fill-rule="evenodd" clip-rule="evenodd" d="M7.25 16.437a6.5 6.5 0 1 1 9.5 0V16A2.75 2.75 0 0 0 14 13.25h-4A2.75 2.75 0 0 0 7.25 16v.437Zm1.5 1.193a6.47 6.47 0 0 0 3.25.87 6.47 6.47 0 0 0 3.25-.87V16c0-.69-.56-1.25-1.25-1.25h-4c-.69 0-1.25.56-1.25 1.25v1.63ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm10-2a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/>', // comment-author-avatar
         dropdown: '<path d="m15.99 10.889-3.988 3.418-3.988-3.418.976-1.14 3.012 2.582 3.012-2.581.976 1.139Z"/>', // chevron-down-small
+        status: '<path d="M18 4H6c-1.1 0-2 .9-2 2v12.9c0 .6.5 1.1 1.1 1.1.3 0 .5-.1.8-.3L8.5 17H18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm.5 11c0 .3-.2.5-.5.5H7.9l-2.4 2.4V6c0-.3.2-.5.5-.5h12c.3 0 .5.2.5.5v9z"/>', // comment
+        gallery: '<path fill-rule="evenodd" clip-rule="evenodd" d="M16.375 4.5H4.625a.125.125 0 0 0-.125.125v8.254l2.859-1.54a.75.75 0 0 1 .68-.016l2.384 1.142 2.89-2.074a.75.75 0 0 1 .874 0l2.313 1.66V4.625a.125.125 0 0 0-.125-.125Zm.125 9.398-2.75-1.975-2.813 2.02a.75.75 0 0 1-.76.067l-2.444-1.17L4.5 14.583v1.792c0 .069.056.125.125.125h11.75a.125.125 0 0 0 .125-.125v-2.477ZM4.625 3C3.728 3 3 3.728 3 4.625v11.75C3 17.273 3.728 18 4.625 18h11.75c.898 0 1.625-.727 1.625-1.625V4.625C18 3.728 17.273 3 16.375 3H4.625ZM20 8v11c0 .69-.31 1-.999 1H6v1.5h13.001c1.52 0 2.499-.982 2.499-2.5V8H20Z"/>', // gallery
+        video: '<path d="M18.7 3H5.3C4 3 3 4 3 5.3v13.4C3 20 4 21 5.3 21h13.4c1.3 0 2.3-1 2.3-2.3V5.3C21 4 20 3 18.7 3zm.8 15.7c0 .4-.4.8-.8.8H5.3c-.4 0-.8-.4-.8-.8V5.3c0-.4.4-.8.8-.8h13.4c.4 0 .8.4.8.8v13.4zM10 15l5-3-5-3v6z"/>', // video
+        audio: '<path d="M17.7 4.3c-1.2 0-2.8 0-3.8 1-.6.6-.9 1.5-.9 2.6V14c-.6-.6-1.5-1-2.5-1C8.6 13 7 14.6 7 16.5S8.6 20 10.5 20c1.5 0 2.8-1 3.3-2.3.5-.8.7-1.8.7-2.5V7.9c0-.7.2-1.2.5-1.6.6-.6 1.8-.6 2.8-.6h.3V4.3h-.4z"/>', // audio
         check: '<path d="M16.7 7.1l-6.3 8.5-3.3-2.5-.9 1.2 4.5 3.4L17.9 8z"/>', // check
         image: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"/>', // image
         open: '<path d="m19 7-3-3-8.5 8.5-1 4 4-1L19 7Zm-7 11.5H5V20h7v-1.5Z"/>', // pencil
@@ -70,6 +74,18 @@
         { value: 1, label: __( 'One line', 'wordpress-for-writers' ) },
         { value: 2, label: __( 'Two lines', 'wordpress-for-writers' ) },
         { value: 3, label: __( 'Three lines', 'wordpress-for-writers' ) },
+    ];
+    /*
+     * Quick notes, from the bar at the foot of the list: each starts a draft
+     * in one of WordPress's post formats, its block already in place and in
+     * focus. The editor (editor.js) fills it in and leaves the title out.
+     */
+    const QUICK_NOTES = [
+        { kind: 'status', icon: 'status', label: __( 'Status', 'wordpress-for-writers' ) },
+        { kind: 'image', icon: 'image', label: __( 'Image', 'wordpress-for-writers' ) },
+        { kind: 'gallery', icon: 'gallery', label: __( 'Gallery', 'wordpress-for-writers' ) },
+        { kind: 'video', icon: 'video', label: __( 'Video', 'wordpress-for-writers' ) },
+        { kind: 'audio', icon: 'audio', label: __( 'Audio', 'wordpress-for-writers' ) },
     ];
     const LIST_DEFAULTS = { orderby: 'modified', order: 'desc', lines: 2, images: true };
 
@@ -388,6 +404,9 @@
                     <button class="wfw-list__title" data-action="list-menu" aria-haspopup="menu" aria-expanded="false"><span class="wfw-list__label"></span>${ icon( 'dropdown' ) }</button>
                 </div>
                 <div class="wfw-list__items" role="list"></div>
+                <div class="wfw-quick" role="toolbar" aria-label="${ esc( __( 'Quick notes', 'wordpress-for-writers' ) ) }">
+                    ${ QUICK_NOTES.map( ( q ) => `<button class="wfw-quick__btn" data-action="quick" data-kind="${ q.kind }" title="${ esc( q.label ) }" aria-label="${ esc( q.label ) }">${ icon( q.icon ) }</button>` ).join( '' ) }
+                </div>
             </section>
             <div class="wfw-scrim" data-action="close-drawer"></div>
             <main class="wfw-editor">
@@ -751,7 +770,10 @@
 
     function noteHtml( note ) {
         const title = note.title.raw || htmlToText( note.title.rendered );
-        const excerpt = state.list.lines ? htmlToText( note.excerpt.rendered ) : '';
+        // A note without a title (a status, say) leads with its text instead,
+        // a line of it at least, even when the list shows titles only.
+        const excerpt = state.list.lines || ! title ? htmlToText( note.excerpt.rendered ) : '';
+        const leadLines = title || state.list.lines ? '' : ' style="--wfw-preview-lines: 1"';
         const isTrash = note.status === 'trash';
         // Drafts, Published, Scheduled and Trash already say the status; mixed lists show it per note.
         const filtered = state.view.type !== 'all' && STATUS_VIEWS.some( ( v ) => v.type === state.view.type );
@@ -771,8 +793,8 @@
 
         return `
             <div class="wfw-note${ note.id === state.activeId ? ' is-active' : '' }" role="listitem" tabindex="0" data-action="open" data-id="${ note.id }">
-                <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || __( 'Untitled', 'wordpress-for-writers' ) ) }</div>
-                ${ excerpt ? `<div class="wfw-note__excerpt">${ esc( excerpt ) }</div>` : '' }
+                <div class="wfw-note__title"${ title ? '' : ' hidden' }>${ esc( title ) }</div>
+                ${ excerpt ? `<div class="wfw-note__excerpt${ title ? '' : ' is-lead' }"${ leadLines }>${ esc( excerpt ) }</div>` : '' }
                 ${ FEATURED && thumb?.source === 'featured' ? `<button class="wfw-note__thumb-btn" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Change featured image', 'wordpress-for-writers' ) ) }">${ thumbImg }</button>` : thumbImg }
                 <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ statusIcon }</div>
                 <div class="wfw-note__actions">${ actions }</div>
@@ -889,12 +911,12 @@
 
     // A new note takes the REST nonce, which the editor page checks before
     // creating the draft; the API client keeps it current.
-    function editorSrc( id ) {
+    function editorSrc( id, quick = '' ) {
         if ( id ) {
             return settings.editorUrl + '&post=' + id;
         }
         const nonce = wp.apiFetch.nonceMiddleware?.nonce || window.wpApiSettings?.nonce || '';
-        return settings.editorUrl + '&_wpnonce=' + encodeURIComponent( nonce );
+        return settings.editorUrl + '&_wpnonce=' + encodeURIComponent( nonce ) + ( quick ? '&wfw_quick=' + quick : '' );
     }
 
     function setRestNonce( nonce ) {
@@ -947,7 +969,7 @@
                 rejected = !! frame.contentDocument?.getElementById( 'error-page' );
             } catch ( e ) {}
             if ( rejected && tab.frame === frame && ! tab.id && ( await refreshRestNonce() ) && tab.frame === frame ) {
-                frame.src = editorSrc( 0 );
+                frame.src = editorSrc( 0, tab.quick );
             }
         }, { once: true } );
     }
@@ -971,6 +993,9 @@
             return;
         }
         tab.frame.classList.toggle( 'is-hidden', hidden );
+        // Out of reach of focus too: a new note's editor takes the caret as it
+        // loads, and iOS would let a hidden one take the keyboard's typing.
+        tab.frame.inert = hidden;
         tab.hiddenSince = hidden ? tab.hiddenSince || Date.now() : 0;
         postVisibility( tab );
     }
@@ -1010,8 +1035,9 @@
         tab.frame.setAttribute( 'aria-label', __( 'Editor', 'wordpress-for-writers' ) );
         tab.frame.classList.add( 'is-loading' );
         tab.frame.classList.toggle( 'is-hidden', tab !== current );
+        tab.frame.inert = tab !== current;
         tab.hiddenSince = tab !== current ? Date.now() : 0;
-        tab.frame.src = editorSrc( tab.id );
+        tab.frame.src = editorSrc( tab.id, tab.quick );
         if ( ! tab.id ) {
             retryStaleNewNote( tab );
         }
@@ -1073,7 +1099,7 @@
     }
 
     function addTab( id, title = noteTitle( id ) ) {
-        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, stale: false, revealTimer: 0, hiddenSince: 0 };
+        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, stale: false, revealTimer: 0, hiddenSince: 0, quick: '', focusOnReady: false };
         // Next to the tab in view, like a browser's new tab from a link.
         const at = tabs.indexOf( current );
         tabs.splice( at < 0 ? tabs.length : at + 1, 0, tab );
@@ -1098,6 +1124,7 @@
                 return;
             }
             here.id = id;
+            here.quick = '';
             here.title = noteTitle( id );
             dropFrame( here );
             showTab( here );
@@ -1147,7 +1174,8 @@
         return ! state.sidebarHidden && ! state.focus;
     }
 
-    async function newNote() {
+    // A new note; a quick one (see QUICK_NOTES) when given its kind.
+    async function newNote( quick = '' ) {
         const reuse = tabToReuse();
         if ( reuse && ! ( await canLeaveEditor( reuse ) ) ) {
             return;
@@ -1155,8 +1183,12 @@
         const tab = reuse || addTab( null, '' );
         tab.id = null;
         tab.title = '';
+        tab.quick = quick;
+        // Its block takes the caret as soon as the editor is up.
+        tab.focusOnReady = !! quick;
         dropFrame( tab );
         showTab( tab );
+        root.classList.add( 'has-note' );
     }
 
     // Closes a tab's editor, after saving a draft's last changes. The next tab
@@ -1254,6 +1286,11 @@
                 tab.ready = true;
                 postAppearance( tab );
                 postVisibility( tab ); // An editor that loaded behind a panel starts out hidden.
+                if ( tab.focusOnReady && tab === current ) {
+                    tab.focusOnReady = false;
+                    tab.frame.focus( { preventScroll: true } );
+                    tab.frame.contentWindow?.postMessage( { source: 'wfw', type: 'focus' }, window.location.origin );
+                }
                 if ( data.id && tab.id !== data.id ) {
                     tab.id = data.id;
                     if ( tab === current ) {
@@ -1270,8 +1307,8 @@
             case 'title': {
                 const el = root.querySelector( `.wfw-note[data-id="${ data.id }"] .wfw-note__title` );
                 if ( el ) {
-                    el.textContent = data.title || __( 'Untitled', 'wordpress-for-writers' );
-                    el.classList.toggle( 'is-empty', ! data.title );
+                    el.textContent = data.title || '';
+                    el.hidden = ! data.title;
                 }
                 [ tab, ...twinsOf( tab ) ].forEach( ( t ) => setTabTitle( t, data.title || '' ) );
                 break;
@@ -3025,6 +3062,9 @@
             case 'new':
                 newNote();
                 break;
+            case 'quick':
+                newNote( target.dataset.kind );
+                break;
             case 'trash':
                 event.stopPropagation();
                 trashNote( id );
@@ -3168,7 +3208,12 @@
             }
             fullHeight = Math.max( fullHeight, window.innerHeight, visible.height );
             const keyboardUp = fullHeight - visible.height > 80 && visible.scale < 1.01;
-            if ( keyboardUp && ( window.scrollY || visible.offsetTop ) ) {
+            // The app is fixed to the window, so the page itself never scrolls. In an
+            // installed (home screen) app iOS still scrolls it as the keyboard opens,
+            // by the status bar's height and past the top, and leaves it there once
+            // the keyboard is gone: the app looks right but every tap lands that far
+            // off. Any such scroll goes back to the top, keyboard or not (zoom aside).
+            if ( ( window.scrollY || visible.offsetTop ) && visible.scale < 1.01 ) {
                 window.scrollTo( 0, 0 );
             }
             root.classList.toggle( 'has-keyboard', keyboardUp );

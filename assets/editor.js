@@ -569,6 +569,14 @@
         const [ settingsOpen, setSettingsOpen ] = useState( false );
         const colors = useThemeColors();
         const styles = useSelect( ( s ) => s( editorStore ).getEditorSettings().styles, [] );
+        /*
+         * A note not yet saved keeps no backup in the browser and doesn't hold
+         * the page: it saves itself as soon as there's something in it, and an
+         * empty one (a quick note whose block is still blank) is let go. Core
+         * keeps every unsaved new note's backup in one slot, so the next new
+         * note would offer to restore the last one left empty.
+         */
+        const isNew = useSelect( ( s ) => s( editorStore ).getCurrentPostAttribute( 'status' ) === 'auto-draft', [] );
         const { registerShortcut } = useDispatch( shortcutsStore );
 
         useEffect( () => {
@@ -610,8 +618,8 @@
             el( PublishPanel ),
             el( editor.PostLockedModal ),
             el( editor.AutosaveMonitor ),
-            el( editor.LocalAutosaveMonitor ),
-            el( editor.UnsavedChangesWarning ),
+            ! isNew && el( editor.LocalAutosaveMonitor ),
+            ! isNew && el( editor.UnsavedChangesWarning ),
             el( editor.EditorKeyboardShortcutsRegister ),
             el( editor.EditorKeyboardShortcuts ),
             el( wp.plugins.PluginArea ),
@@ -890,7 +898,146 @@
         }
     } );
 
+    // ---- Quick notes -----------------------------------------------------------
+
+    /*
+     * The quick bar at the foot of the app's list starts a note in one of
+     * WordPress's post formats, with the block for it already in place:
+     * wfw_quick names the format. Notes in these formats leave the title out,
+     * as statuses and photos do, and the list and the themes show them by
+     * their content. Their block is what they are,
+     * so it's left alone until it has something in it: an empty image doesn't
+     * make a draft.
+     */
+    const QUICK_BLOCKS = { status: 'core/paragraph', image: 'core/image', gallery: 'core/gallery', video: 'core/video', audio: 'core/audio' };
+    const quickKind = new URLSearchParams( window.location.search ).get( 'wfw_quick' );
+
+    function quickFormat() {
+        const format = editorSelect().getEditedPostAttribute( 'format' );
+        return Object.prototype.hasOwnProperty.call( QUICK_BLOCKS, format ) ? format : '';
+    }
+
+    // Whether a quick note is still as it came: its block (and any paragraph added after it) without text or media.
+    function blockEmpty( { name, attributes: a, innerBlocks } ) {
+        switch ( name ) {
+            case 'core/paragraph':
+                return ! String( a.content ?? '' ).replace( /<[^>]*>/g, '' ).trim();
+            case 'core/image':
+            case 'core/video':
+            case 'core/audio':
+                return ! a.url && ! a.src && ! a.id;
+            case 'core/gallery':
+                return ! innerBlocks.length && ! ( a.images || [] ).length;
+        }
+        return false;
+    }
+
+    function quickBlockEmpty() {
+        return select( blockEditorStore ).getBlocks().every( blockEmpty );
+    }
+
+    // Nothing to save yet: a blank draft, or a quick note whose block is still empty.
+    function nothingToSave() {
+        return isDraft() && ( ! editorSelect().isEditedPostSaveable() || ( quickFormat() && quickBlockEmpty() ) );
+    }
+
+    function setUpQuickNote() {
+        if ( ! QUICK_BLOCKS[ quickKind ] || editorSelect().getCurrentPostAttribute( 'status' ) !== 'auto-draft' || select( blockEditorStore ).getBlocks().length ) {
+            return;
+        }
+        dispatch( editorStore ).editPost( { format: quickKind } );
+        dispatch( editorStore ).resetEditorBlocks( [ wp.blocks.createBlock( QUICK_BLOCKS[ quickKind ] ) ] );
+    }
+
+    // The canvas leaves the title out for a quick note (editor-content.css).
+    function markQuickCanvas() {
+        canvas.doc?.documentElement?.toggleAttribute( 'data-wfw-quick', !! quickFormat() );
+    }
+
+    canvasListeners.add( ( doc ) => doc && markQuickCanvas() );
+
+    /*
+     * The app asks for the caret as a quick note opens, which can be before
+     * the canvas and its block are there: it then waits for them, for a few
+     * seconds. A status's paragraph takes the caret; a media block is
+     * selected, its upload and library buttons at hand.
+     */
+    let focusTimer = 0;
+
+    function focusQuickBlock( tries = 50 ) {
+        clearTimeout( focusTimer );
+        const block = select( blockEditorStore ).getBlocks()[ 0 ];
+        const element = block && canvas.doc?.querySelector( `[data-block="${ block.clientId }"]` );
+        if ( ! element ) {
+            if ( tries > 0 ) {
+                focusTimer = setTimeout( () => focusQuickBlock( tries - 1 ), 100 );
+            }
+            return;
+        }
+        dispatch( blockEditorStore ).selectBlock( block.clientId, 0 );
+        element.focus();
+    }
+
+    /*
+     * iOS raises the keyboard only for a tap, never for a page that focuses
+     * a field by itself, so a new status has its caret ready but no keyboard
+     * until the first touch. A tap anywhere on its empty page then goes to
+     * the paragraph, rather than to space that does nothing.
+     */
+    function tapToBlock( event ) {
+        if ( quickFormat() !== 'status' || ! quickBlockEmpty() || event.target.closest?.( '.wp-block, .wfw-title, a, button, input' ) ) {
+            return;
+        }
+        event.preventDefault();
+        focusQuickBlock( 0 );
+    }
+
+    // Down and up both: the press keeps focus from leaving, the lifted finger
+    // (the click) is what iOS accepts as the tap that may raise the keyboard.
+    canvasListeners.add( ( doc ) => {
+        if ( doc && doc !== document ) {
+            [ 'mousedown', 'click' ].forEach( ( type ) => doc.addEventListener( type, tapToBlock ) );
+        }
+    } );
+
+    /*
+     * An editor out of sight (a tab behind the one in view) takes no focus
+     * and no typing. A new note puts the caret in its title as it loads, and
+     * iOS hands the keyboard's typing to it even in a hidden frame.
+     */
+    let outOfSight = false;
+
+    function refuseFocus( event ) {
+        if ( outOfSight && event.target?.blur ) {
+            event.target.blur();
+        }
+    }
+
+    function refuseInput( event ) {
+        if ( outOfSight ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            event.target?.blur?.();
+        }
+    }
+
+    function guardHidden( doc ) {
+        doc.addEventListener( 'focusin', refuseFocus, true );
+        [ 'beforeinput', 'keydown', 'paste', 'drop' ].forEach( ( type ) => doc.addEventListener( type, refuseInput, true ) );
+    }
+
+    guardHidden( document );
+    canvasListeners.add( ( doc ) => {
+        if ( doc && doc !== document ) {
+            guardHidden( doc );
+            if ( outOfSight ) {
+                doc.activeElement?.blur();
+            }
+        }
+    } );
+
     let ready = false;
+    let lastFormat = null;
     let lastTitle = null;
     let wasSaving = false;
     let autosaveTimer = null;
@@ -903,7 +1050,14 @@
 
         if ( ! ready ) {
             ready = true;
+            setUpQuickNote();
             post( { type: 'ready', id } );
+        }
+
+        const format = editorSelect().getEditedPostAttribute( 'format' );
+        if ( format !== lastFormat ) {
+            lastFormat = format;
+            markQuickCanvas();
         }
 
         const title = editorSelect().getEditedPostAttribute( 'title' ) || '';
@@ -922,9 +1076,9 @@
 
         // Bear-style: drafts save themselves. Published notes still need an explicit Update.
         clearTimeout( autosaveTimer );
-        if ( ! saving && isDraft() && editorSelect().isEditedPostDirty() ) {
+        if ( ! saving && isDraft() && editorSelect().isEditedPostDirty() && ! nothingToSave() ) {
             autosaveTimer = setTimeout( () => {
-                if ( isDraft() && editorSelect().isEditedPostDirty() && ! editorSelect().isSavingPost() ) {
+                if ( isDraft() && editorSelect().isEditedPostDirty() && ! editorSelect().isSavingPost() && ! nothingToSave() ) {
                     dispatch( editorStore ).savePost();
                 }
             }, AUTOSAVE_DELAY );
@@ -993,6 +1147,14 @@
         }
         if ( type === 'visibility' ) {
             setHidden( !! event.data.hidden );
+            outOfSight = !! event.data.hidden;
+            if ( outOfSight ) {
+                canvas.doc?.activeElement?.blur();
+            }
+            return;
+        }
+        if ( type === 'focus' ) {
+            focusQuickBlock();
             return;
         }
         if ( type !== 'flush' ) {
@@ -1005,7 +1167,7 @@
         if ( editorSelect().isSavingPost() ) {
             await waitForSave();
         }
-        if ( ! editorSelect().isEditedPostDirty() ) {
+        if ( ! editorSelect().isEditedPostDirty() || nothingToSave() ) {
             post( { replyTo, ok: true } );
             return;
         }

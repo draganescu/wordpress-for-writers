@@ -38,6 +38,7 @@ require_once __DIR__ . '/includes/pinned-terms.php';
 require_once __DIR__ . '/includes/appearance.php';
 require_once __DIR__ . '/includes/thumbnails.php';
 require_once __DIR__ . '/includes/site-scheme.php';
+require_once __DIR__ . '/includes/pwa.php';
 require_once __DIR__ . '/includes/editor.php';
 
 /**
