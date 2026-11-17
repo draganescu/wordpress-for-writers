@@ -402,7 +402,8 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
 }
 
 function wfw_editor_canvas_assets() {
-    wp_enqueue_style( 'wfw-canvas', WFW_URL . 'assets/editor-content.css', array(), wfw_asset_version( 'assets/editor-content.css' ) );
+    wp_register_style( 'wfw-note-flow', WFW_URL . 'assets/note-flow.css', array(), wfw_asset_version( 'assets/note-flow.css' ) );
+    wp_enqueue_style( 'wfw-canvas', WFW_URL . 'assets/editor-content.css', array( 'wfw-note-flow' ), wfw_asset_version( 'assets/editor-content.css' ) );
     wp_add_inline_style( 'wfw-canvas', wfw_appearance_css() );
 }
 

@@ -25,7 +25,7 @@
     const { __, _n, sprintf } = wp.i18n;
     const editor = wp.editor;
     const blockEditor = wp.blockEditor;
-    const { SlotFillProvider, Popover, Button, TabPanel, ExternalLink } = wp.components;
+    const { SlotFillProvider, Popover, Dropdown, Button, TabPanel, ExternalLink } = wp.components;
     const { ShortcutProvider, useShortcut, store: shortcutsStore } = wp.keyboardShortcuts;
     const editorStore = editor.store;
     const blockEditorStore = blockEditor.store;
@@ -190,31 +190,6 @@
             const timer = setTimeout( () => setStats( countNote( content ) ), STATS_DELAY );
             return () => clearTimeout( timer );
         }, [ content ] );
-        const [ isOpen, setOpen ] = useState( false );
-        const ref = useRef();
-
-        // The flydown closes on a click or tap anywhere else, and on Escape (back to the button).
-        useEffect( () => {
-            if ( ! isOpen ) {
-                return;
-            }
-            const doc = ref.current.ownerDocument;
-            const onPointerDown = ( event ) => ! ref.current.contains( event.target ) && setOpen( false );
-            const onKeyDown = ( event ) => {
-                if ( event.key === 'Escape' ) {
-                    event.stopPropagation();
-                    setOpen( false );
-                    ref.current.querySelector( 'button' ).focus();
-                }
-            };
-            doc.addEventListener( 'pointerdown', onPointerDown, true );
-            doc.addEventListener( 'keydown', onKeyDown, true );
-            return () => {
-                doc.removeEventListener( 'pointerdown', onPointerDown, true );
-                doc.removeEventListener( 'keydown', onKeyDown, true );
-            };
-        }, [ isOpen ] );
-
         const { unit, count } = stats;
         const minutes = Math.round( count / READING_RATE );
         const amount = unit === 'words'
@@ -228,24 +203,27 @@
             : sprintf( _n( '%s minute', '%s minutes', minutes, 'wordpress-for-writers' ), minutes.toLocaleString() );
         const label = __( 'Word count', 'wordpress-for-writers' );
 
-        return el( 'span', {
-            ref,
-            className: 'wfw-title-info' + ( isOpen ? ' is-open' : '' ),
-            // Moving focus out of it (Tab) closes it too.
-            onBlur: ( event ) => ! ref.current.contains( event.relatedTarget ) && setOpen( false ),
-        },
-        el( 'button', {
-            type: 'button',
-            className: 'wfw-title-link wfw-title-link--info',
-            'aria-label': label,
-            title: label,
-            'aria-expanded': isOpen,
-            'aria-controls': 'wfw-title-info',
-            onClick: () => setOpen( ! isOpen ),
-        },
-        el( 'svg', { viewBox: '0 0 24 24', width: 18, height: 18, 'aria-hidden': true, focusable: false }, el( 'path', { d: ICONS.info } ) ) ),
-        isOpen && el( 'div', { id: 'wfw-title-info', className: 'wfw-title-info__card', role: 'dialog', 'aria-label': label },
-            el( 'dl', null,
+        /*
+         * The components' Dropdown draws the flydown in the editor's popover
+         * slot, outside the canvas, and keeps it on screen: it flips above the
+         * button or slides sideways near an edge. It closes on a click or tap
+         * anywhere else, and on Escape (back to the button).
+         */
+        return el( Dropdown, {
+            className: 'wfw-title-info',
+            contentClassName: 'wfw-title-info__popover',
+            // Focus goes to the card itself (it has nothing to tab to), so a tap anywhere else is seen leaving it.
+            popoverProps: { placement: 'bottom-end', offset: 4, shift: true, focusOnMount: true },
+            renderToggle: ( { isOpen, onToggle } ) => el( 'button', {
+                type: 'button',
+                className: 'wfw-title-link wfw-title-link--info',
+                'aria-label': label,
+                title: label,
+                'aria-expanded': isOpen,
+                onClick: onToggle,
+            },
+            el( 'svg', { viewBox: '0 0 24 24', width: 18, height: 18, 'aria-hidden': true, focusable: false }, el( 'path', { d: ICONS.info } ) ) ),
+            renderContent: () => el( 'dl', { className: 'wfw-title-info__stats' },
                 el( 'div', null,
                     el( 'dt', null, unit === 'words' ? __( 'Words', 'wordpress-for-writers' ) : __( 'Characters', 'wordpress-for-writers' ) ),
                     el( 'dd', null, amount )
@@ -254,8 +232,8 @@
                     el( 'dt', null, __( 'Reading time', 'wordpress-for-writers' ) ),
                     el( 'dd', null, time )
                 )
-            )
-        ) );
+            ),
+        } );
     }
 
     function TitleLinks() {
@@ -643,6 +621,35 @@
                     el( editor.ErrorBoundary, null, el( Layout ) )
                 )
             )
+        );
+    }
+
+    // ---- Restoring a version ---------------------------------------------------
+
+    /*
+     * The app hands over a past version of the note, picked in a peek sheet
+     * beside the editor: it becomes an edit of the note, as typing it would, so
+     * Undo takes it back and a draft saves it as usual. A published note keeps
+     * it as unsaved changes until Update.
+     */
+    function restoreVersion( { title, content, excerpt, date } ) {
+        if ( ! editorSelect().getCurrentPostId() ) {
+            return;
+        }
+        // One edit (one step of undo): the title, the text, and its blocks for the canvas.
+        const edits = { title: title || '', content: content || '', blocks: wp.blocks.parse( content || '' ) };
+        if ( excerpt !== undefined ) {
+            edits.excerpt = excerpt;
+        }
+        dispatch( editorStore ).editPost( edits );
+        dispatch( noticesStore ).createSuccessNotice(
+            /* translators: %s: when the restored version was saved. */
+            sprintf( __( 'Restored the version from %s.', 'wordpress-for-writers' ), date ),
+            {
+                type: 'snackbar',
+                id: 'wfw-version-restored',
+                actions: [ { label: __( 'Undo', 'wordpress-for-writers' ), onClick: () => dispatch( editorStore ).undo() } ],
+            }
         );
     }
 
@@ -1155,6 +1162,10 @@
         }
         if ( type === 'focus' ) {
             focusQuickBlock();
+            return;
+        }
+        if ( type === 'restore-version' ) {
+            restoreVersion( event.data );
             return;
         }
         if ( type !== 'flush' ) {

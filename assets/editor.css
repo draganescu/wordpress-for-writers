@@ -60,6 +60,34 @@ html:has( body.wfw-editor-page ) {
     border-color: var( --wfw-border );
 }
 
+/* The word count flydown under the (i) above the title (NoteStats in editor.js), in the components' own popover frame. */
+.wfw-title-info__stats {
+    display: grid;
+    gap: 6px;
+    min-width: 200px;
+    margin: 0;
+    padding: 10px 14px;
+    font-family: var( --wfw-font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif );
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.wfw-title-info__stats > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    white-space: nowrap;
+}
+
+.wfw-title-info__stats dt {
+    color: var( --wfw-muted );
+}
+
+.wfw-title-info__stats dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
 /*
  * No "+" beside an empty paragraph. "Distraction free" (pinned on, see
  * wfw_editor_enqueue()) removes the in-between inserters, but WordPress 7.1
