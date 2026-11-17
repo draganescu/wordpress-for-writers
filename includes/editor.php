@@ -111,8 +111,15 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
     $settings      = wfw_editor_settings( $post );
     $initial_edits = array();
     if ( 'auto-draft' === $post->post_status ) {
+        /*
+         * A new note opened again by its id (its editor reloaded before the
+         * note was saved, as iOS does to a page it had to let go of) still
+         * has the title core stores on every auto-draft. It stays the blank
+         * note it was, not one called "Auto Draft" that then tries to save.
+         */
+        $placeholder   = __( 'Auto Draft' ); // phpcs:ignore WordPress.WP.I18n.MissingArgDomain
         $initial_edits = array(
-            'title'   => $post->post_title,
+            'title'   => $placeholder === $post->post_title ? '' : $post->post_title,
             'content' => $post->post_content,
             'excerpt' => $post->post_excerpt,
         );
