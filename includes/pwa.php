@@ -38,6 +38,17 @@ function wfw_pwa_icon_url( $size ) {
 }
 
 /**
+ * The whole site, so signing in (wp-login.php) and the public posts stay in
+ * the app's window. The app's own page has to be inside the scope for the
+ * manifest to hold: where WordPress lives outside the site's address (its own
+ * directory beside it, or another host), the scope is WordPress's address.
+ */
+function wfw_pwa_scope( $start_url ) {
+    $home = home_url( '/' );
+    return 0 === strpos( $start_url, $home ) ? $home : site_url( '/' );
+}
+
+/**
  * The manifest is fetched without cookies, so it's public and knows nothing of
  * the user: the app page passes the user's background colour along in its URL.
  */
@@ -71,8 +82,7 @@ add_action( 'rest_api_init', function () {
                 'short_name'       => mb_strlen( $name ) <= 12 ? $name : __( 'Writer', 'wordpress-for-writers' ),
                 'description'      => __( 'Write and publish to your site.', 'wordpress-for-writers' ),
                 'start_url'        => $start,
-                // The whole site, so signing in (wp-login.php) and the public posts stay in the app's window.
-                'scope'            => home_url( '/' ),
+                'scope'            => wfw_pwa_scope( $start ),
                 'display'          => 'standalone',
                 'background_color' => $bg,
                 'theme_color'      => $bg,

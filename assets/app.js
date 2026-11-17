@@ -772,7 +772,7 @@
         state.listMenu = open;
         renderListMenu();
         if ( open && focusFirst ) {
-            root.querySelector( '.wfw-list-menu .wfw-list-menu__item' )?.focus();
+            root.querySelector( '.wfw-list__head .wfw-list-menu__item' )?.focus();
         } else if ( ! open && root.querySelector( '.wfw-list__head' ).contains( document.activeElement ) ) {
             root.querySelector( '.wfw-list__title' ).focus();
         }

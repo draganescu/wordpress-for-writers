@@ -77,6 +77,13 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
             wp_die( esc_html__( 'This link to a new note has expired. Start the note again from the app.', 'wordpress-for-writers' ), 403 );
         }
         $post = get_default_post_to_edit( 'post', true );
+
+        // A quick note (the app's format menu and bar) starts in a post format;
+        // its block comes from the editor's template (see wfw_editor_settings()).
+        $quick = isset( $_GET['wfw_quick'] ) ? sanitize_key( wp_unslash( $_GET['wfw_quick'] ) ) : '';
+        if ( isset( wfw_quick_note_blocks()[ $quick ] ) ) {
+            set_post_format( $post, $quick );
+        }
     }
 
     $GLOBALS['post'] = $post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
@@ -128,6 +135,24 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
 } );
 
 /**
+ * Quick notes: the post formats a note can start in, and the block each
+ * starts with. Core's editor does the same for a new post in a format
+ * (edit-form-blocks.php); a status, which has no block of its own, starts
+ * with a paragraph.
+ *
+ * @return array<string, string> Block names by post format.
+ */
+function wfw_quick_note_blocks() {
+    return array(
+        'status'  => 'core/paragraph',
+        'image'   => 'core/image',
+        'gallery' => 'core/gallery',
+        'video'   => 'core/video',
+        'audio'   => 'core/audio',
+    );
+}
+
+/**
  * Editor settings for a note: what edit-form-blocks.php passes to the editor,
  * minus what the Writer editor doesn't show (templates, patterns, meta boxes).
  */
@@ -173,6 +198,14 @@ function wfw_editor_settings( $post ) {
     $autosave = wp_get_post_autosave( $post->ID );
     if ( $autosave && mysql2date( 'U', $autosave->post_modified_gmt, false ) > mysql2date( 'U', $post->post_modified_gmt, false ) ) {
         $settings['autosave'] = array( 'editLink' => get_edit_post_link( $autosave->ID ) );
+    }
+
+    // A new note in a post format starts with that format's block; the
+    // editor applies a template to new (auto-draft) posts only.
+    $quick_blocks = wfw_quick_note_blocks();
+    $format       = 'auto-draft' === $post->post_status ? get_post_format( $post ) : false;
+    if ( $format && isset( $quick_blocks[ $format ] ) ) {
+        $settings['template'] = array( array( $quick_blocks[ $format ] ) );
     }
 
     $settings = get_block_editor_settings( $settings, $context );

@@ -53,6 +53,10 @@
         return DRAFT_STATUSES.includes( editorSelect().getCurrentPostAttribute( 'status' ) );
     }
 
+    function isNewNote() {
+        return editorSelect().getCurrentPostAttribute( 'status' ) === 'auto-draft';
+    }
+
     // ---- Appearance ----------------------------------------------------------
 
     /*
@@ -548,13 +552,20 @@
         const colors = useThemeColors();
         const styles = useSelect( ( s ) => s( editorStore ).getEditorSettings().styles, [] );
         /*
-         * A note not yet saved keeps no backup in the browser and doesn't hold
-         * the page: it saves itself as soon as there's something in it, and an
-         * empty one (a quick note whose block is still blank) is let go. Core
-         * keeps every unsaved new note's backup in one slot, so the next new
-         * note would offer to restore the last one left empty.
+         * A new note with nothing in it yet keeps no backup in the browser and
+         * doesn't hold the page: there is nothing to lose, and core keeps every
+         * unsaved new note's backup in one slot, so the next new note would
+         * offer to restore the last one left empty. Once it has something, the
+         * backup and the warning are there until it's saved, as for any note.
          */
-        const isNew = useSelect( ( s ) => s( editorStore ).getCurrentPostAttribute( 'status' ) === 'auto-draft', [] );
+        const isBlankNew = useSelect( () => isNewNote() && nothingToSave(), [] );
+        useEffect( () => {
+            if ( isBlankNew ) {
+                try {
+                    window.sessionStorage.removeItem( 'wp-autosave-block-editor-post-auto-draft' );
+                } catch ( e ) {}
+            }
+        }, [ isBlankNew ] );
         const { registerShortcut } = useDispatch( shortcutsStore );
 
         useEffect( () => {
@@ -596,8 +607,8 @@
             el( PublishPanel ),
             el( editor.PostLockedModal ),
             el( editor.AutosaveMonitor ),
-            ! isNew && el( editor.LocalAutosaveMonitor ),
-            ! isNew && el( editor.UnsavedChangesWarning ),
+            ! isBlankNew && el( editor.LocalAutosaveMonitor ),
+            ! isBlankNew && el( editor.UnsavedChangesWarning ),
             el( editor.EditorKeyboardShortcutsRegister ),
             el( editor.EditorKeyboardShortcuts ),
             el( wp.plugins.PluginArea ),
@@ -908,20 +919,23 @@
     // ---- Quick notes -----------------------------------------------------------
 
     /*
-     * The quick bar at the foot of the app's list starts a note in one of
-     * WordPress's post formats, with the block for it already in place:
-     * wfw_quick names the format. Notes in these formats leave the title out,
-     * as statuses and photos do, and the list and the themes show them by
-     * their content. Their block is what they are,
-     * so it's left alone until it has something in it: an empty image doesn't
-     * make a draft.
+     * The app's format menu and quick bar start a note in one of WordPress's
+     * post formats. The page sets the format on the new draft and hands the
+     * editor a template with the block for it (wfw_editor_settings()), as
+     * core's editor does. Such a note leaves the title out, as statuses and
+     * photos do, and the list and the themes show it by its content. Its
+     * block is what it is, so it's left alone until it has something in it:
+     * an empty image doesn't make a draft.
      */
-    const QUICK_BLOCKS = { status: 'core/paragraph', image: 'core/image', gallery: 'core/gallery', video: 'core/video', audio: 'core/audio' };
-    const quickKind = new URLSearchParams( window.location.search ).get( 'wfw_quick' );
+    const QUICK_FORMATS = [ 'status', 'image', 'gallery', 'video', 'audio' ];
 
     function quickFormat() {
         const format = editorSelect().getEditedPostAttribute( 'format' );
-        return Object.prototype.hasOwnProperty.call( QUICK_BLOCKS, format ) ? format : '';
+        return QUICK_FORMATS.includes( format ) ? format : '';
+    }
+
+    function editedText( attribute ) {
+        return String( editorSelect().getEditedPostAttribute( attribute ) || '' ).trim();
     }
 
     // Whether a quick note is still as it came: its block (and any paragraph added after it) without text or media.
@@ -943,22 +957,34 @@
         return select( blockEditorStore ).getBlocks().every( blockEmpty );
     }
 
-    // Nothing to save yet: a blank draft, or a quick note whose block is still empty.
+    // Nothing to save yet: a blank draft, or a quick note with no title or
+    // excerpt whose block is still empty.
     function nothingToSave() {
-        return isDraft() && ( ! editorSelect().isEditedPostSaveable() || ( quickFormat() && quickBlockEmpty() ) );
-    }
-
-    function setUpQuickNote() {
-        if ( ! QUICK_BLOCKS[ quickKind ] || editorSelect().getCurrentPostAttribute( 'status' ) !== 'auto-draft' || select( blockEditorStore ).getBlocks().length ) {
-            return;
+        if ( ! isDraft() ) {
+            return false;
         }
-        dispatch( editorStore ).editPost( { format: quickKind } );
-        dispatch( editorStore ).resetEditorBlocks( [ wp.blocks.createBlock( QUICK_BLOCKS[ quickKind ] ) ] );
+        if ( ! editorSelect().isEditedPostSaveable() ) {
+            return true;
+        }
+        return !! quickFormat() && ! editedText( 'title' ) && ! editedText( 'excerpt' ) && quickBlockEmpty();
     }
 
-    // The canvas leaves the title out for a quick note (editor-content.css).
+    /*
+     * The canvas leaves the title out for a quick note (editor-content.css):
+     * one without a title, that is. A note in one of these formats that has a
+     * title, made in wp-admin say, keeps it in view. Decided as the note
+     * opens and when its format changes, not as the title is typed, so the
+     * field never goes from under the caret.
+     */
+    let titleLeftOut = false;
+
+    function decideQuickTitle() {
+        titleLeftOut = !! quickFormat() && ! editedText( 'title' );
+        markQuickCanvas();
+    }
+
     function markQuickCanvas() {
-        canvas.doc?.documentElement?.toggleAttribute( 'data-wfw-quick', !! quickFormat() );
+        canvas.doc?.documentElement?.toggleAttribute( 'data-wfw-quick', titleLeftOut );
     }
 
     canvasListeners.add( ( doc ) => doc && markQuickCanvas() );
@@ -1057,14 +1083,13 @@
 
         if ( ! ready ) {
             ready = true;
-            setUpQuickNote();
             post( { type: 'ready', id } );
         }
 
         const format = editorSelect().getEditedPostAttribute( 'format' );
         if ( format !== lastFormat ) {
             lastFormat = format;
-            markQuickCanvas();
+            decideQuickTitle();
         }
 
         const title = editorSelect().getEditedPostAttribute( 'title' ) || '';
@@ -1203,6 +1228,7 @@
         const url = new URL( window.location.href );
         if ( url.searchParams.has( '_wpnonce' ) ) {
             url.searchParams.delete( '_wpnonce' );
+            url.searchParams.delete( 'wfw_quick' );
             url.searchParams.set( 'post', String( config.postId ) );
             window.history.replaceState( null, '', url.toString() );
         }

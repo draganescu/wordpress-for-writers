@@ -16,8 +16,15 @@ function writer_essay_setup() {
     // Style variations named after the Writer app's colour schemes, so
     // WordPress for Writers can match the site to the writer's chosen scheme.
     add_theme_support( 'wfw-color-schemes' );
+
+    // The post formats the lists show in full (see writer_essay_short_post_excerpt()).
+    add_theme_support( 'post-formats', writer_essay_post_formats() );
 }
 add_action( 'after_setup_theme', 'writer_essay_setup' );
+
+function writer_essay_post_formats() {
+    return array( 'status', 'image', 'gallery', 'video', 'audio' );
+}
 
 function writer_essay_styles() {
     $file = get_theme_file_path( 'assets/theme.css' );
@@ -138,41 +145,45 @@ add_action( 'init', 'writer_essay_block_styles' );
  * Short posts in lists. A status, image, gallery, video or audio post (the
  * Writer app's quick notes) is the thing itself, often with no title: in the
  * home page and archives it shows in full where other posts show an excerpt,
- * which would drop its media, and its date links to it when it has no title
- * to link from. The content goes through the_content, so a gated post (Writer
- * Members) shows what its gate allows, as on its own page.
+ * which would drop its media.
+ *
+ * The content is core's Post Content block, so it goes through the_content
+ * (a gated post, with Writer Members, shows what its gate allows, as on its
+ * own page) and a post that lists itself isn't rendered in a loop. That block
+ * prints the post the loop is on, so anywhere else the excerpt stays.
  */
-function writer_essay_short_format( $post_id ) {
-    $format = $post_id ? get_post_format( $post_id ) : false;
-    return in_array( $format, array( 'status', 'image', 'gallery', 'video', 'audio' ), true );
-}
-
 function writer_essay_short_post_excerpt( $content, $block, $instance ) {
     $post_id = isset( $instance->context['postId'] ) ? (int) $instance->context['postId'] : 0;
-    if ( is_singular() && get_queried_object_id() === $post_id ) {
+    if ( ! $post_id || get_the_ID() !== $post_id || ( is_singular() && get_queried_object_id() === $post_id ) ) {
         return $content;
     }
-    if ( ! writer_essay_short_format( $post_id ) || post_password_required( $post_id ) ) {
+    if ( ! in_array( get_post_format( $post_id ), writer_essay_post_formats(), true ) || post_password_required( $post_id ) ) {
         return $content;
     }
-    $post = get_post( $post_id );
-    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core filter.
-    $html = apply_filters( 'the_content', get_the_content( null, false, $post ) );
-    return '<div class="wp-block-post-excerpt writer-essay-short-post">' . $html . '</div>';
+    $post_content = new WP_Block(
+        array(
+            'blockName' => 'core/post-content',
+            'attrs'     => array(),
+        ),
+        $instance->context
+    );
+    $html = $post_content->render();
+    return '' === $html ? $content : '<div class="wp-block-post-excerpt writer-essay-short-post">' . $html . '</div>';
 }
 add_filter( 'render_block_core/post-excerpt', 'writer_essay_short_post_excerpt', 10, 3 );
 
-function writer_essay_untitled_post_date( $content, $block, $instance ) {
-    $post_id = isset( $instance->context['postId'] ) ? (int) $instance->context['postId'] : 0;
-    $own_page = is_singular() && get_queried_object_id() === $post_id;
-    if ( ! $post_id || $own_page || '' !== get_the_title( $post_id ) || false !== strpos( $content, '<a ' ) ) {
-        return $content;
+/**
+ * A post without a title has nothing to link to it from a list, so its date
+ * does: the Post Date block's own "link to post" setting, turned on for it.
+ */
+function writer_essay_untitled_post_date( $parsed_block ) {
+    if ( 'core/post-date' !== $parsed_block['blockName'] || ! empty( $parsed_block['attrs']['isLink'] ) ) {
+        return $parsed_block;
     }
-    return preg_replace(
-        '#(<time\b[^>]*>)(.*?)(</time>)#s',
-        '$1<a href="' . esc_url( get_permalink( $post_id ) ) . '">$2</a>$3',
-        $content,
-        1
-    );
+    $post_id = get_the_ID();
+    if ( $post_id && '' === get_the_title( $post_id ) && ! ( is_singular() && get_queried_object_id() === $post_id ) ) {
+        $parsed_block['attrs']['isLink'] = true;
+    }
+    return $parsed_block;
 }
-add_filter( 'render_block_core/post-date', 'writer_essay_untitled_post_date', 10, 3 );
+add_filter( 'render_block_data', 'writer_essay_untitled_post_date' );
