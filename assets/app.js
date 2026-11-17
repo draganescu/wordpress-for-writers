@@ -403,13 +403,20 @@
                 <div class="wfw-list__bar">
                     <button class="wfw-icon-btn" data-action="toggle-sidebar" title="${ esc( __( 'Toggle sidebar', 'wordpress-for-writers' ) ) }">${ icon( 'sidebar' ) }</button>
                     <label class="wfw-search">${ icon( 'search' ) }<input type="search" placeholder="${ esc( __( 'Search', 'wordpress-for-writers' ) ) }" /></label>
-                    <button class="wfw-icon-btn" data-action="new" title="${ esc( __( 'New note', 'wordpress-for-writers' ) ) }">${ icon( 'compose' ) }</button>
+                    <div class="wfw-new">
+                        <button class="wfw-icon-btn wfw-new__main" data-action="new" title="${ esc( __( 'New note', 'wordpress-for-writers' ) ) }">${ icon( 'compose' ) }</button>
+                        <button class="wfw-icon-btn wfw-new__more" data-action="new-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="wfw-new-menu" title="${ esc( __( 'New note in a post format', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'New note in a post format', 'wordpress-for-writers' ) ) }">${ icon( 'dropdown' ) }</button>
+                        <div class="wfw-list-menu wfw-new__menu" id="wfw-new-menu" role="menu" aria-label="${ esc( __( 'New note in a post format', 'wordpress-for-writers' ) ) }" hidden>
+                            ${ QUICK_NOTES.map( ( q ) => `<button class="wfw-list-menu__item" role="menuitem" tabindex="-1" data-action="quick" data-kind="${ q.kind }">${ icon( q.icon ) }<span>${ esc( q.label ) }</span></button>` ).join( '' ) }
+                        </div>
+                    </div>
                 </div>
                 <div class="wfw-list__head">
                     <button class="wfw-list__title" data-action="list-menu" aria-haspopup="menu" aria-expanded="false"><span class="wfw-list__label"></span>${ icon( 'dropdown' ) }</button>
                 </div>
                 <div class="wfw-list__items" role="list"></div>
                 <div class="wfw-quick" role="toolbar" aria-label="${ esc( __( 'Quick notes', 'wordpress-for-writers' ) ) }">
+                    <button class="wfw-quick__btn" data-action="new" title="${ esc( __( 'Post', 'wordpress-for-writers' ) ) }" aria-label="${ esc( __( 'Post', 'wordpress-for-writers' ) ) }">${ icon( 'compose' ) }</button>
                     ${ QUICK_NOTES.map( ( q ) => `<button class="wfw-quick__btn" data-action="quick" data-kind="${ q.kind }" title="${ esc( q.label ) }" aria-label="${ esc( q.label ) }">${ icon( q.icon ) }</button>` ).join( '' ) }
                 </div>
             </section>
@@ -737,6 +744,27 @@
             ${ listMenuItem( 'menuitemcheckbox', list.images, 'images', '', __( 'Show images', 'wordpress-for-writers' ) ) }`;
         if ( focused >= 0 ) {
             menu.querySelectorAll( '.wfw-list-menu__item' )[ focused ]?.focus();
+        }
+    }
+
+    /*
+     * New note: a post, or, from the arrow beside it, one in another post
+     * format (QUICK_NOTES). On phones the quick bar at the foot of the list
+     * has them all instead.
+     */
+    function newMenuOpen() {
+        return ! root.querySelector( '.wfw-new__menu' ).hidden;
+    }
+
+    function toggleNewMenu( open = ! newMenuOpen(), { focusFirst = false } = {} ) {
+        const menu = root.querySelector( '.wfw-new__menu' );
+        const toggle = root.querySelector( '.wfw-new__more' );
+        menu.hidden = ! open;
+        toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+        if ( open && focusFirst ) {
+            menu.querySelector( '.wfw-list-menu__item' )?.focus();
+        } else if ( ! open && menu.contains( document.activeElement ) ) {
+            toggle.focus();
         }
     }
 
@@ -3203,7 +3231,11 @@
                 newNote();
                 break;
             case 'quick':
+                toggleNewMenu( false );
                 newNote( target.dataset.kind );
+                break;
+            case 'new-menu':
+                toggleNewMenu( undefined, { focusFirst: event.detail === 0 } );
                 break;
             case 'trash':
                 event.stopPropagation();
@@ -3294,6 +3326,9 @@
         if ( state.listMenu && ! event.target.closest( '.wfw-list__head' ) ) {
             toggleListMenu( false );
         }
+        if ( newMenuOpen() && ! event.target.closest( '.wfw-new' ) ) {
+            toggleNewMenu( false );
+        }
     } );
 
     root.addEventListener( 'keydown', ( event ) => {
@@ -3307,7 +3342,11 @@
             return;
         }
         if ( event.key === 'Tab' && menu ) {
-            toggleListMenu( false );
+            if ( menu.classList.contains( 'wfw-new__menu' ) ) {
+                toggleNewMenu( false );
+            } else {
+                toggleListMenu( false );
+            }
         }
     } );
 
@@ -3320,6 +3359,8 @@
     document.addEventListener( 'keydown', ( event ) => {
         if ( event.key === 'Escape' && state.listMenu ) {
             toggleListMenu( false );
+        } else if ( event.key === 'Escape' && newMenuOpen() ) {
+            toggleNewMenu( false );
         } else if ( event.key === 'Escape' && root.querySelector( '.wfw-sheet' ) ) {
             closeAppearance();
         } else if ( event.key === 'Escape' && state.panel && ! event.defaultPrevented ) {

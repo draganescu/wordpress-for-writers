@@ -31,7 +31,7 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
 - **Responsive:** on tablets the sidebar becomes a drawer, and on phones you see one pane at a time with back navigation.
 - **Focus mode:** hides everything but the editor.
 - **Install as an app:** the Writer page is a web app. On a phone, Share → Add to Home Screen (or Install in Chrome and Edge) gives it its own icon and a window without the browser's bars, opening straight into the app. The icon is the site icon when one is set, and the splash and status bar take the user's theme colour. There is no offline mode: notes load from and save to the site.
-- **Quick notes:** a bar at the foot of the note list starts a status, image, gallery, video or audio post in one tap. Each is a draft in that WordPress post format with its block already in place and in focus, and no title: the note list shows it by its text or picture, and the three themes show these posts in full in their lists, linked from their date. An empty quick note isn't saved. On a phone, iOS only brings up the keyboard after a tap, so a tap anywhere on a new status's page starts typing.
+- **Quick notes:** the arrow beside the New note button opens a menu of post formats: status, image, gallery, video and audio. On phones a bar at the foot of the note list has them all, a regular post first, one tap each. Each is a draft in that WordPress post format with its block already in place and in focus, and no title: the note list shows it by its text or picture, and the three themes show these posts in full in their lists, linked from their date. An empty quick note isn't saved. On a phone, iOS only brings up the keyboard after a tap, so a tap anywhere on a new status's page starts typing.
 
 ## Try it
 

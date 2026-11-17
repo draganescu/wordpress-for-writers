@@ -748,20 +748,53 @@ body.wfw-takeover #wpbody-content {
 .wfw-list__items {
     flex: 1;
     overflow-y: auto;
-    /* Room for the quick bar floating over the end of the list. */
-    padding-bottom: 76px;
 }
 
 /*
- * Quick notes: a status, image, gallery, video or audio post in one tap, from
- * a bar floating at the foot of the list, made like the editor's formatting pill.
+ * New note: the compose button, and an arrow beside it for a note in another
+ * post format (status, image, gallery, video, audio). On phones the quick bar
+ * at the foot of the list has them all instead.
+ */
+.wfw-new {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: none;
+}
+
+.wfw-new .wfw-new__more {
+    width: 18px;
+    margin-left: -4px;
+}
+
+.wfw-new__more svg {
+    width: 18px;
+    height: 18px;
+}
+
+.wfw-new__menu {
+    left: auto;
+    right: 0;
+    z-index: 10;
+    width: 180px;
+    max-width: none;
+}
+
+.wfw-new__menu[hidden] {
+    display: none;
+}
+
+/*
+ * Quick notes, on phones: a post, status, image, gallery, video or audio post
+ * in one tap, from a bar floating at the foot of the list, made like the
+ * editor's formatting pill.
  */
 .wfw-quick {
+    display: none;
     position: absolute;
     left: 50%;
     bottom: calc( 16px + env( safe-area-inset-bottom, 0px ) );
     z-index: 5;
-    display: flex;
     align-items: center;
     gap: 2px;
     padding: 4px;
@@ -1860,5 +1893,21 @@ body.wfw-takeover #wpbody-content {
 
     .wfw-media__grid {
         grid-template-columns: repeat( auto-fill, minmax( 76px, 1fr ) );
+    }
+}
+
+/* Phones: the quick bar takes over from the compose button and its formats. */
+@media ( max-width: 700px ) {
+    .wfw-quick {
+        display: flex;
+    }
+
+    .wfw-new {
+        display: none;
+    }
+
+    /* Room for the quick bar floating over the end of the list. */
+    .wfw-list__items {
+        padding-bottom: 76px;
     }
 }
