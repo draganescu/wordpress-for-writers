@@ -1911,8 +1911,21 @@ body.wfw-takeover #wpbody-content {
         display: none;
     }
 
+    /*
+     * The list runs to the foot of the screen, under the home indicator, where
+     * the app's own padding would leave an empty band below it. The quick bar
+     * floats clear of the indicator.
+     */
+    .wfw-list {
+        margin-bottom: calc( -1 * env( safe-area-inset-bottom, 0px ) );
+    }
+
+    .wfw.has-keyboard .wfw-list {
+        margin-bottom: 0;
+    }
+
     /* Room for the quick bar floating over the end of the list. */
     .wfw-list__items {
-        padding-bottom: 76px;
+        padding-bottom: calc( 76px + env( safe-area-inset-bottom, 0px ) );
     }
 }
