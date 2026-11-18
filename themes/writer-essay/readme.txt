@@ -3,7 +3,7 @@ Contributors: wordpressforwriters
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.1
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,9 @@ When the Writer Subscribe plugin is active, the theme shows its form after the a
 The reading time is a Paragraph block bound to the `writer-essay/reading-time` block bindings source (230 words a minute).
 
 == Changelog ==
+
+= 0.2.0 =
+* Status, image, gallery, video and audio posts show in full in lists; an untitled post links from its date.
 
 = 0.1.0 =
 * First release.
