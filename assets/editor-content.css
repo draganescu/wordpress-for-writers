@@ -181,6 +181,11 @@ html {
     }
 }
 
+/* Quick notes (a status, image, gallery, video or audio) leave the title out; their block is the note. */
+html[data-wfw-quick] .editor-styles-wrapper .wfw-title .editor-post-title {
+    display: none;
+}
+
 /* Placeholders: keep "Add title", drop the block-editor coaching. */
 .editor-styles-wrapper .wfw-title [data-rich-text-placeholder]::after {
     color: var( --wfw-muted );

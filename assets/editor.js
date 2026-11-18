@@ -53,6 +53,10 @@
         return DRAFT_STATUSES.includes( editorSelect().getCurrentPostAttribute( 'status' ) );
     }
 
+    function isNewNote() {
+        return editorSelect().getCurrentPostAttribute( 'status' ) === 'auto-draft';
+    }
+
     // ---- Appearance ----------------------------------------------------------
 
     /*
@@ -547,6 +551,21 @@
         const [ settingsOpen, setSettingsOpen ] = useState( false );
         const colors = useThemeColors();
         const styles = useSelect( ( s ) => s( editorStore ).getEditorSettings().styles, [] );
+        /*
+         * A new note with nothing in it yet keeps no backup in the browser and
+         * doesn't hold the page: there is nothing to lose, and core keeps every
+         * unsaved new note's backup in one slot, so the next new note would
+         * offer to restore the last one left empty. Once it has something, the
+         * backup and the warning are there until it's saved, as for any note.
+         */
+        const isBlankNew = useSelect( () => isNewNote() && nothingToSave(), [] );
+        useEffect( () => {
+            if ( isBlankNew ) {
+                try {
+                    window.sessionStorage.removeItem( 'wp-autosave-block-editor-post-auto-draft' );
+                } catch ( e ) {}
+            }
+        }, [ isBlankNew ] );
         const { registerShortcut } = useDispatch( shortcutsStore );
 
         useEffect( () => {
@@ -588,8 +607,8 @@
             el( PublishPanel ),
             el( editor.PostLockedModal ),
             el( editor.AutosaveMonitor ),
-            el( editor.LocalAutosaveMonitor ),
-            el( editor.UnsavedChangesWarning ),
+            ! isBlankNew && el( editor.LocalAutosaveMonitor ),
+            ! isBlankNew && el( editor.UnsavedChangesWarning ),
             el( editor.EditorKeyboardShortcutsRegister ),
             el( editor.EditorKeyboardShortcuts ),
             el( wp.plugins.PluginArea ),
@@ -897,7 +916,161 @@
         }
     } );
 
+    // ---- Quick notes -----------------------------------------------------------
+
+    /*
+     * The app's format menu and quick bar start a note in one of WordPress's
+     * post formats. The page sets the format on the new draft and hands the
+     * editor a template with the block for it (wfw_editor_settings()), as
+     * core's editor does. Such a note leaves the title out, as statuses and
+     * photos do, and the list and the themes show it by its content. Its
+     * block is what it is, so it's left alone until it has something in it:
+     * an empty image doesn't make a draft.
+     */
+    const QUICK_FORMATS = [ 'status', 'image', 'gallery', 'video', 'audio' ];
+
+    function quickFormat() {
+        const format = editorSelect().getEditedPostAttribute( 'format' );
+        return QUICK_FORMATS.includes( format ) ? format : '';
+    }
+
+    function editedText( attribute ) {
+        return String( editorSelect().getEditedPostAttribute( attribute ) || '' ).trim();
+    }
+
+    // Whether a quick note is still as it came: its block (and any paragraph added after it) without text or media.
+    function blockEmpty( { name, attributes: a, innerBlocks } ) {
+        switch ( name ) {
+            case 'core/paragraph':
+                return ! String( a.content ?? '' ).replace( /<[^>]*>/g, '' ).trim();
+            case 'core/image':
+            case 'core/video':
+            case 'core/audio':
+                return ! a.url && ! a.src && ! a.id;
+            case 'core/gallery':
+                return ! innerBlocks.length && ! ( a.images || [] ).length;
+        }
+        return false;
+    }
+
+    function quickBlockEmpty() {
+        return select( blockEditorStore ).getBlocks().every( blockEmpty );
+    }
+
+    // Nothing to save yet: a blank draft, or a quick note with no title or
+    // excerpt whose block is still empty.
+    function nothingToSave() {
+        if ( ! isDraft() ) {
+            return false;
+        }
+        if ( ! editorSelect().isEditedPostSaveable() ) {
+            return true;
+        }
+        return !! quickFormat() && ! editedText( 'title' ) && ! editedText( 'excerpt' ) && quickBlockEmpty();
+    }
+
+    /*
+     * The canvas leaves the title out for a quick note (editor-content.css):
+     * one without a title, that is. A note in one of these formats that has a
+     * title, made in wp-admin say, keeps it in view. Decided as the note
+     * opens and when its format changes, not as the title is typed, so the
+     * field never goes from under the caret.
+     */
+    let titleLeftOut = false;
+
+    function decideQuickTitle() {
+        titleLeftOut = !! quickFormat() && ! editedText( 'title' );
+        markQuickCanvas();
+    }
+
+    function markQuickCanvas() {
+        canvas.doc?.documentElement?.toggleAttribute( 'data-wfw-quick', titleLeftOut );
+    }
+
+    canvasListeners.add( ( doc ) => doc && markQuickCanvas() );
+
+    /*
+     * The app asks for the caret as a quick note opens, which can be before
+     * the canvas and its block are there: it then waits for them, for a few
+     * seconds. A status's paragraph takes the caret; a media block is
+     * selected, its upload and library buttons at hand.
+     */
+    let focusTimer = 0;
+
+    function focusQuickBlock( tries = 50 ) {
+        clearTimeout( focusTimer );
+        const block = select( blockEditorStore ).getBlocks()[ 0 ];
+        const element = block && canvas.doc?.querySelector( `[data-block="${ block.clientId }"]` );
+        if ( ! element ) {
+            if ( tries > 0 ) {
+                focusTimer = setTimeout( () => focusQuickBlock( tries - 1 ), 100 );
+            }
+            return;
+        }
+        dispatch( blockEditorStore ).selectBlock( block.clientId, 0 );
+        element.focus();
+    }
+
+    /*
+     * iOS raises the keyboard only for a tap, never for a page that focuses
+     * a field by itself, so a new status has its caret ready but no keyboard
+     * until the first touch. A tap anywhere on its empty page then goes to
+     * the paragraph, rather than to space that does nothing.
+     */
+    function tapToBlock( event ) {
+        if ( quickFormat() !== 'status' || ! quickBlockEmpty() || event.target.closest?.( '.wp-block, .wfw-title, a, button, input' ) ) {
+            return;
+        }
+        event.preventDefault();
+        focusQuickBlock( 0 );
+    }
+
+    // Down and up both: the press keeps focus from leaving, the lifted finger
+    // (the click) is what iOS accepts as the tap that may raise the keyboard.
+    canvasListeners.add( ( doc ) => {
+        if ( doc && doc !== document ) {
+            [ 'mousedown', 'click' ].forEach( ( type ) => doc.addEventListener( type, tapToBlock ) );
+        }
+    } );
+
+    /*
+     * An editor out of sight (a tab behind the one in view) takes no focus
+     * and no typing. A new note puts the caret in its title as it loads, and
+     * iOS hands the keyboard's typing to it even in a hidden frame.
+     */
+    let outOfSight = false;
+
+    function refuseFocus( event ) {
+        if ( outOfSight && event.target?.blur ) {
+            event.target.blur();
+        }
+    }
+
+    function refuseInput( event ) {
+        if ( outOfSight ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            event.target?.blur?.();
+        }
+    }
+
+    function guardHidden( doc ) {
+        doc.addEventListener( 'focusin', refuseFocus, true );
+        [ 'beforeinput', 'keydown', 'paste', 'drop' ].forEach( ( type ) => doc.addEventListener( type, refuseInput, true ) );
+    }
+
+    guardHidden( document );
+    canvasListeners.add( ( doc ) => {
+        if ( doc && doc !== document ) {
+            guardHidden( doc );
+            if ( outOfSight ) {
+                doc.activeElement?.blur();
+            }
+        }
+    } );
+
     let ready = false;
+    let lastFormat = null;
     let lastTitle = null;
     let wasSaving = false;
     let autosaveTimer = null;
@@ -911,6 +1084,12 @@
         if ( ! ready ) {
             ready = true;
             post( { type: 'ready', id } );
+        }
+
+        const format = editorSelect().getEditedPostAttribute( 'format' );
+        if ( format !== lastFormat ) {
+            lastFormat = format;
+            decideQuickTitle();
         }
 
         const title = editorSelect().getEditedPostAttribute( 'title' ) || '';
@@ -929,9 +1108,9 @@
 
         // Bear-style: drafts save themselves. Published notes still need an explicit Update.
         clearTimeout( autosaveTimer );
-        if ( ! saving && isDraft() && editorSelect().isEditedPostDirty() ) {
+        if ( ! saving && isDraft() && editorSelect().isEditedPostDirty() && ! nothingToSave() ) {
             autosaveTimer = setTimeout( () => {
-                if ( isDraft() && editorSelect().isEditedPostDirty() && ! editorSelect().isSavingPost() ) {
+                if ( isDraft() && editorSelect().isEditedPostDirty() && ! editorSelect().isSavingPost() && ! nothingToSave() ) {
                     dispatch( editorStore ).savePost();
                 }
             }, AUTOSAVE_DELAY );
@@ -1000,6 +1179,14 @@
         }
         if ( type === 'visibility' ) {
             setHidden( !! event.data.hidden );
+            outOfSight = !! event.data.hidden;
+            if ( outOfSight ) {
+                canvas.doc?.activeElement?.blur();
+            }
+            return;
+        }
+        if ( type === 'focus' ) {
+            focusQuickBlock();
             return;
         }
         if ( type === 'restore-version' ) {
@@ -1016,7 +1203,7 @@
         if ( editorSelect().isSavingPost() ) {
             await waitForSave();
         }
-        if ( ! editorSelect().isEditedPostDirty() ) {
+        if ( ! editorSelect().isEditedPostDirty() || nothingToSave() ) {
             post( { replyTo, ok: true } );
             return;
         }
@@ -1041,6 +1228,7 @@
         const url = new URL( window.location.href );
         if ( url.searchParams.has( '_wpnonce' ) ) {
             url.searchParams.delete( '_wpnonce' );
+            url.searchParams.delete( 'wfw_quick' );
             url.searchParams.set( 'post', String( config.postId ) );
             window.history.replaceState( null, '', url.toString() );
         }

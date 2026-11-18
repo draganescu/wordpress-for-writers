@@ -16,8 +16,15 @@ function writer_newsletter_setup() {
     // Style variations named after the Writer app's colour schemes, so
     // WordPress for Writers can match the site to the writer's chosen scheme.
     add_theme_support( 'wfw-color-schemes' );
+
+    // The post formats the lists show in full (see writer_newsletter_short_post_excerpt()).
+    add_theme_support( 'post-formats', writer_newsletter_post_formats() );
 }
 add_action( 'after_setup_theme', 'writer_newsletter_setup' );
+
+function writer_newsletter_post_formats() {
+    return array( 'status', 'image', 'gallery', 'video', 'audio' );
+}
 
 function writer_newsletter_styles() {
     $file = get_theme_file_path( 'assets/theme.css' );
@@ -118,3 +125,50 @@ function writer_newsletter_subscribe_patterns() {
     }
 }
 add_action( 'init', 'writer_newsletter_subscribe_patterns', 20 );
+
+/**
+ * Short posts in lists. A status, image, gallery, video or audio post (the
+ * Writer app's quick notes) is the thing itself, often with no title: in the
+ * home page and archives it shows in full where other posts show an excerpt,
+ * which would drop its media.
+ *
+ * The content is core's Post Content block, so it goes through the_content
+ * (a gated post, with Writer Members, shows what its gate allows, as on its
+ * own page) and a post that lists itself isn't rendered in a loop. That block
+ * prints the post the loop is on, so anywhere else the excerpt stays.
+ */
+function writer_newsletter_short_post_excerpt( $content, $block, $instance ) {
+    $post_id = isset( $instance->context['postId'] ) ? (int) $instance->context['postId'] : 0;
+    if ( ! $post_id || get_the_ID() !== $post_id || ( is_singular() && get_queried_object_id() === $post_id ) ) {
+        return $content;
+    }
+    if ( ! in_array( get_post_format( $post_id ), writer_newsletter_post_formats(), true ) || post_password_required( $post_id ) ) {
+        return $content;
+    }
+    $post_content = new WP_Block(
+        array(
+            'blockName' => 'core/post-content',
+            'attrs'     => array(),
+        ),
+        $instance->context
+    );
+    $html = $post_content->render();
+    return '' === $html ? $content : '<div class="wp-block-post-excerpt writer-newsletter-short-post">' . $html . '</div>';
+}
+add_filter( 'render_block_core/post-excerpt', 'writer_newsletter_short_post_excerpt', 10, 3 );
+
+/**
+ * A post without a title has nothing to link to it from a list, so its date
+ * does: the Post Date block's own "link to post" setting, turned on for it.
+ */
+function writer_newsletter_untitled_post_date( $parsed_block ) {
+    if ( 'core/post-date' !== $parsed_block['blockName'] || ! empty( $parsed_block['attrs']['isLink'] ) ) {
+        return $parsed_block;
+    }
+    $post_id = get_the_ID();
+    if ( $post_id && '' === get_the_title( $post_id ) && ! ( is_singular() && get_queried_object_id() === $post_id ) ) {
+        $parsed_block['attrs']['isLink'] = true;
+    }
+    return $parsed_block;
+}
+add_filter( 'render_block_data', 'writer_newsletter_untitled_post_date' );
