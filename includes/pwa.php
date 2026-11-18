@@ -38,14 +38,13 @@ function wfw_pwa_icon_url( $size ) {
 }
 
 /**
- * The whole site, so signing in (wp-login.php) and the public posts stay in
- * the app's window. The app's own page has to be inside the scope for the
- * manifest to hold: where WordPress lives outside the site's address (its own
- * directory beside it, or another host), the scope is WordPress's address.
+ * wp-admin only, which is what a browser takes for a page added to the Home
+ * Screen without a manifest. The app is the admin: a link to a post on the
+ * site, like one to any other site, opens in a browser view over the app, with
+ * a way back, instead of replacing the app in its window.
  */
-function wfw_pwa_scope( $start_url ) {
-    $home = home_url( '/' );
-    return 0 === strpos( $start_url, $home ) ? $home : site_url( '/' );
+function wfw_pwa_scope() {
+    return admin_url();
 }
 
 /**
@@ -82,7 +81,7 @@ add_action( 'rest_api_init', function () {
                 'short_name'       => mb_strlen( $name ) <= 12 ? $name : __( 'Writer', 'wordpress-for-writers' ),
                 'description'      => __( 'Write and publish to your site.', 'wordpress-for-writers' ),
                 'start_url'        => $start,
-                'scope'            => wfw_pwa_scope( $start ),
+                'scope'            => wfw_pwa_scope(),
                 'display'          => 'standalone',
                 'background_color' => $bg,
                 'theme_color'      => $bg,
