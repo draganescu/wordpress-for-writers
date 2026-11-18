@@ -1081,23 +1081,25 @@
             return;
         }
 
+        // The app names a note without a title after its format, so it hears of both.
+        const format = editorSelect().getEditedPostAttribute( 'format' );
+        const title = editorSelect().getEditedPostAttribute( 'title' ) || '';
+
         if ( ! ready ) {
             ready = true;
-            post( { type: 'ready', id } );
+            post( { type: 'ready', id, format } );
         }
 
-        const format = editorSelect().getEditedPostAttribute( 'format' );
-        if ( format !== lastFormat ) {
-            lastFormat = format;
-            decideQuickTitle();
-        }
-
-        const title = editorSelect().getEditedPostAttribute( 'title' ) || '';
-        if ( title !== lastTitle ) {
+        if ( format !== lastFormat || title !== lastTitle ) {
+            const formatChanged = format !== lastFormat;
             if ( lastTitle !== null ) {
-                post( { type: 'title', id, title } );
+                post( { type: 'title', id, title, format } );
             }
+            lastFormat = format;
             lastTitle = title;
+            if ( formatChanged ) {
+                decideQuickTitle();
+            }
         }
 
         const saving = editorSelect().isSavingPost() && ! editorSelect().isAutosavingPost();
