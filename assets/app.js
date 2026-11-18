@@ -90,6 +90,26 @@
         { kind: 'video', icon: 'video', label: __( 'Video', 'wordpress-for-writers' ) },
         { kind: 'audio', icon: 'audio', label: __( 'Audio', 'wordpress-for-writers' ) },
     ];
+    /*
+     * What a note without a title goes by, under Editing now and in the list:
+     * its post format, or Untitled for a standard post.
+     */
+    const FORMAT_LABELS = {
+        aside: __( 'Aside', 'wordpress-for-writers' ),
+        gallery: __( 'Gallery', 'wordpress-for-writers' ),
+        link: __( 'Link', 'wordpress-for-writers' ),
+        image: __( 'Image', 'wordpress-for-writers' ),
+        quote: __( 'Quote', 'wordpress-for-writers' ),
+        status: __( 'Status', 'wordpress-for-writers' ),
+        video: __( 'Video', 'wordpress-for-writers' ),
+        audio: __( 'Audio', 'wordpress-for-writers' ),
+        chat: __( 'Chat', 'wordpress-for-writers' ),
+    };
+
+    function untitledLabel( format ) {
+        return FORMAT_LABELS[ format ] || __( 'Untitled', 'wordpress-for-writers' );
+    }
+
     const LIST_DEFAULTS = { orderby: 'modified', order: 'desc', lines: 2, images: true };
 
     const state = {
@@ -323,7 +343,7 @@
             order: state.list.order,
             context: 'edit',
             // Each note's image, featured or from its content, is one small field, worked out only while images show.
-            _fields: 'id,title,excerpt,date_gmt,modified_gmt,status,sticky' + ( state.list.images ? ',wfw_thumbnail' : '' ),
+            _fields: 'id,title,format,excerpt,date_gmt,modified_gmt,status,sticky' + ( state.list.images ? ',wfw_thumbnail' : '' ),
         };
         if ( state.view.type === 'category' ) {
             params.categories = state.view.id;
@@ -581,7 +601,7 @@
         const items = tabs.map( ( tab ) => {
             // A panel (featured image, categories and tags) counts as its note's tab, which stays marked while it's open.
             const active = tab === current;
-            const title = tab.title || __( 'Untitled', 'wordpress-for-writers' );
+            const title = tab.title || untitledLabel( tab.format );
             return `
                 <div class="wfw-tab${ active ? ' is-active' : '' }" data-tab="${ tab.key }" role="listitem">
                     <button class="wfw-nav${ active ? ' is-active' : '' }" data-action="tab" data-tab="${ tab.key }"${ active ? ' aria-current="true"' : '' }>
@@ -617,7 +637,7 @@
     function tabsMenuHtml() {
         return tabs.map( ( tab ) => {
             const active = tab === current;
-            const title = tab.title || __( 'Untitled', 'wordpress-for-writers' );
+            const title = tab.title || untitledLabel( tab.format );
             return `<button class="wfw-menu__item${ tab.title ? '' : ' is-empty' }" role="menuitemradio" aria-checked="${ active ? 'true' : 'false' }" tabindex="-1" data-action="tabs-menu-item" data-tab="${ tab.key }">${ active ? icon( 'check' ) : '<span class="wfw-menu__spacer"></span>' }<span>${ esc( title ) }</span></button>`;
         } ).join( '' );
     }
@@ -806,8 +826,8 @@
 
     function noteHtml( note ) {
         const title = note.title.raw || htmlToText( note.title.rendered );
-        // A note without a title (a status, say) leads with its text instead,
-        // a line of it at least, even when the list shows titles only.
+        // A note without a title (a status, say) goes by its post format, or Untitled, and
+        // leads with its text, a line of it at least, even when the list shows titles only.
         const excerpt = state.list.lines || ! title ? htmlToText( note.excerpt.rendered ) : '';
         const leadLines = title || state.list.lines ? '' : ' style="--wfw-preview-lines: 1"';
         const isTrash = note.status === 'trash';
@@ -829,7 +849,7 @@
 
         return `
             <div class="wfw-note${ note.id === state.activeId ? ' is-active' : '' }" role="listitem" tabindex="0" data-action="open" data-id="${ note.id }">
-                <div class="wfw-note__title"${ title ? '' : ' hidden' }>${ esc( title ) }</div>
+                <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || untitledLabel( note.format ) ) }</div>
                 ${ excerpt ? `<div class="wfw-note__excerpt${ title ? '' : ' is-lead' }"${ leadLines }>${ esc( excerpt ) }</div>` : '' }
                 ${ FEATURED && thumb?.source === 'featured' ? `<button class="wfw-note__thumb-btn" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Change featured image', 'wordpress-for-writers' ) ) }">${ thumbImg }</button>` : thumbImg }
                 <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ statusIcon }</div>
@@ -1145,8 +1165,12 @@
         return note ? note.title.raw || htmlToText( note.title.rendered ) : '';
     }
 
+    function noteFormat( id ) {
+        return state.notes.find( ( n ) => n.id === id )?.format || '';
+    }
+
     function addTab( id, title = noteTitle( id ) ) {
-        const tab = { key: ++tabSeq, id, title, frame: null, ready: false, stale: false, revealTimer: 0, hiddenSince: 0, quick: '', focusOnReady: false };
+        const tab = { key: ++tabSeq, id, title, format: noteFormat( id ), frame: null, ready: false, stale: false, revealTimer: 0, hiddenSince: 0, quick: '', focusOnReady: false };
         // Next to the tab in view, like a browser's new tab from a link.
         const at = tabs.indexOf( current );
         tabs.splice( at < 0 ? tabs.length : at + 1, 0, tab );
@@ -1185,6 +1209,7 @@
         }
         tab.id = id;
         tab.title = title;
+        tab.format = quick || noteFormat( id );
         // A quick note (see QUICK_NOTES) has its block take the caret as soon as the editor is up.
         tab.quick = quick;
         tab.focusOnReady = !! quick;
@@ -1291,13 +1316,13 @@
         renderSidebar();
         const ids = restored.map( ( t ) => t.id );
         const notes = await apiFetch( {
-            path: '/wp/v2/posts?' + new URLSearchParams( { include: ids.join( ',' ), per_page: 100, status: STATUS_VIEWS[ 0 ].status, context: 'edit', _fields: 'id,title' } ),
+            path: '/wp/v2/posts?' + new URLSearchParams( { include: ids.join( ',' ), per_page: 100, status: STATUS_VIEWS[ 0 ].status, context: 'edit', _fields: 'id,title,format' } ),
         } ).catch( () => null );
-        const found = new Map( ( notes || [] ).map( ( n ) => [ n.id, n.title.raw || htmlToText( n.title.rendered ) ] ) );
+        const found = new Map( ( notes || [] ).map( ( n ) => [ n.id, { title: n.title.raw || htmlToText( n.title.rendered ), format: n.format || '' } ] ) );
         tabs = tabs.filter( ( t ) => ! restored.includes( t ) || found.has( t.id ) || t === current );
         tabs.forEach( ( t ) => {
             if ( found.has( t.id ) ) {
-                t.title = found.get( t.id );
+                Object.assign( t, found.get( t.id ) );
             }
         } );
         saveTabs();
@@ -1310,11 +1335,12 @@
         PEEK.forget( id );
     }
 
-    function setTabTitle( tab, title ) {
+    function setTabTitle( tab, title, format = tab.format ) {
         tab.title = title;
+        tab.format = format;
         const label = root.querySelector( `.wfw-tab[data-tab="${ tab.key }"] .wfw-nav__label` );
         if ( label ) {
-            label.textContent = title || __( 'Untitled', 'wordpress-for-writers' );
+            label.textContent = title || untitledLabel( format );
             label.classList.toggle( 'is-empty', ! title );
         }
         saveTabTitles();
@@ -1347,6 +1373,11 @@
                     tab.frame.focus( { preventScroll: true } );
                     postToEditor( tab, { type: 'focus' } );
                 }
+                // What the editor says the note's format is stands in for a title it doesn't have.
+                if ( ( data.format || '' ) !== ( tab.format || '' ) ) {
+                    tab.format = data.format || '';
+                    renderSidebar();
+                }
                 if ( data.id && tab.id !== data.id ) {
                     tab.id = data.id;
                     if ( tab === current ) {
@@ -1363,10 +1394,14 @@
             case 'title': {
                 const el = root.querySelector( `.wfw-note[data-id="${ data.id }"] .wfw-note__title` );
                 if ( el ) {
-                    el.textContent = data.title || '';
-                    el.hidden = ! data.title;
+                    el.textContent = data.title || untitledLabel( data.format );
+                    el.classList.toggle( 'is-empty', ! data.title );
                 }
-                [ tab, ...twinsOf( tab ) ].forEach( ( t ) => setTabTitle( t, data.title || '' ) );
+                const listed = state.notes.find( ( n ) => n.id === data.id );
+                if ( listed ) {
+                    listed.format = data.format || '';
+                }
+                [ tab, ...twinsOf( tab ) ].forEach( ( t ) => setTabTitle( t, data.title || '', data.format || '' ) );
                 break;
             }
             case 'saved': {
@@ -2771,7 +2806,7 @@
                 key: tab.key,
                 icon: 'open',
                 /* translators: %s: the title of a note open in a tab. */
-                label: sprintf( __( 'Tab: %s', 'wordpress-for-writers' ), tab.title || untitled ),
+                label: sprintf( __( 'Tab: %s', 'wordpress-for-writers' ), tab.title || untitledLabel( tab.format ) ),
                 current: tab === current,
             } ) )
             .filter( ( item ) => matches( item.label ) );

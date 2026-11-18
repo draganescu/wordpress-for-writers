@@ -879,6 +879,11 @@ body.wfw-takeover #wpbody-content {
     white-space: nowrap;
 }
 
+/* A note without a title goes by its post format, or Untitled. */
+.wfw-note__title.is-empty {
+    color: var( --wfw-list-muted );
+}
+
 /* A note without a title leads with its text, in the title's colour. */
 .wfw-note__excerpt.is-lead {
     color: var( --wfw-text );
