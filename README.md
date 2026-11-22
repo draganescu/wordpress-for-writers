@@ -120,6 +120,7 @@ To publish, bump the `Version:` header, then push a tag. The `Release zips` work
 - `writer-subscribe-v0.2.0` releases one package. The workflow fails if the tag doesn't match the package's `Version:` header.
 - `v0.2.0` releases a bundle with every package.
 - Running the workflow by hand builds every zip as an artifact, without publishing a release.
+- Whenever the Writer plugin is built, its WordPress.org copy (`words-for-writers-<version>.zip`, see below) is built and attached too. If that copy fails its checks, the release goes out without it and the run shows a warning.
 
 Dev files (`node_modules`, `package.json`, `.wp-env.json` and so on) are left out. The Writer plugin's zip also leaves out the `plugins/`, `themes/`, Playground and screenshot folders. To leave out more from one package, add a `.distignore` file to its folder with rsync patterns, one per line.
 
