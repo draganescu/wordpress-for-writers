@@ -25,10 +25,27 @@ EXCLUDES=(
 )
 
 # Only the root plugin: things that belong to the repo, not the plugin.
+# bin/build-directory.sh stages the directory variant from the same list.
 ROOT_EXCLUDES=(
     '/plugins' '/themes' '/bin' '/build' '/.github'
     '/playground' '/blueprint.json' '/screenshots'
+    '/directory' '/promo-videos' '/README.md' '/CLAUDE.md'
+    '*.zip' '*.mp4' '*.mov'
 )
+
+# Copy a package's shipped files from $ROOT/<dir>/ into <dest>/.
+stage_package() {
+    local dir="$1" dest="$2" args=() p
+    for p in "${EXCLUDES[@]}"; do args+=( --exclude "$p" ); done
+    if [ "$dir" = . ]; then
+        for p in "${ROOT_EXCLUDES[@]}"; do args+=( --exclude "$p" ); done
+    fi
+    if [ -f "$ROOT/$dir/.distignore" ]; then
+        args+=( --exclude-from "$ROOT/$dir/.distignore" )
+    fi
+    mkdir -p "$dest"
+    rsync -a "${args[@]}" "$ROOT/$dir/" "$dest/"
+}
 
 # Print "slug type dir" for every package.
 packages() {
@@ -59,7 +76,7 @@ version_of() {
 }
 
 build() {
-    local slug="$1" type="$2" dir="$3" version stage args=()
+    local slug="$1" type="$2" dir="$3" version stage
     version="$( version_of "$slug" "$type" "$dir" )"
     if [ -z "$version" ]; then
         echo "error: no Version: header found for $slug" >&2
@@ -68,18 +85,7 @@ build() {
 
     stage="$BUILD/stage/$slug"
     rm -rf "$stage"
-    mkdir -p "$stage"
-
-    local p
-    for p in "${EXCLUDES[@]}"; do args+=( --exclude "$p" ); done
-    if [ "$dir" = . ]; then
-        for p in "${ROOT_EXCLUDES[@]}"; do args+=( --exclude "$p" ); done
-    fi
-    if [ -f "$ROOT/$dir/.distignore" ]; then
-        args+=( --exclude-from "$ROOT/$dir/.distignore" )
-    fi
-
-    rsync -a "${args[@]}" "$ROOT/$dir/" "$stage/"
+    stage_package "$dir" "$stage"
 
     local zip="$BUILD/$slug-$version.zip"
     rm -f "$zip"
@@ -126,4 +132,7 @@ main() {
     fi
 }
 
-main "$@"
+# Run only when executed, so bin/build-directory.sh can source the helpers.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    main "$@"
+fi
