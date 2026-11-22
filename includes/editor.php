@@ -45,7 +45,7 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
         wp_die(
             esc_html__( 'Writer, and its editor, are open to the people who write on this site.', 'wordpress-for-writers' ),
             esc_html__( 'Writer isn’t available for your account', 'wordpress-for-writers' ),
-            array( 'response' => 403, 'link_url' => admin_url( 'admin.php?page=' . WFW_PAGE ), 'link_text' => esc_html__( 'Why?', 'wordpress-for-writers' ) )
+            array( 'response' => 403, 'link_url' => esc_url( admin_url( 'admin.php?page=' . WFW_PAGE ) ), 'link_text' => esc_html__( 'Why?', 'wordpress-for-writers' ) )
         );
     }
 
