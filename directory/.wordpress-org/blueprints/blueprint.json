@@ -1,0 +1,35 @@
+{
+    "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+    "meta": {
+        "title": "Words for Writers",
+        "description": "The writing app with a small demo blog.",
+        "author": "andraganescu",
+        "categories": [
+            "Writing"
+        ]
+    },
+    "landingPage": "/wp-admin/admin.php?page=wfw",
+    "preferredVersions": {
+        "php": "8.3",
+        "wp": "latest"
+    },
+    "steps": [
+        {
+            "step": "login"
+        },
+        {
+            "step": "installPlugin",
+            "pluginData": {
+                "resource": "wordpress.org/plugins",
+                "slug": "words-for-writers"
+            },
+            "options": {
+                "activate": true
+            }
+        },
+        {
+            "step": "runPHP",
+            "code": "<?php\nrequire '/wordpress/wp-load.php';\nupdate_option( 'blogname', 'The Slow Margin' );\nupdate_option( 'blogdescription', 'Essays on writing, reading and paying attention' );\nwp_update_user( array( 'ID' => 1, 'display_name' => 'Ilinca Marin' ) );\nwp_delete_post( 1, true );\nwp_update_term( 1, 'category', array( 'name' => 'Notes', 'slug' => 'notes' ) );\n$cats = array( 'Notes' => 1 );\nforeach ( array( 'Essays', 'Craft', 'Travel' ) as $name ) {\n    $term          = term_exists( $name, 'category' ) ?: wp_insert_term( $name, 'category' );\n    $cats[ $name ] = (int) $term['term_id'];\n}\n$p = function ( $text ) {\n    return \"<!-- wp:paragraph -->\\n<p>\" . $text . \"</p>\\n<!-- /wp:paragraph -->\\n\\n\";\n};\n$h = function ( $text ) {\n    return \"<!-- wp:heading -->\\n<h2 class=\\\"wp-block-heading\\\">\" . $text . \"</h2>\\n<!-- /wp:heading -->\\n\\n\";\n};\n$posts = array(\n    array( 'The case for writing badly first', 'Craft', array( 'craft', 'process' ), 'publish', '-3 days',\n        $p( 'Every draft I have ever finished started as something I was slightly embarrassed by. Not rough in the charming, pencil-sketch sense. Bad. Repetitive, overwritten, wandering off into side streets and forgetting to come back.' ) .\n        $p( 'For years I treated that as a problem to be solved before I was allowed to begin. The <strong>quality of the opening</strong> was holding the rest of the essay hostage.' ) .\n        $h( 'Permission is a technique' ) .\n        $p( 'What changed was not discipline but permission. I started writing first drafts in a file called <code>scratch</code>, and I stopped rereading anything until I reached the end.' ) ),\n    array( 'Notes on a walk along the Danube', 'Travel', array( 'walking', 'cities' ), 'publish', '-9 days',\n        $p( 'I started at the bridge just after seven, when the river was the colour of weak tea and the only other people out were runners and a man feeding pigeons with great seriousness.' ) .\n        $p( 'By the third bridge the city had woken up behind me, and the river had not noticed.' ) ),\n    array( 'Against productivity theatre', 'Essays', array( 'habits', 'attention' ), 'draft', '-1 day',\n        $p( 'There is a kind of work that looks like work. Colour-coded calendars, a new app every season, a system for the system.' ) .\n        $p( 'The page does not care how organised you were before you sat down.' ) ),\n    array( 'Small rooms, big sentences', 'Craft', array( 'style', 'craft' ), 'publish', '-14 days',\n        $p( 'A long sentence needs somewhere to land. Put it after three short ones and it feels like a breath let out.' ) ),\n    array( 'Reading list: winter', 'Notes', array( 'books' ), 'future', '+2 days',\n        $p( 'Short days are for long books. Here is what is on the nightstand this season, in roughly the order I mean to read it.' ) ),\n);\nforeach ( $posts as $post ) {\n    list( $title, $cat, $tags, $status, $when, $content ) = $post;\n    $date = gmdate( 'Y-m-d H:i:s', strtotime( $when ) );\n    wp_insert_post( array(\n        'post_title'    => $title,\n        'post_content'  => $content,\n        'post_status'   => $status,\n        'post_category' => array( $cats[ $cat ] ),\n        'tags_input'    => $tags,\n        'post_date_gmt' => $date,\n        'post_date'     => get_date_from_gmt( $date ),\n        'post_author'   => 1,\n    ) );\n}\n"
+        }
+    ]
+}

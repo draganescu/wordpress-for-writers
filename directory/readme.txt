@@ -90,7 +90,7 @@ No. The plugin makes no external requests and collects no data.
 
 1. The app on a desktop: the library, the note list and the editor.
 2. The editor on a phone, with the floating formatting toolbar.
-3. Categories and tags in the library, and the form that sets them on a note.
+3. The categories and tags form, opened from above a note's title: tick categories and add tags, and each change saves to the note.
 
 == Changelog ==
 
