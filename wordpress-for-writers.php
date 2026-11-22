@@ -304,12 +304,18 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
              * Extra links for the sidebar's user menu, so companion plugins can
              * surface their screens. Each item: array( 'label' => '', 'url' => '', 'icon' => '' ).
              */
-            'links'             => array_values( array_filter(
-                (array) apply_filters( 'wfw_sidebar_links', array() ),
+            'links'             => array_values( array_filter( array_map(
                 function ( $link ) {
-                    return is_array( $link ) && ! empty( $link['label'] ) && ! empty( $link['url'] );
-                }
-            ) ),
+                    // Only http(s) and relative URLs reach the menu's href.
+                    if ( is_array( $link ) && isset( $link['url'] ) ) {
+                        $link['url'] = esc_url_raw( (string) $link['url'], array( 'http', 'https' ) );
+                    }
+                    return $link;
+                },
+                (array) apply_filters( 'wfw_sidebar_links', array() )
+            ), function ( $link ) {
+                return is_array( $link ) && ! empty( $link['label'] ) && ! empty( $link['url'] );
+            } ) ),
         ) );
     }
 } );
