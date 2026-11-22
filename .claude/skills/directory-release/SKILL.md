@@ -44,7 +44,8 @@ something Plugin Check found). End by telling the user what to tag.
   newest first, as bullets for people who use the plugin: what they will
   notice, in plain words, one line each. Leave out refactors, review fixes and
   commits that only bump versions. Don't call it "WordPress for Writers"; in
-  the readme it is Words for Writers, or "the app".
+  the readme it is Words for Writers, or "the app". Never name other writing
+  apps (Bear and the like); say "classic, familiar and beloved writing apps".
 - If the entry already exists, compare it with the commits and suggest what is
   missing rather than rewriting it.
 - Update `== Upgrade Notice ==` only if the release needs one (something a site

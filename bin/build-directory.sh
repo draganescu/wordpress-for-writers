@@ -20,8 +20,8 @@
 #
 # Then it checks its own output and exits non-zero, saying why, when the old
 # slug or name is left anywhere but the GitHub URL, a PHP file fails php -l,
-# readme.txt has no changelog entry for this version, or the zip is over
-# 10 MB.
+# readme.txt has no changelog entry for this version, the zip is over
+# 10 MB, or another product's name (Bear) is in it.
 
 set -euo pipefail
 
@@ -102,6 +102,12 @@ leftovers="$( cd "$OUT" && grep -rnI -e "$OLD_SLUG" -e "$OLD_NAME" . \
 if [ -n "$leftovers" ]; then
     fail "the old slug or name is still in the build (outside the GitHub URL):"
     echo "$leftovers" | sed 's|^\./|    |' >&2
+fi
+
+# Other products' names stay out of what is submitted.
+if trademarks="$( cd "$OUT" && grep -rnIw 'Bear' . )"; then
+    fail "another product's name is in the build:"
+    echo "$trademarks" | sed 's|^\./|    |' >&2
 fi
 
 if [ -n "$( find "$OUT" -iname '*.zip' -o -iname '*.phar' -o -iname '*.exe' -o -iname '*.mp4' | head -n 1 )" ]; then
