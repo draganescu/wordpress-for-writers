@@ -66,7 +66,7 @@
         private: { icon: 'publish', label: __( 'Private', 'wordpress-for-writers' ) },
     };
 
-    // List options, like Bear's Sorting and Preview Style menus. Per device, like the other prefs.
+    // List options (sorting and preview style), as in classic, familiar and beloved writing apps. Per device, like the other prefs.
     const SORT_FIELDS = [
         { value: 'modified', label: __( 'Date modified', 'wordpress-for-writers' ) },
         { value: 'date', label: __( 'Date created', 'wordpress-for-writers' ) },

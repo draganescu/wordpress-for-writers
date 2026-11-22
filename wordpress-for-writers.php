@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WordPress for Writers
  * Plugin URI: https://github.com/draganescu/wordpress-for-writers
- * Description: Replaces wp-admin with a three-pane, Bear-style writing interface: tags sidebar, note list, editor.
+ * Description: Replaces wp-admin with a three-pane writing interface in the spirit of classic, familiar and beloved writing apps: tags sidebar, note list, editor.
  * Version: 0.8.1
  * Requires at least: 7.1
  * Requires PHP: 7.4

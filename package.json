@@ -2,7 +2,7 @@
     "name": "wordpress-for-writers",
     "version": "0.8.1",
     "private": true,
-    "description": "Bear-style writing interface for wp-admin.",
+    "description": "A writing interface for wp-admin in the spirit of classic, familiar and beloved writing apps.",
     "license": "GPL-2.0-or-later",
     "scripts": {
         "wp-env": "wp-env"

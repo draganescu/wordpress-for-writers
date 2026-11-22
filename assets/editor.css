@@ -193,7 +193,7 @@ html:has( body.wfw-editor-page ) {
 /*
  * Inside the pill the toolbar draws no frame of its own. Its parts go flat and
  * the icons sit most of the way to the text color. Movers and the parent
- * selector are left out (Bear's bar is formatting only); should their markup
+ * selector are left out (as in classic, familiar and beloved writing apps, the bar is formatting only); should their markup
  * change, they show again rather than anything else going missing.
  */
 .wfw-pill > * {
