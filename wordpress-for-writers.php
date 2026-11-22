@@ -1,13 +1,16 @@
 <?php
 /**
  * Plugin Name: WordPress for Writers
+ * Plugin URI: https://github.com/draganescu/wordpress-for-writers
  * Description: Replaces wp-admin with a three-pane, Bear-style writing interface: tags sidebar, note list, editor.
  * Version: 0.8.1
  * Requires at least: 7.1
  * Requires PHP: 7.4
  * Author: Andrei Draganescu
+ * Author URI: https://github.com/draganescu
  * Update URI: https://github.com/draganescu/wordpress-for-writers
  * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: wordpress-for-writers
  */
 
