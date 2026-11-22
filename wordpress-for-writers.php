@@ -45,6 +45,20 @@ require_once __DIR__ . '/includes/pwa.php';
 require_once __DIR__ . '/includes/editor.php';
 
 /**
+ * The plugin's text domain, read from its own Text Domain header, so the
+ * scripts' translations follow whichever name this copy of the plugin ships
+ * under.
+ */
+function wfw_text_domain() {
+    static $domain = null;
+    if ( null === $domain ) {
+        $headers = get_file_data( __FILE__, array( 'domain' => 'Text Domain' ) );
+        $domain  = $headers['domain'] ? $headers['domain'] : basename( __FILE__, '.php' );
+    }
+    return $domain;
+}
+
+/**
  * Cache-busting version for a plugin asset.
  */
 function wfw_asset_version( $path ) {
@@ -114,7 +128,7 @@ add_action( 'admin_menu', function () {
 
 // A page without a menu entry gets no title from the menu; give the explanation one.
 add_action( 'load-admin_page_' . WFW_PAGE, function () {
-    $GLOBALS['title'] = __( 'Writer', 'wordpress-for-writers' ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+    $GLOBALS['title'] = __( 'Writer', 'wordpress-for-writers' ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride -- admin-header.php reads the page title from this global; a hidden page has no other way to set it.
 } );
 
 function wfw_render_app() {
@@ -146,18 +160,21 @@ function wfw_render_no_access() {
             </p>
             <p>
                 <?php
-                $role = $roles ? '<strong>' . esc_html( implode( ', ', $roles ) ) . '</strong>' : '';
+                $role    = $roles ? '<strong>' . esc_html( implode( ', ', $roles ) ) . '</strong>' : '';
+                $allowed = array( 'strong' => array() );
                 if ( current_user_can( 'edit_posts' ) ) {
                     // The site narrowed Writer down: this user writes, just not in Writer.
-                    echo $role // phpcs:ignore WordPress.Security.EscapeOutput
+                    if ( $role ) {
                         /* translators: %s: the user's role(s), such as "Author". */
-                        ? sprintf( esc_html__( 'Your account is set up as %s, so you’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' ), $role ) // phpcs:ignore WordPress.Security.EscapeOutput
-                        : esc_html__( 'You’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' );
+                        echo wp_kses( sprintf( esc_html__( 'Your account is set up as %s, so you’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' ), $role ), $allowed );
+                    } else {
+                        esc_html_e( 'You’ll keep using the standard WordPress dashboard, where you can still write and manage your posts.', 'wordpress-for-writers' );
+                    }
+                } elseif ( $role ) {
+                    /* translators: %s: the user's role(s), such as "Subscriber". */
+                    echo wp_kses( sprintf( esc_html__( 'Your account is set up as %s, which is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' ), $role ), $allowed );
                 } else {
-                    echo $role // phpcs:ignore WordPress.Security.EscapeOutput
-                        /* translators: %s: the user's role(s), such as "Subscriber". */
-                        ? sprintf( esc_html__( 'Your account is set up as %s, which is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' ), $role ) // phpcs:ignore WordPress.Security.EscapeOutput
-                        : esc_html__( 'Your account is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' );
+                    esc_html_e( 'Your account is for reading the site and managing your profile rather than writing posts.', 'wordpress-for-writers' );
                 }
                 ?>
             </p>
@@ -177,7 +194,7 @@ function wfw_render_no_access() {
  * Send writers to the app instead of the dashboard.
  */
 add_action( 'load-index.php', function () {
-    if ( wfw_user_can_write() && ! isset( $_GET['wfw_classic'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+    if ( wfw_user_can_write() && ! isset( $_GET['wfw_classic'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read-only flag that only skips a redirect; nothing is changed.
         wp_safe_redirect( admin_url( 'admin.php?page=' . WFW_PAGE ) );
         exit;
     }
@@ -244,6 +261,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
         wp_register_script( 'wfw-peek', WFW_URL . 'assets/peek.js', array( 'wp-api-fetch', 'wp-i18n', 'wp-date' ), wfw_asset_version( 'assets/peek.js' ), true );
         wp_add_inline_style( 'wfw-app', wfw_appearance_css() );
         wp_enqueue_script( 'wfw-app', WFW_URL . 'assets/app.js', array( 'wfw-peek', 'wp-api-fetch', 'wp-hooks', 'wp-i18n', 'wp-element', 'wp-components', 'wp-data', 'wp-core-data', 'wp-media-utils' ), wfw_asset_version( 'assets/app.js' ), true );
+        wp_set_script_translations( 'wfw-peek', wfw_text_domain() );
+        wp_set_script_translations( 'wfw-app', wfw_text_domain() );
         $user = wp_get_current_user();
         wp_localize_script( 'wfw-app', 'wfwSettings', array(
             'adminUrl'          => admin_url(),
@@ -316,7 +335,7 @@ function wfw_terms_settings() {
  * Stamp appearance attributes on <html> before first paint. The editor page does its own (includes/editor.php).
  */
 add_action( 'admin_head-toplevel_page_' . WFW_PAGE, function () {
-    echo '<script>' . wfw_appearance_bootstrap_script() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput
+    wp_print_inline_script_tag( wfw_appearance_bootstrap_script() );
 } );
 
 /**

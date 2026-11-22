@@ -46,7 +46,7 @@ function wfw_site_scheme_variation( $scheme ) {
     if ( ! is_readable( $file ) ) {
         return null;
     }
-    $data = json_decode( (string) file_get_contents( $file ), true );
+    $data = wp_json_file_decode( $file, array( 'associative' => true ) );
     return is_array( $data ) ? $data : null;
 }
 
