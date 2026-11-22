@@ -55,7 +55,10 @@ if [ -z "$VERSION" ]; then
 fi
 
 OUT="$BUILD/$SLUG"
-rm -rf "$OUT"
+# Empty the folder rather than replace it: a running wp-env site (see
+# bin/plugin-check.sh) has it mounted, and would lose a replaced one.
+mkdir -p "$OUT"
+find "$OUT" -mindepth 1 -delete
 stage_package . "$OUT"
 
 # sed -i that works with both BSD (macOS) and GNU sed.
