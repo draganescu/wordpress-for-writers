@@ -123,6 +123,19 @@ To publish, bump the `Version:` header, then push a tag. The `Release zips` work
 
 Dev files (`node_modules`, `package.json`, `.wp-env.json` and so on) are left out. The Writer plugin's zip also leaves out the `plugins/`, `themes/`, Playground and screenshot folders. To leave out more from one package, add a `.distignore` file to its folder with rsync patterns, one per line.
 
+### WordPress.org directory
+
+The Writer plugin is also published to the WordPress.org plugin directory as **Words for Writers** (`words-for-writers`). That copy is generated: trunk keeps its own name, slug, text domain, `Update URI` and GitHub releases.
+
+```bash
+bin/build-directory.sh --zip   # build/words-for-writers/ and its zip, verified
+bin/plugin-check.sh            # Plugin Check on it, in a throwaway wp-env site on port 8892
+```
+
+`directory/identity.env` holds the variant's name and slug, `directory/readme.txt` its WordPress.org readme (add a changelog entry for every version), and `directory/.wordpress-org/` its icons, banners, screenshots and Playground preview. The build renames the main file, swaps the name and text domain, drops `Update URI` and adds the readme; it fails if the old name or slug is left anywhere but the GitHub URL, if a PHP file doesn't lint, if the readme has no changelog entry for the version, or if the zip is over 10 MB.
+
+The `Directory release` workflow runs on the plugin's release tags (`wordpress-for-writers-v*` and bundle `v*` tags). It builds, runs Plugin Check, commits the result to the `directory` branch as one snapshot commit tagged `words-for-writers-vX.Y.Z`, and then, once the `DIRECTORY_APPROVED` repository variable is `true` and someone approves the `wordpress-org` environment, deploys it to WordPress.org SVN. The `directory-release` Claude Code skill (`.claude/skills/directory-release/`) prepares a release before you tag it.
+
 ## License
 
 GPL-2.0-or-later
