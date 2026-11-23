@@ -70,16 +70,12 @@ jobs:
                   bin/build-zips.sh ${{ steps.plan.outputs.packages }}
 
             # The WordPress.org copy of the Writer plugin (Words for Writers), next to
-            # its own zip. A failed check leaves it out with a warning rather than
-            # holding up the GitHub release; the Directory release workflow
-            # enforces the checks before anything reaches WordPress.org.
+            # its own zip. If it fails its checks (for example no changelog entry
+            # in directory/readme.txt for this version), the run fails here and
+            # nothing is released.
             - name: Build the directory zip
               if: steps.plan.outputs.packages == '' || steps.plan.outputs.packages == 'wordpress-for-writers'
-              run: |
-                  if ! bin/build-directory.sh --zip; then
-                      rm -f build/words-for-writers-*.zip
-                      echo "::warning::The Words for Writers zip failed its checks (see the log above) and is left out of this release."
-                  fi
+              run: bin/build-directory.sh --zip
 
             - name: Upload artifacts
               uses: actions/upload-artifact@v4
