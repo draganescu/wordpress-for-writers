@@ -1108,7 +1108,7 @@
         }
         wasSaving = saving;
 
-        // Bear-style: drafts save themselves. Published notes still need an explicit Update.
+        // As in classic, familiar and beloved writing apps: drafts save themselves. Published notes still need an explicit Update.
         clearTimeout( autosaveTimer );
         if ( ! saving && isDraft() && editorSelect().isEditedPostDirty() && ! nothingToSave() ) {
             autosaveTimer = setTimeout( () => {

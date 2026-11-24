@@ -1,6 +1,6 @@
 <?php
 /**
- * Bear-style appearance: themes, fonts, text size and line width.
+ * Appearance, as in classic, familiar and beloved writing apps: themes, fonts, text size and line width.
  *
  * A single set of CSS custom properties (--wfw-*) drives the app, the editor
  * chrome and the editor canvas. Choices are stored per user and applied as

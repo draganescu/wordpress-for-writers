@@ -1,4 +1,7 @@
 node_modules/
-.claude/
+# Only the project's skills are shared (this also overrides a global .claude ignore).
+!.claude/
+.claude/*
+!.claude/skills/
 .DS_Store
 build/

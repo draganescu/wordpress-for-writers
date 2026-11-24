@@ -45,11 +45,11 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
         wp_die(
             esc_html__( 'Writer, and its editor, are open to the people who write on this site.', 'wordpress-for-writers' ),
             esc_html__( 'Writer isn’t available for your account', 'wordpress-for-writers' ),
-            array( 'response' => 403, 'link_url' => admin_url( 'admin.php?page=' . WFW_PAGE ), 'link_text' => esc_html__( 'Why?', 'wordpress-for-writers' ) )
+            array( 'response' => 403, 'link_url' => esc_url( admin_url( 'admin.php?page=' . WFW_PAGE ) ), 'link_text' => esc_html__( 'Why?', 'wordpress-for-writers' ) )
         );
     }
 
-    $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification
+    $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only picks the note to show; edit_post is checked below and nothing is changed.
     if ( $post_id ) {
         /*
          * One answer for a note that doesn't exist, isn't a post, or isn't the
@@ -86,7 +86,7 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
         }
     }
 
-    $GLOBALS['post'] = $post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+    $GLOBALS['post'] = $post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride -- the block editor and plugins' editor hooks read the global post, as edit-form-blocks.php sets it.
     setup_postdata( $post );
 
     // A block editor screen, as wp-admin's editor marks its own, so core and
@@ -117,7 +117,7 @@ add_action( 'load-admin_page_' . WFW_EDITOR_PAGE, function () {
          * has the title core stores on every auto-draft. It stays the blank
          * note it was, not one called "Auto Draft" that then tries to save.
          */
-        $placeholder   = __( 'Auto Draft' ); // phpcs:ignore WordPress.WP.I18n.MissingArgDomain
+        $placeholder   = __( 'Auto Draft' ); // phpcs:ignore WordPress.WP.I18n.MissingArgDomain -- must match the title core stored, in core's own translation.
         $initial_edits = array(
             'title'   => $placeholder === $post->post_title ? '' : $post->post_title,
             'content' => $post->post_content,
@@ -187,7 +187,7 @@ function wfw_editor_settings( $post ) {
 
     $settings = array(
         'disablePostFormats' => ! current_theme_supports( 'post-formats' ),
-        'titlePlaceholder'   => apply_filters( 'enter_title_here', __( 'Add title' ), $post ), // phpcs:ignore WordPress.WP.I18n.MissingArgDomain
+        'titlePlaceholder'   => apply_filters( 'enter_title_here', __( 'Add title' ), $post ), // phpcs:ignore WordPress.WP.I18n.MissingArgDomain -- core's placeholder, as core's editor passes it to the same filter.
         'bodyPlaceholder'    => '',
         'autosaveInterval'   => AUTOSAVE_INTERVAL,
         'richEditingEnabled' => user_can_richedit(),
@@ -420,6 +420,7 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
         wfw_asset_version( 'assets/editor.js' ),
         true
     );
+    wp_set_script_translations( 'wfw-editor', wfw_text_domain() );
 
     $terms = wfw_terms_settings();
     wp_localize_script( 'wfw-editor', 'wfwEditor', array(
@@ -451,7 +452,7 @@ function wfw_editor_canvas_assets() {
  * Stamp the appearance attributes on the editor page's <html> before first paint.
  */
 add_action( 'admin_head-admin_page_' . WFW_EDITOR_PAGE, function () {
-    echo '<script>' . wfw_appearance_bootstrap_script() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput
+    wp_print_inline_script_tag( wfw_appearance_bootstrap_script() );
 } );
 
 /**
@@ -468,7 +469,7 @@ function wfw_from_editor_page() {
  * editor, that's back to the Writer editor rather than wp-admin's.
  */
 add_filter( 'get_edit_post_link', function ( $link, $post_id ) {
-    if ( empty( $_GET['get-post-lock'] ) || ! did_action( 'load-post.php' ) || ! wfw_from_editor_page() ) { // phpcs:ignore WordPress.Security.NonceVerification
+    if ( empty( $_GET['get-post-lock'] ) || ! did_action( 'load-post.php' ) || ! wfw_from_editor_page() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- post.php verified this request; this only picks where its redirect goes.
         return $link;
     }
     return wfw_editor_url( $post_id );

@@ -6,6 +6,10 @@
 # - Tag v<version> (e.g. v0.3.0) to release a bundle with every package.
 # - Run the workflow by hand to get every zip as a build artifact, without
 #   publishing a release.
+#
+# Whenever the Writer plugin is built (its own tag, a bundle tag, or a manual
+# run), its WordPress.org copy is built too: words-for-writers-<version>.zip
+# from bin/build-directory.sh.
 
 name: Release zips
 
@@ -14,6 +18,8 @@ on:
         tags:
             - 'v*'
             - '*-v*'
+            # Made by the Directory release workflow for the directory branch.
+            - '!words-for-writers-v*'
     workflow_dispatch:
 
 permissions:
@@ -62,6 +68,14 @@ jobs:
               run: |
                   bin/build-zips.sh --list ${{ steps.plan.outputs.packages }}
                   bin/build-zips.sh ${{ steps.plan.outputs.packages }}
+
+            # The WordPress.org copy of the Writer plugin (Words for Writers), next to
+            # its own zip. If it fails its checks (for example no changelog entry
+            # in directory/readme.txt for this version), the run fails here and
+            # nothing is released.
+            - name: Build the directory zip
+              if: steps.plan.outputs.packages == '' || steps.plan.outputs.packages == 'wordpress-for-writers'
+              run: bin/build-directory.sh --zip
 
             - name: Upload artifacts
               uses: actions/upload-artifact@v4

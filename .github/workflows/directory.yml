@@ -1,0 +1,155 @@
+# Publish the root plugin to the WordPress.org directory as Words for Writers.
+#
+# Runs on the root plugin's release tags: wordpress-for-writers-vX.Y.Z, or a
+# bundle tag vX.Y.Z (which uses the plugin's Version: header). Nothing runs
+# again for a version that already has a words-for-writers-vX.Y.Z tag.
+#
+# 1. build: bin/build-directory.sh makes build/words-for-writers and checks it,
+#    bin/plugin-check.sh runs Plugin Check on it in wp-env (any error fails the
+#    run), then the tree is committed to the `directory` branch as one
+#    snapshot commit and tagged words-for-writers-vX.Y.Z.
+# 2. deploy: sends that tagged tree, with directory/.wordpress-org as the
+#    directory's assets, to wordpress.org SVN. It runs only when the
+#    repository variable DIRECTORY_APPROVED is "true" (unset counts as false)
+#    and after someone approves the `wordpress-org` environment. Set that
+#    environment up with required reviewers and the SVN_USERNAME and
+#    SVN_PASSWORD secrets.
+
+name: Directory release
+
+on:
+    push:
+        tags:
+            - 'v[0-9]*'
+            - 'wordpress-for-writers-v*'
+
+permissions:
+    contents: write
+
+concurrency:
+    group: directory-release
+    cancel-in-progress: false
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.plan.outputs.version }}
+            skip: ${{ steps.plan.outputs.skip }}
+            tag: ${{ steps.plan.outputs.tag }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Work out the version
+              id: plan
+              run: |
+                  ref="${GITHUB_REF_NAME}"
+                  version="$( bin/build-zips.sh --list wordpress-for-writers | awk '{ print $2 }' )"
+                  if [[ "$ref" == wordpress-for-writers-v* ]] && [ "${ref##*-v}" != "$version" ]; then
+                      echo "::error::Tag $ref says ${ref##*-v} but the Version: header says $version."
+                      exit 1
+                  fi
+                  source directory/identity.env
+                  tag="$SLUG-v$version"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+                  if git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
+                      echo "::notice::$tag already exists; $NAME $version is already on the directory branch."
+                      echo "skip=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "skip=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - uses: actions/setup-node@v4
+              if: steps.plan.outputs.skip == 'false'
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install wp-env
+              if: steps.plan.outputs.skip == 'false'
+              run: npm ci
+
+            - name: Build and verify
+              if: steps.plan.outputs.skip == 'false'
+              run: bin/build-directory.sh --zip
+
+            - name: Plugin Check
+              if: steps.plan.outputs.skip == 'false'
+              run: bin/plugin-check.sh
+
+            - name: Upload the zip
+              if: steps.plan.outputs.skip == 'false'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: words-for-writers-${{ steps.plan.outputs.version }}
+                  path: build/words-for-writers-${{ steps.plan.outputs.version }}.zip
+
+            - name: Commit the snapshot to the directory branch
+              if: steps.plan.outputs.skip == 'false'
+              env:
+                  VERSION: ${{ steps.plan.outputs.version }}
+                  TAG: ${{ steps.plan.outputs.tag }}
+              run: |
+                  source directory/identity.env
+                  git config user.name 'github-actions[bot]'
+                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+                  snapshot="$RUNNER_TEMP/directory"
+                  if git ls-remote --exit-code --heads origin directory > /dev/null; then
+                      git fetch origin directory
+                      git worktree add "$snapshot" origin/directory
+                      git -C "$snapshot" checkout -B directory
+                  else
+                      git worktree add --detach "$snapshot"
+                      git -C "$snapshot" checkout --orphan directory
+                  fi
+
+                  # The branch holds exactly the built plugin: replace the whole tree.
+                  git -C "$snapshot" rm -rqf --ignore-unmatch .
+                  find "$snapshot" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+                  cp -R "build/$SLUG/." "$snapshot/"
+                  git -C "$snapshot" add -A
+                  git -C "$snapshot" commit -q -m "$NAME $VERSION from ${GITHUB_SHA::12}" \
+                      -m "Built by bin/build-directory.sh from ${GITHUB_SHA} (${GITHUB_REF_NAME})."
+                  git -C "$snapshot" tag -a "$TAG" -m "$NAME $VERSION"
+                  git -C "$snapshot" push origin directory "refs/tags/$TAG"
+
+    deploy:
+        needs: build
+        if: needs.build.outputs.skip == 'false' && vars.DIRECTORY_APPROVED == 'true'
+        runs-on: ubuntu-latest
+        environment:
+            name: wordpress-org
+            url: https://wordpress.org/plugins/words-for-writers/
+        steps:
+            - name: Check out the snapshot
+              uses: actions/checkout@v4
+              with:
+                  ref: refs/tags/${{ needs.build.outputs.tag }}
+                  path: snapshot
+
+            - name: Check out the directory assets
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.sha }}
+                  path: source
+                  sparse-checkout: directory
+
+            - name: Leave git metadata out of the upload
+              run: rm -rf snapshot/.git
+
+            - name: Install Subversion
+              run: sudo apt-get update -q && sudo apt-get install -yq subversion
+
+            - name: Deploy to WordPress.org
+              uses: 10up/action-wordpress-plugin-deploy@stable
+              env:
+                  SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+                  SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+                  SLUG: words-for-writers
+                  VERSION: ${{ needs.build.outputs.version }}
+                  BUILD_DIR: snapshot
+                  ASSETS_DIR: source/directory/.wordpress-org
