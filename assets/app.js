@@ -2580,16 +2580,18 @@
     } );
 
     document.addEventListener( 'pointercancel', ( event ) => {
-        touches.delete( event.pointerId );
-        twoFinger = null;
+        if ( touches.delete( event.pointerId ) ) {
+            twoFinger = null;
+        }
     } );
 
     /*
      * Where a browser still makes a click of one of the fingers, it doesn't open
      * the note or view. iOS makes its own of the two together: a click with the
      * Command key set and no such key pressed, its way of opening a link in a new
-     * tab. That click is the two-finger tap however the fingers were followed
-     * above: it never opens the note in a tab, and opens the menu if nothing has.
+     * tab. That click on a note or view is the two-finger tap however the fingers
+     * were followed above: it never opens the note in a tab, and opens the menu if
+     * nothing has. Anywhere else, such as a link in a note, it keeps its new tab.
      */
     let metaHeld = false;
     [ 'keydown', 'keyup' ].forEach( ( type ) => document.addEventListener( type, ( event ) => {
@@ -2601,14 +2603,15 @@
 
     root.addEventListener( 'click', ( event ) => {
         // Safari calls that click a mouse's, so it is told by what last touched the screen.
-        const twoFingerClick = event.metaKey && ! metaHeld && lastPointerType === 'touch';
+        const item = event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        const twoFingerClick = !! item && event.metaKey && ! metaHeld && lastPointerType === 'touch';
         if ( ! suppressClick && ! twoFingerClick ) {
             return;
         }
         suppressClick = false;
         event.preventDefault();
         event.stopPropagation();
-        const el = twoFingerClick && ! contextMenu && event.target.closest( `${ NOTE_ITEM }, ${ TERM_ITEM }` );
+        const el = twoFingerClick && ! contextMenu && item;
         if ( el ) {
             cancelLongPress();
             openContextMenu( el );
