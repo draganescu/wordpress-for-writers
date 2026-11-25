@@ -195,6 +195,7 @@ function wfw_editor_settings( $post ) {
  * writing, not page building: layout (columns, groups, spacers), the theme's
  * blocks (site, query, post, comment, navigation) and widgets are left out,
  * as are other plugins' blocks: only core's and Writer's own are offered.
+ * Plugins add their writing blocks with the `wfw_allowed_block_types` filter.
  *
  * Only the inserter and transforms are limited: a note that already holds a
  * left-out block still shows and edits it.
@@ -242,6 +243,20 @@ function wfw_allowed_block_types( $allowed ) {
         'writer-members/paywall',
         'writer-subscribe/form',
     );
+
+    /**
+     * The blocks the Writer editor offers. Add a plugin's block names here to
+     * make them insertable in notes; allowed_block_types_all can still take
+     * any of them away again.
+     *
+     * @param string[] $blocks Block names, such as 'core/paragraph'.
+     */
+    $blocks = array_values( array_unique( array_filter(
+        (array) apply_filters( 'wfw_allowed_block_types', $blocks ),
+        function ( $name ) {
+            return is_string( $name ) && '' !== $name;
+        }
+    ) ) );
 
     return is_array( $allowed ) ? array_values( array_intersect( $blocks, $allowed ) ) : $blocks;
 }
