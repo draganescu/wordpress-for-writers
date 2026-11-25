@@ -1,0 +1,242 @@
+/*
+ * Default writing surface for the editor canvas (theme styles are removed).
+ * Loaded unscoped into the canvas iframe; colors, font, size and measure come
+ * from the --wfw-* appearance tokens set on the canvas <html>.
+ */
+html {
+    background: var( --wfw-editor-bg );
+}
+
+.editor-styles-wrapper {
+    --wp--style--global--content-size: var( --wfw-measure );
+    --wp--style--global--wide-size: calc( var( --wfw-measure ) + 200px );
+
+    background: var( --wfw-editor-bg ) !important;
+    color: var( --wfw-text );
+    font-family: var( --wfw-font-body );
+    font-size: var( --wfw-size );
+    font-weight: 400;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /*
+     * Room under the note for the formatting pill (52px tall, 16px up, and a few px spare)
+     * plus four lines, so the last paragraph can sit four lines above the pill.
+     * editor.js scrolls it there while writing (keepClearOfPill()).
+     */
+    padding: 72px 40px calc( 72px + 6.4em + var( --wfw-keyboard, 0px ) );
+}
+
+/*
+ * One centered column for title and content (.wfw-column, .wfw-title and
+ * .wfw-body are editor.js's own wrappers). Blocks fill the column; wide and
+ * full alignments stay within it too.
+ */
+.editor-styles-wrapper .wfw-column {
+    max-width: var( --wfw-measure );
+    margin: 0 auto;
+}
+
+.editor-styles-wrapper .wfw-body > * {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/*
+ * Layouts, alignments, block gaps and the button look come from core's global
+ * stylesheet (wfw_canvas_global_stylesheet()). The note's root is editor.js's
+ * own BlockList, which core's root rules (.wp-site-blocks) don't reach, so its
+ * alignments are set here, as core sets them inside groups.
+ */
+.editor-styles-wrapper .wfw-body > .alignleft {
+    float: left;
+    margin-inline-start: 0;
+    margin-inline-end: 2em;
+}
+
+.editor-styles-wrapper .wfw-body > .alignright {
+    float: right;
+    margin-inline-start: 2em;
+    margin-inline-end: 0;
+}
+
+.editor-styles-wrapper .wfw-body > .aligncenter {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* A float clears before the next block that isn't one, as on the site. */
+.editor-styles-wrapper .wfw-body::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+/* Title */
+.editor-styles-wrapper .wfw-title h1 {
+    font-family: var( --wfw-font-body );
+    font-size: 1.75em;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var( --wfw-text );
+    margin: 0 0 0.9em;
+}
+
+/*
+ * Featured image, categories and tags links in a row above the title (added by
+ * editor.js). Absolutely placed, so the title doesn't move; the row appears with
+ * the pointer over the title or focus in it, and stays faintly visible on touch
+ * screens. Each link's label shows what the note has and is cut short with an
+ * ellipsis when the names run long.
+ */
+.editor-styles-wrapper .wfw-title {
+    position: relative;
+}
+
+.editor-styles-wrapper .wfw-title-links {
+    position: absolute;
+    bottom: calc( 100% + 6px );
+    left: -6px;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    user-select: none;
+}
+
+.editor-styles-wrapper .wfw-title-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 50%;
+    padding: 4px 8px 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var( --wfw-muted );
+    font-family: var( --wfw-font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif );
+    font-size: 13px;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.editor-styles-wrapper .wfw-title-link svg {
+    fill: currentColor;
+    flex: none;
+}
+
+.editor-styles-wrapper .wfw-title-link span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The (i) at the end of the row. Its word count flydown is drawn outside the canvas (editor.css). */
+.editor-styles-wrapper .wfw-title-info {
+    flex: none;
+    display: inline-flex;
+}
+
+/* No 50% cap here: its wrapper shrinks to fit it, so the cap would halve the button. */
+.editor-styles-wrapper .wfw-title-link--info {
+    max-width: none;
+    padding: 4px 6px;
+}
+
+.editor-styles-wrapper .wfw-title-link--info[aria-expanded="true"] {
+    color: var( --wfw-text );
+    background: var( --wfw-code-bg );
+}
+
+/* The row stays up while the flydown is open (a rule of its own, so a browser without :has() keeps the rest). */
+.editor-styles-wrapper .wfw-title-links:has( [aria-expanded="true"] ) {
+    opacity: 1;
+}
+
+.editor-styles-wrapper .wfw-title:hover .wfw-title-links,
+.editor-styles-wrapper .wfw-title:focus-within .wfw-title-links {
+    opacity: 1;
+}
+
+.editor-styles-wrapper .wfw-title-link:hover {
+    color: var( --wfw-text );
+    background: var( --wfw-code-bg );
+}
+
+.editor-styles-wrapper .wfw-title-link:focus-visible {
+    outline: 2px solid var( --wfw-accent );
+    outline-offset: 1px;
+}
+
+@media ( hover: none ) {
+    .editor-styles-wrapper .wfw-title-links {
+        opacity: 0.7;
+    }
+}
+
+/* Quick notes (a status, image, gallery, video or audio) leave the title out; their block is the note. */
+html[data-wfw-quick] .editor-styles-wrapper .wfw-title .editor-post-title {
+    display: none;
+}
+
+/* Placeholders: keep "Add title", drop the block-editor coaching. */
+.editor-styles-wrapper .wfw-title [data-rich-text-placeholder]::after {
+    color: var( --wfw-muted );
+    opacity: 0.6;
+}
+
+.editor-styles-wrapper p [data-rich-text-placeholder]::after,
+.editor-styles-wrapper p[data-rich-text-placeholder]::after,
+.editor-styles-wrapper .block-editor-default-block-appender [data-rich-text-placeholder]::after,
+.editor-styles-wrapper .block-editor-default-block-appender__content {
+    content: none !important;
+    color: transparent !important;
+}
+
+.editor-styles-wrapper .block-editor-block-list__empty-block-inserter,
+.editor-styles-wrapper .block-editor-default-block-appender .block-editor-inserter,
+.editor-styles-wrapper .block-list-appender {
+    display: none !important;
+}
+
+/* Quiet block chrome: no hover outlines, a soft selected outline. */
+.editor-styles-wrapper .block-editor-block-list__block.is-hovered:not( .is-selected )::after,
+.editor-styles-wrapper .block-editor-block-list__block.is-highlighted::after {
+    box-shadow: none !important;
+}
+
+.editor-styles-wrapper .block-editor-block-list__block:not( [contenteditable] ):focus::after {
+    box-shadow: 0 0 0 1px color-mix( in srgb, var( --wfw-accent ) 50%, transparent ) !important;
+}
+
+@media ( max-width: 600px ) {
+    .editor-styles-wrapper {
+        padding: 64px 20px calc( 68px + 6.4em + var( --wfw-keyboard, 0px ) );
+    }
+
+    .editor-styles-wrapper .wfw-title h1 {
+        font-size: 1.5em;
+    }
+
+    /*
+     * Phones: the app's back link, the save state and Publish sit over the top
+     * of the editor, so the links come down into the flow, between them and
+     * the title, rather than floating above the title into that bar.
+     */
+    .editor-styles-wrapper .wfw-title-links {
+        position: static;
+        flex-wrap: wrap;
+        margin: 0 0 10px -8px;
+    }
+
+    .editor-styles-wrapper .wfw-title-link {
+        max-width: 100%;
+    }
+}

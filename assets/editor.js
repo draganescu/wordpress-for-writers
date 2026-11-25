@@ -1,0 +1,1251 @@
+/**
+ * The Writer editor: one note's editor, on the page includes/editor.php prints
+ * into each of the app's tabs.
+ *
+ * It's composed from the block editor's public parts instead of reshaping
+ * wp-admin's post editor: EditorProvider holds the note, BlockCanvas draws the
+ * writing surface with PostTitle and BlockList in it, BlockToolbar sits in the
+ * formatting pill at the bottom, PostSavedState and PostPublishButton at the
+ * top right, and the notices, the publish panel and the settings sheet are
+ * placed where the app wants them. Colors come in through ThemeProvider.
+ *
+ * It also talks to the app (frame protocol: ready, title, saved, painted,
+ * flush, appearance, visibility), saves drafts as you type, and keeps the
+ * toolbar above the iOS on-screen keyboard.
+ */
+( function () {
+    const config = window.wfwEditor;
+    const root = document.getElementById( 'wfw-editor-root' );
+    if ( ! config || ! root ) {
+        return;
+    }
+
+    const { createElement: el, Fragment, RawHTML, useState, useEffect, useRef, createRoot } = wp.element;
+    const { select, dispatch, subscribe, useSelect, useDispatch } = wp.data;
+    const { __, _n, sprintf } = wp.i18n;
+    const editor = wp.editor;
+    const blockEditor = wp.blockEditor;
+    const { SlotFillProvider, Popover, Dropdown, Button, TabPanel, ExternalLink } = wp.components;
+    const { ShortcutProvider, useShortcut, store: shortcutsStore } = wp.keyboardShortcuts;
+    const editorStore = editor.store;
+    const blockEditorStore = blockEditor.store;
+    const noticesStore = 'core/notices';
+
+    const DRAFT_STATUSES = [ 'draft', 'auto-draft', 'pending' ];
+    const AUTOSAVE_DELAY = 1500;
+    const inApp = window.parent !== window;
+
+    let appearance = config.appearance || {};
+
+    // ---- Talking to the app ------------------------------------------------
+
+    function post( message ) {
+        if ( inApp ) {
+            window.parent.postMessage( { source: 'wfw-frame', ...message }, window.location.origin );
+        }
+    }
+
+    function editorSelect() {
+        return select( editorStore );
+    }
+
+    function isDraft() {
+        return DRAFT_STATUSES.includes( editorSelect().getCurrentPostAttribute( 'status' ) );
+    }
+
+    function isNewNote() {
+        return editorSelect().getCurrentPostAttribute( 'status' ) === 'auto-draft';
+    }
+
+    // ---- Appearance ----------------------------------------------------------
+
+    /*
+     * The appearance is stamped on <html> as data attributes (the page's own
+     * bootstrap script, then the app's "appearance" messages), which the
+     * --wfw-* tokens key off. The canvas gets the same attributes, and
+     * ThemeProvider gets the resulting accent and background colors.
+     */
+    const appearanceListeners = new Set();
+
+    function stamp( doc ) {
+        if ( ! doc || ! doc.documentElement ) {
+            return;
+        }
+        Object.entries( appearance ).forEach( ( [ key, value ] ) => {
+            doc.documentElement.dataset[ 'wfw' + key[ 0 ].toUpperCase() + key.slice( 1 ) ] = value;
+        } );
+    }
+
+    function themeColors() {
+        const style = getComputedStyle( document.documentElement );
+        return {
+            primary: style.getPropertyValue( '--wfw-accent' ).trim() || undefined,
+            background: style.getPropertyValue( '--wfw-editor-bg' ).trim() || undefined,
+        };
+    }
+
+    function applyAppearance() {
+        stamp( document );
+        stamp( canvas.doc );
+        appearanceListeners.forEach( ( listener ) => listener() );
+    }
+
+    // "System" follows the OS setting, so its colors change with it.
+    window.matchMedia( '(prefers-color-scheme: dark)' ).addEventListener( 'change', applyAppearance );
+
+    function useThemeColors() {
+        const [ colors, setColors ] = useState( themeColors );
+        useEffect( () => {
+            const listener = () => setColors( themeColors() );
+            appearanceListeners.add( listener );
+            return () => appearanceListeners.delete( listener );
+        }, [] );
+        return colors;
+    }
+
+    // ---- The canvas ----------------------------------------------------------
+
+    /*
+     * The canvas document, handed over by a component rendered inside it, so
+     * nothing has to look for the editor's iframe. BlockCanvas can replace its
+     * iframe; the component mounts again in the new one.
+     */
+    const canvas = { doc: null, win: null, frame: null };
+    const canvasListeners = new Set();
+
+    function setCanvas( doc ) {
+        canvas.doc = doc;
+        canvas.win = doc ? doc.defaultView : null;
+        canvas.frame = canvas.win ? canvas.win.frameElement : null;
+        stamp( doc );
+        canvasListeners.forEach( ( listener ) => listener( doc ) );
+    }
+
+    // ---- The links above the title -----------------------------------------
+
+    /*
+     * Featured image, categories and tags: a row of quiet links above the
+     * title, like the cover image prompt in Ghost or Medium. It shows while the
+     * pointer is over the title or the title has focus (always, faintly, on
+     * touch screens). Each link asks the app to open its panel in place of the
+     * editor. A link's label says what the note has: the names of its
+     * categories or tags (read through core-data, like the editor's own
+     * panels), or an invitation to add some. An (i) button closes the row and
+     * opens the note's word count and reading time in a small flydown.
+     */
+    const ICONS = {
+        image: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z',
+        categories: 'M12.848 8a1 1 0 0 1-.914-.594l-.723-1.63a.5.5 0 0 0-.447-.276H5a.5.5 0 0 0-.5.5v11.5a.5.5 0 0 0 .5.5h14a.5.5 0 0 0 .5-.5v-9A.5.5 0 0 0 19 8h-6.152Zm.612-1.5a.5.5 0 0 1-.462-.31l-.445-1.084A2 2 0 0 0 10.763 4H5a2 2 0 0 0-2 2v11.5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-5.54Z',
+        info: 'M12 3.2c-4.8 0-8.8 3.9-8.8 8.8 0 4.8 3.9 8.8 8.8 8.8 4.8 0 8.8-3.9 8.8-8.8 0-4.8-4-8.8-8.8-8.8zm0 16c-4 0-7.2-3.3-7.2-7.2C4.8 8 8 4.8 12 4.8s7.2 3.3 7.2 7.2c0 4-3.2 7.2-7.2 7.2zM11 17h2v-6h-2v6zm0-8h2V7h-2v2z',
+        tags: 'M20.5 5.5h-3.1l.7-3.3-1.5-.3-.7 3.6H10l.7-3.3-1.5-.3-.7 3.6H4.5V7h3.7l-.9 4.5H3.5V13h3.5l-.7 3.3 1.5.3.7-3.6H14l-.7 3.3 1.5.3.7-3.6h4V11.5h-3.7l.9-4.5h3.8V5.5Zm-6.2 6h-5.5L9.7 7h5.5l-.9 4.5Z',
+    };
+
+    function useTermNames( attribute, taxonomy ) {
+        return useSelect( ( s ) => {
+            const ids = s( editorStore ).getEditedPostAttribute( attribute ) || [];
+            if ( ! ids.length ) {
+                return { count: 0, names: null };
+            }
+            const terms = s( 'core' ).getEntityRecords( 'taxonomy', taxonomy, { include: ids, per_page: ids.length, context: 'view', _fields: 'id,name' } );
+            // Term names come HTML-escaped from the REST API.
+            const names = terms ? ids.map( ( id ) => terms.find( ( t ) => t.id === id ) ).filter( Boolean ).map( ( t ) => wp.htmlEntities.decodeEntities( t.name || '' ) ).join( ', ' ) : null;
+            return { count: ids.length, names };
+        }, [ attribute, taxonomy ] );
+    }
+
+    function TitleLink( { name, label, message } ) {
+        return el( 'button', {
+            type: 'button',
+            className: 'wfw-title-link wfw-title-link--' + name,
+            onClick: () => {
+                const id = editorSelect().getCurrentPostId();
+                if ( id ) {
+                    post( { ...message, id } );
+                }
+            },
+        },
+        el( 'svg', { viewBox: '0 0 24 24', width: 18, height: 18, 'aria-hidden': true, focusable: false }, el( 'path', { d: ICONS[ name ] } ) ),
+        el( 'span', { title: label }, label ) );
+    }
+
+    /*
+     * Word count and reading time, under the (i) at the end of the row. Counted as the
+     * editor's own WordCount and TimeToRead do: wp.wordcount with the
+     * translatable count type (characters for languages that don't split on
+     * spaces) and an average of 189 words a minute, a moment after typing stops.
+     */
+    const READING_RATE = 189;
+    const STATS_DELAY = 300;
+
+    function countNote( content ) {
+        /*
+         * translators: If your word count is based on single characters (e.g. East Asian characters),
+         * enter 'characters_excluding_spaces' or 'characters_including_spaces'. Otherwise, enter 'words'.
+         * Do not translate into your own language.
+         */
+        const unit = wp.i18n._x( 'words', 'Word count type. Do not translate!', 'words-for-writers' );
+        return { unit, count: wp.wordcount.count( content, unit ) };
+    }
+
+    function NoteStats() {
+        const content = useSelect( ( s ) => s( editorStore ).getEditedPostAttribute( 'content' ) || '', [] );
+        const [ stats, setStats ] = useState( () => countNote( content ) );
+        useEffect( () => {
+            const timer = setTimeout( () => setStats( countNote( content ) ), STATS_DELAY );
+            return () => clearTimeout( timer );
+        }, [ content ] );
+        const { unit, count } = stats;
+        const minutes = Math.round( count / READING_RATE );
+        const amount = unit === 'words'
+            /* translators: %s: number of words. */
+            ? sprintf( _n( '%s word', '%s words', count, 'words-for-writers' ), count.toLocaleString() )
+            /* translators: %s: number of characters. */
+            : sprintf( _n( '%s character', '%s characters', count, 'words-for-writers' ), count.toLocaleString() );
+        const time = minutes < 1
+            ? __( 'Under a minute', 'words-for-writers' )
+            /* translators: %s: number of minutes. */
+            : sprintf( _n( '%s minute', '%s minutes', minutes, 'words-for-writers' ), minutes.toLocaleString() );
+        const label = __( 'Word count', 'words-for-writers' );
+
+        /*
+         * The components' Dropdown draws the flydown in the editor's popover
+         * slot, outside the canvas, and keeps it on screen: it flips above the
+         * button or slides sideways near an edge. It closes on a click or tap
+         * anywhere else, and on Escape (back to the button).
+         */
+        return el( Dropdown, {
+            className: 'wfw-title-info',
+            contentClassName: 'wfw-title-info__popover',
+            // Focus goes to the card itself (it has nothing to tab to), so a tap anywhere else is seen leaving it.
+            popoverProps: { placement: 'bottom-end', offset: 4, shift: true, focusOnMount: true },
+            renderToggle: ( { isOpen, onToggle } ) => el( 'button', {
+                type: 'button',
+                className: 'wfw-title-link wfw-title-link--info',
+                'aria-label': label,
+                title: label,
+                'aria-expanded': isOpen,
+                onClick: onToggle,
+            },
+            el( 'svg', { viewBox: '0 0 24 24', width: 18, height: 18, 'aria-hidden': true, focusable: false }, el( 'path', { d: ICONS.info } ) ) ),
+            renderContent: () => el( 'dl', { className: 'wfw-title-info__stats' },
+                el( 'div', null,
+                    el( 'dt', null, unit === 'words' ? __( 'Words', 'words-for-writers' ) : __( 'Characters', 'words-for-writers' ) ),
+                    el( 'dd', null, amount )
+                ),
+                el( 'div', null,
+                    el( 'dt', null, __( 'Reading time', 'words-for-writers' ) ),
+                    el( 'dd', null, time )
+                )
+            ),
+        } );
+    }
+
+    function TitleLinks() {
+        const hasImage = useSelect( ( s ) => !! s( editorStore ).getEditedPostAttribute( 'featured_media' ), [] );
+        const categories = useTermNames( 'categories', 'category' );
+        const tags = useTermNames( 'tags', 'post_tag' );
+        if ( ! inApp ) {
+            return null;
+        }
+        return el( 'div', { className: 'wfw-title-links', contentEditable: false },
+            config.featuredImages && el( TitleLink, {
+                name: 'image',
+                message: { type: 'featured-image' },
+                label: hasImage ? __( 'Change featured image', 'words-for-writers' ) : __( 'Add featured image', 'words-for-writers' ),
+            } ),
+            config.categories && el( TitleLink, {
+                name: 'categories',
+                message: { type: 'terms', focus: 'categories' },
+                label: ! categories.count
+                    ? __( 'Add categories', 'words-for-writers' )
+                    /* translators: %d: number of categories. */
+                    : categories.names || sprintf( _n( '%d category', '%d categories', categories.count, 'words-for-writers' ), categories.count ),
+            } ),
+            config.tags && el( TitleLink, {
+                name: 'tags',
+                message: { type: 'terms', focus: 'tags' },
+                label: ! tags.count
+                    ? __( 'Add tags', 'words-for-writers' )
+                    /* translators: %d: number of tags. */
+                    : tags.names || sprintf( _n( '%d tag', '%d tags', tags.count, 'words-for-writers' ), tags.count ),
+            } ),
+            el( NoteStats )
+        );
+    }
+
+    // What goes inside the canvas: the title with its links, then the blocks.
+    function CanvasContent() {
+        const ref = useRef();
+        useEffect( () => {
+            const doc = ref.current.ownerDocument;
+            setCanvas( doc );
+            return () => canvas.doc === doc && setCanvas( null );
+        }, [] );
+        return el( 'div', { ref, className: 'wfw-column' },
+            el( 'div', { className: 'wfw-title' }, el( TitleLinks ), el( editor.PostTitle ) ),
+            el( blockEditor.BlockList, { className: 'wfw-body' } )
+        );
+    }
+
+    // ---- Chrome --------------------------------------------------------------
+
+    // Save state and Save / Publish / Update, at the top right.
+    function Actions() {
+        const { isPublishPanelOpen, isToggle } = useSelect( ( s ) => {
+            const store = s( editorStore );
+            return {
+                isPublishPanelOpen: store.isPublishSidebarOpened(),
+                // Published and scheduled notes update in place; the rest go through the publish panel.
+                isToggle: ! store.isCurrentPostPublished() && ! store.isCurrentPostScheduled(),
+            };
+        }, [] );
+        const { togglePublishSidebar } = useDispatch( editorStore );
+        return el( 'div', { className: 'wfw-actions' },
+            el( editor.PostSavedState ),
+            el( editor.PostPublishButton, { isToggle, isOpen: isPublishPanelOpen, onToggle: togglePublishSidebar } )
+        );
+    }
+
+    // The formatting pill: the selected block's toolbar, docked at the bottom.
+    function FormattingPill() {
+        const hasSelection = useSelect( ( s ) => s( blockEditorStore ).getSelectedBlockClientIds().length > 0, [] );
+        if ( ! hasSelection ) {
+            return null;
+        }
+        return el( 'div', { className: 'wfw-pill' }, el( blockEditor.BlockToolbar, { hideDragHandle: true } ) );
+    }
+
+    /*
+     * Publishing: a small card under the Publish button (a sheet from the
+     * bottom on phones) instead of wp-admin's pre-publish sidebar. It holds
+     * what a writer decides at that moment, who can read the note and when it
+     * goes out, with the editor's own controls for both, and the editor's own
+     * Publish / Schedule button. Once the note is out the card closes and the
+     * editor's "published" toast offers to view it. The card's open state is
+     * the editor's publish sidebar flag, so the header's Publish button
+     * (PostPublishButton as a toggle) opens and closes it.
+     */
+    function PublishRow( { label, value, isOpen, onToggle, children } ) {
+        return el( 'div', { className: 'wfw-publish__row' + ( isOpen ? ' is-open' : '' ) },
+            el( 'button', { type: 'button', className: 'wfw-publish__toggle', 'aria-expanded': isOpen, onClick: onToggle },
+                el( 'span', { className: 'wfw-publish__label' }, label ),
+                el( 'span', { className: 'wfw-publish__value' }, value )
+            ),
+            isOpen && el( 'div', { className: 'wfw-publish__detail' }, children )
+        );
+    }
+
+    function PublishPanel() {
+        const { isOpen, isOut } = useSelect( ( s ) => {
+            const store = s( editorStore );
+            return {
+                isOpen: store.isPublishSidebarOpened(),
+                isOut: store.isCurrentPostPublished() || store.isCurrentPostScheduled(),
+            };
+        }, [] );
+        const { closePublishSidebar } = useDispatch( editorStore );
+        const [ section, setSection ] = useState( null );
+        const card = useRef();
+
+        // Published or scheduled: the card has done its job.
+        useEffect( () => {
+            if ( isOpen && isOut ) {
+                closePublishSidebar();
+            }
+        }, [ isOpen, isOut ] );
+
+        useEffect( () => {
+            if ( ! isOpen ) {
+                setSection( null );
+                return;
+            }
+            const focusable = card.current && card.current.querySelector( '.wfw-publish__foot .is-primary' );
+            if ( focusable ) {
+                focusable.focus();
+            }
+        }, [ isOpen ] );
+
+        if ( ! isOpen ) {
+            return null;
+        }
+        const toggle = ( name ) => () => setSection( ( open ) => ( open === name ? null : name ) );
+        const close = () => closePublishSidebar();
+
+        return el( Fragment, null,
+            el( 'div', { className: 'wfw-publish-backdrop', onClick: close } ),
+            el( 'div', {
+                ref: card,
+                className: 'wfw-publish',
+                role: 'dialog',
+                'aria-label': __( 'Publish', 'words-for-writers' ),
+                onKeyDown: ( event ) => {
+                    if ( event.key === 'Escape' && ! event.defaultPrevented ) {
+                        event.preventDefault();
+                        close();
+                    }
+                },
+            },
+            el( 'h2', { className: 'wfw-publish__title' }, __( 'Ready to publish?', 'words-for-writers' ) ),
+            el( editor.PostVisibilityCheck, {
+                render: ( { canEdit } ) => canEdit && el( PublishRow, {
+                    label: __( 'Who can read', 'words-for-writers' ),
+                    value: el( editor.PostVisibilityLabel ),
+                    isOpen: section === 'visibility',
+                    onToggle: toggle( 'visibility' ),
+                }, el( editor.PostVisibility, { onClose: () => setSection( null ) } ) ),
+            } ),
+            el( editor.PostScheduleCheck, null, el( PublishRow, {
+                label: __( 'When', 'words-for-writers' ),
+                value: el( editor.PostScheduleLabel ),
+                isOpen: section === 'schedule',
+                onToggle: toggle( 'schedule' ),
+            }, el( editor.PostSchedule, { onClose: () => setSection( null ) } ) ) ),
+            el( 'div', { className: 'wfw-publish__foot' },
+                el( Button, { variant: 'tertiary', onClick: close }, __( 'Not yet', 'words-for-writers' ) ),
+                el( editor.PostPublishButton )
+            ) )
+        );
+    }
+
+    /*
+     * The note's settings and the selected block's, in a sheet at the right
+     * that Cmd/Ctrl + Shift + , opens and closes (the editor's own shortcut for
+     * its sidebar). Plugins' document setting panels show here too.
+     */
+    function SettingsSheet( { onClose } ) {
+        const hasBlock = useSelect( ( s ) => !! s( blockEditorStore ).getSelectedBlockClientId(), [] );
+        const isPublished = useSelect( ( s ) => s( editorStore ).isCurrentPostPublished(), [] );
+        const panels = [ 'PostExcerptPanel', 'PostTaxonomiesPanel' ].filter( ( name ) => editor[ name ] );
+        const notePanels = el( Fragment, null,
+            panels.map( ( name ) => el( editor[ name ], { key: name } ) ),
+            editor.PluginDocumentSettingPanel && editor.PluginDocumentSettingPanel.Slot && el( editor.PluginDocumentSettingPanel.Slot ),
+            el( 'div', { className: 'wfw-sheet__footer' },
+                isPublished && editor.PostSwitchToDraftButton && el( editor.PostSwitchToDraftButton ),
+                config.fullEditorUrl && el( ExternalLink, { href: config.fullEditorUrl }, __( 'Open in the full editor', 'words-for-writers' ) )
+            )
+        );
+        return el( 'div', {
+            className: 'wfw-sheet wfw-sheet--settings',
+            role: 'region',
+            'aria-label': __( 'Settings', 'words-for-writers' ),
+            onKeyDown: ( event ) => {
+                if ( event.key === 'Escape' && ! event.defaultPrevented ) {
+                    event.preventDefault();
+                    onClose();
+                }
+            },
+        },
+            el( 'div', { className: 'wfw-sheet__header' },
+                el( 'h2', null, __( 'Settings', 'words-for-writers' ) ),
+                el( Button, { icon: 'no-alt', label: __( 'Close settings', 'words-for-writers' ), onClick: onClose, size: 'compact' } )
+            ),
+            hasBlock
+                ? el( TabPanel, {
+                    className: 'wfw-sheet__tabs',
+                    initialTabName: 'block',
+                    tabs: [
+                        { name: 'note', title: __( 'Note', 'words-for-writers' ) },
+                        { name: 'block', title: __( 'Block', 'words-for-writers' ) },
+                    ],
+                }, ( tab ) => ( tab.name === 'block' ? el( blockEditor.BlockInspector ) : notePanels ) )
+                : notePanels
+        );
+    }
+
+    /*
+     * Notices, drawn from core/notices as the app's own cards (top) and toasts
+     * (bottom). Drafts save themselves every few seconds, so their "Draft
+     * saved." toast isn't shown; explicit Update/Publish confirmations still are.
+     */
+    /*
+     * Pressing a notice or toast takes focus out of the canvas, but the block
+     * editor still thinks the block is selected, so tapping that block again
+     * doesn't bring the caret back until something else is selected. Drop the
+     * selection along with the focus, as after dismissing the iOS keyboard.
+     */
+    function dropBlockSelection() {
+        const editable = canvas.doc && canvas.doc.activeElement;
+        if ( editable && editable.isContentEditable ) {
+            editable.blur();
+        }
+        if ( select( blockEditorStore ).getSelectionStart().clientId ) {
+            dispatch( blockEditorStore ).clearSelectedBlock();
+        }
+    }
+
+    function NoticeContent( { notice } ) {
+        return notice.__unstableHTML ? el( RawHTML, null, notice.content ) : notice.content;
+    }
+
+    function NoticeActions( { notice, onAction } ) {
+        if ( ! notice.actions || ! notice.actions.length ) {
+            return null;
+        }
+        return el( 'span', { className: 'wfw-notice__actions' }, notice.actions.map( ( action, index ) => el( Button, {
+            key: index,
+            href: action.url,
+            // "View Post" after publishing is marked to open in a new tab, as core's own
+            // snackbar does; in the frame it would otherwise replace the editor with the post.
+            target: action.openInNewTab ? '_blank' : undefined,
+            rel: action.openInNewTab ? 'noopener noreferrer' : undefined,
+            variant: action.variant === 'primary' ? 'primary' : undefined,
+            className: 'wfw-notice__action',
+            onClick: () => {
+                if ( action.onClick ) {
+                    action.onClick();
+                }
+                if ( onAction ) {
+                    onAction();
+                }
+            },
+        }, action.label ) ) );
+    }
+
+    function Notices() {
+        const notices = useSelect( ( s ) => s( noticesStore ).getNotices().filter( ( n ) => n.type !== 'snackbar' ), [] );
+        const { removeNotice } = useDispatch( noticesStore );
+        if ( ! notices.length ) {
+            return null;
+        }
+        return el( 'div', { className: 'wfw-notices', onPointerDown: dropBlockSelection }, notices.map( ( notice ) => el( 'div', {
+            key: notice.id,
+            className: 'wfw-notice is-' + notice.status,
+            role: notice.status === 'error' ? 'alert' : 'status',
+        },
+        el( 'span', { className: 'wfw-notice__content' }, el( NoticeContent, { notice } ) ),
+        el( NoticeActions, { notice } ),
+        notice.isDismissible && el( Button, {
+            className: 'wfw-notice__dismiss',
+            icon: 'no-alt',
+            size: 'small',
+            label: __( 'Dismiss', 'words-for-writers' ),
+            onClick: () => removeNotice( notice.id ),
+        } ) ) ) );
+    }
+
+    const SNACKBAR_TIMEOUT = 10000;
+
+    function Snackbar( { notice } ) {
+        const { removeNotice } = useDispatch( noticesStore );
+        useEffect( () => {
+            const timer = setTimeout( () => removeNotice( notice.id ), SNACKBAR_TIMEOUT );
+            return () => clearTimeout( timer );
+        }, [ notice ] );
+        return el( 'div', { className: 'wfw-toast', role: 'status' },
+            el( 'span', null, el( NoticeContent, { notice } ) ),
+            el( NoticeActions, { notice, onAction: () => removeNotice( notice.id ) } ) );
+    }
+
+    function Snackbars() {
+        const notices = useSelect( ( s ) => {
+            const draft = DRAFT_STATUSES.includes( s( editorStore ).getCurrentPostAttribute( 'status' ) );
+            return s( noticesStore ).getNotices().filter( ( n ) => n.type === 'snackbar' && ! ( draft && n.id === 'editor-save' ) );
+        }, [] );
+        if ( ! notices.length ) {
+            return null;
+        }
+        return el( 'div', { className: 'wfw-toasts', onPointerDown: dropBlockSelection }, notices.slice( -3 ).map( ( notice ) => el( Snackbar, { key: notice.id, notice } ) ) );
+    }
+
+    function Layout() {
+        const [ settingsOpen, setSettingsOpen ] = useState( false );
+        const colors = useThemeColors();
+        const styles = useSelect( ( s ) => s( editorStore ).getEditorSettings().styles, [] );
+        /*
+         * A new note with nothing in it yet keeps no backup in the browser and
+         * doesn't hold the page: there is nothing to lose, and core keeps every
+         * unsaved new note's backup in one slot, so the next new note would
+         * offer to restore the last one left empty. Once it has something, the
+         * backup and the warning are there until it's saved, as for any note.
+         */
+        const isBlankNew = useSelect( () => isNewNote() && nothingToSave(), [] );
+        useEffect( () => {
+            if ( isBlankNew ) {
+                try {
+                    window.sessionStorage.removeItem( 'wp-autosave-block-editor-post-auto-draft' );
+                } catch ( e ) {}
+            }
+        }, [ isBlankNew ] );
+        const { registerShortcut } = useDispatch( shortcutsStore );
+
+        useEffect( () => {
+            registerShortcut( {
+                name: 'wfw/toggle-settings',
+                category: 'global',
+                description: __( 'Show or hide the settings.', 'words-for-writers' ),
+                keyCombination: { modifier: 'primaryShift', character: ',' },
+            } );
+            registerShortcut( {
+                name: 'wfw/command-palette',
+                category: 'global',
+                description: __( 'Open the command palette.', 'words-for-writers' ),
+                keyCombination: { modifier: 'primary', character: 'k' },
+            } );
+        }, [] );
+        useShortcut( 'wfw/toggle-settings', ( event ) => {
+            event.preventDefault();
+            setSettingsOpen( ( open ) => ! open );
+        } );
+        useShortcut( 'wfw/command-palette', ( event ) => {
+            // With text selected, core's link format has Cmd/Ctrl+K, as in wp-admin.
+            if ( event.defaultPrevented ) {
+                return;
+            }
+            event.preventDefault();
+            post( { type: 'palette' } );
+        } );
+
+        const layout = el( 'div', { className: 'wfw-ed' + ( settingsOpen ? ' has-settings' : '' ) },
+            el( Notices ),
+            el( Actions ),
+            el( 'div', { className: 'wfw-canvas' },
+                el( blockEditor.BlockCanvas, { height: '100%', styles }, el( CanvasContent ) )
+            ),
+            el( FormattingPill ),
+            el( Snackbars ),
+            settingsOpen && el( SettingsSheet, { onClose: () => setSettingsOpen( false ) } ),
+            el( PublishPanel ),
+            el( editor.PostLockedModal ),
+            el( editor.AutosaveMonitor ),
+            ! isBlankNew && el( editor.LocalAutosaveMonitor ),
+            ! isBlankNew && el( editor.UnsavedChangesWarning ),
+            el( editor.EditorKeyboardShortcutsRegister ),
+            el( editor.EditorKeyboardShortcuts ),
+            el( wp.plugins.PluginArea ),
+            el( Popover.Slot )
+        );
+        return colors.primary && colors.background
+            ? el( wp.theme.ThemeProvider, { isRoot: true, color: colors }, layout )
+            : layout;
+    }
+
+    function WriterEditor() {
+        const note = useSelect( ( s ) => s( 'core' ).getEntityRecord( 'postType', config.postType, config.postId ), [] );
+        if ( ! note ) {
+            return null;
+        }
+        return el( SlotFillProvider, null,
+            el( ShortcutProvider, { className: 'wfw-shortcuts' },
+                // The page's own registry (as wp-admin's editor does), so the
+                // frame protocol below reads the same stores the editor writes.
+                el( editor.EditorProvider, { post: note, settings: config.settings, initialEdits: config.initialEdits, useSubRegistry: false },
+                    el( editor.ErrorBoundary, null, el( Layout ) )
+                )
+            )
+        );
+    }
+
+    // ---- Restoring a version ---------------------------------------------------
+
+    /*
+     * The app hands over a past version of the note, picked in a peek sheet
+     * beside the editor: it becomes an edit of the note, as typing it would, so
+     * Undo takes it back and a draft saves it as usual. A published note keeps
+     * it as unsaved changes until Update.
+     */
+    function restoreVersion( { title, content, excerpt, date } ) {
+        if ( ! editorSelect().getCurrentPostId() ) {
+            return;
+        }
+        // One edit (one step of undo): the title, the text, and its blocks for the canvas.
+        const edits = { title: title || '', content: content || '', blocks: wp.blocks.parse( content || '' ) };
+        if ( excerpt !== undefined ) {
+            edits.excerpt = excerpt;
+        }
+        dispatch( editorStore ).editPost( edits );
+        dispatch( noticesStore ).createSuccessNotice(
+            /* translators: %s: when the restored version was saved. */
+            sprintf( __( 'Restored the version from %s.', 'words-for-writers' ), date ),
+            {
+                type: 'snackbar',
+                id: 'wfw-version-restored',
+                actions: [ { label: __( 'Undo', 'words-for-writers' ), onClick: () => dispatch( editorStore ).undo() } ],
+            }
+        );
+    }
+
+    // ---- Visibility (Writer Members) -------------------------------------------
+
+    /*
+     * Visibility picker in the note's settings, when a companion plugin (Writer
+     * Members) offers options. Saved with the post through the REST API as the
+     * post meta it names; shown only for post types that register that meta.
+     */
+    const visibility = config.visibility;
+    if ( visibility && editor.PluginDocumentSettingPanel ) {
+        const key = visibility.metaKey;
+        const options = [ { value: '', label: __( 'Everyone', 'words-for-writers' ) } ].concat( visibility.options );
+        wp.plugins.registerPlugin( 'wfw-visibility', {
+            render: function VisibilityPanel() {
+                const meta = useSelect( ( s ) => s( editorStore ).getEditedPostAttribute( 'meta' ), [] );
+                const { editPost } = useDispatch( editorStore );
+                if ( ! meta || ! Object.prototype.hasOwnProperty.call( meta, key ) ) {
+                    return null;
+                }
+                return el( editor.PluginDocumentSettingPanel, { name: 'wfw-visibility', title: __( 'Visibility', 'words-for-writers' ), className: 'wfw-visibility' },
+                    el( wp.components.SelectControl, {
+                        label: __( 'Who can read the whole note', 'words-for-writers' ),
+                        value: meta[ key ] || '',
+                        options,
+                        onChange: ( value ) => editPost( { meta: { ...meta, [ key ]: value } } ),
+                        __nextHasNoMarginBottom: true,
+                        __next40pxDefaultSize: true,
+                    } )
+                );
+            },
+        } );
+    }
+
+    // ---- The iOS on-screen keyboard ------------------------------------------
+
+    /*
+     * Keep the bottom toolbar above the on-screen keyboard. iOS Safari (browser
+     * and home-screen app) overlays the keyboard on the page without resizing
+     * the layout viewport, so position: fixed; bottom stays hidden behind it.
+     * The top window's visual viewport is the part actually visible; the overlap
+     * between it and this frame's bottom edge becomes --wfw-keyboard, in this
+     * document and in the canvas. Only applied while text is focused, since iOS
+     * can leave the visual viewport short after the keyboard closes.
+     */
+    // Chromium cross-origin isolates the editor (Document-Isolation-Policy), which
+    // blocks access to the parent. It resizes for the keyboard on its own anyway
+    // (interactive-widget=resizes-content), so there is nothing to measure there.
+    let viewport = null;
+    try {
+        viewport = inApp ? window.parent.visualViewport : null;
+    } catch ( e ) {}
+    let keyboard = -1;
+    let keyboardFrame = 0;
+    let keyboardSettle = 0;
+
+    function isTyping() {
+        let focused = document.activeElement;
+        while ( focused && focused.tagName === 'IFRAME' ) {
+            try {
+                focused = focused.contentDocument.activeElement;
+            } catch ( e ) {
+                return false;
+            }
+        }
+        return !! focused && ( focused.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test( focused.tagName ) );
+    }
+
+    function measureKeyboard() {
+        keyboardFrame = 0;
+        let overlap = 0;
+        if ( viewport && window.frameElement && isTyping() ) {
+            const bottom = window.frameElement.getBoundingClientRect().bottom;
+            overlap = Math.max( 0, Math.round( bottom - ( viewport.offsetTop + viewport.height ) ) );
+        }
+        if ( performance.now() < keyboardSettle ) {
+            keyboardFrame = requestAnimationFrame( measureKeyboard );
+        }
+        if ( overlap === keyboard ) {
+            return;
+        }
+        keyboard = overlap;
+        [ document, canvas.doc ].forEach( ( doc ) => {
+            if ( doc && doc.documentElement ) {
+                doc.documentElement.style.setProperty( '--wfw-keyboard', overlap + 'px' );
+            }
+        } );
+    }
+
+    // While the iOS keyboard is up the app shrinks the editor to the space above
+    // it (see app.js); bring the caret back into view inside the canvas then,
+    // leaving room for the toolbar.
+    function keepCaretVisible() {
+        const selection = canvas.win && canvas.win.getSelection();
+        if ( ! selection || ! selection.rangeCount || ! isTyping() ) {
+            return;
+        }
+        const rect = selection.getRangeAt( 0 ).getBoundingClientRect();
+        const limit = canvas.win.innerHeight - 80;
+        if ( rect.height && rect.bottom > limit ) {
+            canvas.win.scrollBy( 0, rect.bottom - limit );
+        }
+    }
+
+    // iOS reports the keyboard in steps while it animates, and its own scrolling
+    // to keep the caret in view doesn't always fire an event at the end. So after
+    // any change keep measuring every frame for a moment rather than trusting the
+    // last event, which could leave the toolbar parked behind the keyboard.
+    function queueKeyboard() {
+        keyboardSettle = performance.now() + 800;
+        if ( ! keyboardFrame ) {
+            keyboardFrame = requestAnimationFrame( measureKeyboard );
+        }
+    }
+
+    // Dismissing the iOS keyboard (Done) leaves the block selected: the toolbar
+    // stays up, and tapping that block again doesn't bring the caret back until
+    // something else is selected (tapping empty canvas "fixes" it). So once the
+    // keyboard has gone from open to closed, drop focus and selection, unless
+    // focus moved to a control in the editor chrome. Keyboard state is judged
+    // against the tallest viewport seen, after resizing settles: iPhones resize
+    // in several small steps while the keyboard animates.
+    let fullHeight = viewport ? viewport.height : 0;
+    let fullWidth = viewport ? viewport.width : 0;
+    let keyboardOpen = false;
+    let settleTimer = 0;
+
+    function clearStaleSelection() {
+        if ( viewport.width !== fullWidth ) {
+            fullWidth = viewport.width;
+            fullHeight = 0;
+        }
+        fullHeight = Math.max( fullHeight, viewport.height );
+        clearTimeout( settleTimer );
+        settleTimer = setTimeout( () => {
+            if ( viewport.height < fullHeight - 150 ) {
+                keyboardOpen = true;
+                return;
+            }
+            if ( ! keyboardOpen || viewport.height < fullHeight - 80 ) {
+                return;
+            }
+            keyboardOpen = false;
+            const focused = document.activeElement;
+            if ( focused && focused !== document.body && focused !== canvas.frame ) {
+                return;
+            }
+            dropBlockSelection();
+        }, 250 );
+    }
+
+    if ( viewport ) {
+        viewport.addEventListener( 'resize', clearStaleSelection );
+        viewport.addEventListener( 'resize', queueKeyboard );
+        viewport.addEventListener( 'scroll', queueKeyboard );
+        // Focus moves inside the canvas iframe; focusin/out don't cross into this document.
+        [ 'focusin', 'focusout' ].forEach( ( type ) => {
+            document.addEventListener( type, queueKeyboard, true );
+            window.parent.document.addEventListener( type, queueKeyboard, true );
+        } );
+        canvasListeners.add( ( doc ) => {
+            keyboard = -1;
+            if ( ! doc ) {
+                return;
+            }
+            // Typing and moving the caret can scroll the page under the keyboard too.
+            [ 'focusin', 'focusout', 'input', 'selectionchange' ].forEach( ( type ) => doc.addEventListener( type, queueKeyboard, true ) );
+            doc.defaultView.addEventListener( 'resize', keepCaretVisible );
+            queueKeyboard();
+        } );
+    }
+
+    // ---- Room above the formatting pill --------------------------------------
+
+    /*
+     * While writing, the line with the caret stays four lines above the
+     * formatting pill (the canvas's bottom padding leaves room for that, even
+     * at the end of the note), so new lines push the page up rather than
+     * slipping behind the pill. Only typing moves the page: scrolling still
+     * lets text pass behind it. Core's typewriter (useTypewriter) only runs
+     * inside VisualEditor, which this editor doesn't use, and keeps the caret
+     * wherever it was rather than clear of the pill.
+     */
+    const PILL_CLEAR_LINES = 4;
+    let pillFrame = 0;
+
+    function keepClearOfPill() {
+        pillFrame = 0;
+        const win = canvas.win;
+        const pill = document.querySelector( '.wfw-pill' );
+        const selection = win && win.getSelection();
+        if ( ! pill || ! selection || ! selection.rangeCount || ! selection.isCollapsed ) {
+            return;
+        }
+        const node = selection.focusNode;
+        const element = node.nodeType === 1 ? node : node.parentElement;
+        if ( ! element || ! element.isContentEditable ) {
+            return;
+        }
+        // A collapsed range on an empty line can measure as nothing; use its element then.
+        let caret = selection.getRangeAt( 0 ).getBoundingClientRect();
+        if ( ! caret.height ) {
+            caret = element.getBoundingClientRect();
+        }
+        const line = parseFloat( win.getComputedStyle( element ).lineHeight );
+        const pillTop = pill.getBoundingClientRect().top - canvas.frame.getBoundingClientRect().top;
+        const by = caret.bottom - ( pillTop - PILL_CLEAR_LINES * line );
+        if ( by > 0 ) {
+            win.scrollBy( 0, by );
+        }
+    }
+
+    // After the edit has rendered: Enter moves the caret into a new block a moment later.
+    function queueClearOfPill() {
+        if ( ! pillFrame ) {
+            pillFrame = requestAnimationFrame( keepClearOfPill );
+        }
+    }
+
+    canvasListeners.add( ( doc ) => {
+        if ( doc ) {
+            [ 'input', 'keyup' ].forEach( ( type ) => doc.addEventListener( type, queueClearOfPill, true ) );
+        }
+    } );
+
+    // ---- Saving and the frame protocol ---------------------------------------
+
+    function waitForSave() {
+        return new Promise( ( resolve ) => {
+            const unsubscribe = subscribe( () => {
+                if ( ! editorSelect().isSavingPost() ) {
+                    unsubscribe();
+                    resolve();
+                }
+            } );
+        } );
+    }
+
+    // Tell the app once the canvas holds the note with our styles applied, so
+    // it can fade the editor in instead of showing an unstyled frame.
+    let painted = false;
+    canvasListeners.add( ( doc ) => {
+        if ( painted || ! doc ) {
+            return;
+        }
+        painted = true;
+        const send = () => requestAnimationFrame( () => requestAnimationFrame( () => post( { type: 'painted' } ) ) );
+        if ( doc.readyState === 'complete' ) {
+            send();
+        } else {
+            doc.defaultView.addEventListener( 'load', send, { once: true } );
+        }
+    } );
+
+    // ---- Quick notes -----------------------------------------------------------
+
+    /*
+     * The app's format menu and quick bar start a note in one of WordPress's
+     * post formats. The page sets the format on the new draft and hands the
+     * editor a template with the block for it (wfw_editor_settings()), as
+     * core's editor does. Such a note leaves the title out, as statuses and
+     * photos do, and the list and the themes show it by its content. Its
+     * block is what it is, so it's left alone until it has something in it:
+     * an empty image doesn't make a draft.
+     */
+    const QUICK_FORMATS = [ 'status', 'image', 'gallery', 'video', 'audio' ];
+
+    function quickFormat() {
+        const format = editorSelect().getEditedPostAttribute( 'format' );
+        return QUICK_FORMATS.includes( format ) ? format : '';
+    }
+
+    function editedText( attribute ) {
+        return String( editorSelect().getEditedPostAttribute( attribute ) || '' ).trim();
+    }
+
+    // Whether a quick note is still as it came: its block (and any paragraph added after it) without text or media.
+    function blockEmpty( { name, attributes: a, innerBlocks } ) {
+        switch ( name ) {
+            case 'core/paragraph':
+                return ! String( a.content ?? '' ).replace( /<[^>]*>/g, '' ).trim();
+            case 'core/image':
+            case 'core/video':
+            case 'core/audio':
+                return ! a.url && ! a.src && ! a.id;
+            case 'core/gallery':
+                return ! innerBlocks.length && ! ( a.images || [] ).length;
+        }
+        return false;
+    }
+
+    function quickBlockEmpty() {
+        return select( blockEditorStore ).getBlocks().every( blockEmpty );
+    }
+
+    // Nothing to save yet: a blank draft, or a quick note with no title or
+    // excerpt whose block is still empty.
+    function nothingToSave() {
+        if ( ! isDraft() ) {
+            return false;
+        }
+        if ( ! editorSelect().isEditedPostSaveable() ) {
+            return true;
+        }
+        return !! quickFormat() && ! editedText( 'title' ) && ! editedText( 'excerpt' ) && quickBlockEmpty();
+    }
+
+    /*
+     * The canvas leaves the title out for a quick note (editor-content.css):
+     * one without a title, that is. A note in one of these formats that has a
+     * title, made in wp-admin say, keeps it in view. Decided as the note
+     * opens and when its format changes, not as the title is typed, so the
+     * field never goes from under the caret.
+     */
+    let titleLeftOut = false;
+
+    function decideQuickTitle() {
+        titleLeftOut = !! quickFormat() && ! editedText( 'title' );
+        markQuickCanvas();
+    }
+
+    function markQuickCanvas() {
+        canvas.doc?.documentElement?.toggleAttribute( 'data-wfw-quick', titleLeftOut );
+    }
+
+    canvasListeners.add( ( doc ) => doc && markQuickCanvas() );
+
+    /*
+     * The app asks for the caret as a quick note opens, which can be before
+     * the canvas and its block are there: it then waits for them, for a few
+     * seconds. A status's paragraph takes the caret; a media block is
+     * selected, its upload and library buttons at hand.
+     */
+    let focusTimer = 0;
+
+    function focusQuickBlock( tries = 50 ) {
+        clearTimeout( focusTimer );
+        const block = select( blockEditorStore ).getBlocks()[ 0 ];
+        const element = block && canvas.doc?.querySelector( `[data-block="${ block.clientId }"]` );
+        if ( ! element ) {
+            if ( tries > 0 ) {
+                focusTimer = setTimeout( () => focusQuickBlock( tries - 1 ), 100 );
+            }
+            return;
+        }
+        dispatch( blockEditorStore ).selectBlock( block.clientId, 0 );
+        element.focus();
+    }
+
+    /*
+     * iOS raises the keyboard only for a tap, never for a page that focuses
+     * a field by itself, so a new status has its caret ready but no keyboard
+     * until the first touch. A tap anywhere on its empty page then goes to
+     * the paragraph, rather than to space that does nothing.
+     */
+    function tapToBlock( event ) {
+        if ( quickFormat() !== 'status' || ! quickBlockEmpty() || event.target.closest?.( '.wp-block, .wfw-title, a, button, input' ) ) {
+            return;
+        }
+        event.preventDefault();
+        focusQuickBlock( 0 );
+    }
+
+    // Down and up both: the press keeps focus from leaving, the lifted finger
+    // (the click) is what iOS accepts as the tap that may raise the keyboard.
+    canvasListeners.add( ( doc ) => {
+        if ( doc && doc !== document ) {
+            [ 'mousedown', 'click' ].forEach( ( type ) => doc.addEventListener( type, tapToBlock ) );
+        }
+    } );
+
+    /*
+     * An editor out of sight (a tab behind the one in view) takes no focus
+     * and no typing. A new note puts the caret in its title as it loads, and
+     * iOS hands the keyboard's typing to it even in a hidden frame.
+     */
+    let outOfSight = false;
+
+    function refuseFocus( event ) {
+        if ( outOfSight && event.target?.blur ) {
+            event.target.blur();
+        }
+    }
+
+    function refuseInput( event ) {
+        if ( outOfSight ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            event.target?.blur?.();
+        }
+    }
+
+    function guardHidden( doc ) {
+        doc.addEventListener( 'focusin', refuseFocus, true );
+        [ 'beforeinput', 'keydown', 'paste', 'drop' ].forEach( ( type ) => doc.addEventListener( type, refuseInput, true ) );
+    }
+
+    guardHidden( document );
+    canvasListeners.add( ( doc ) => {
+        if ( doc && doc !== document ) {
+            guardHidden( doc );
+            if ( outOfSight ) {
+                doc.activeElement?.blur();
+            }
+        }
+    } );
+
+    let ready = false;
+    let lastFormat = null;
+    let lastTitle = null;
+    let wasSaving = false;
+    let autosaveTimer = null;
+
+    subscribe( () => {
+        const id = editorSelect().getCurrentPostId();
+        if ( ! id ) {
+            return;
+        }
+
+        // The app names a note without a title after its format, so it hears of both.
+        const format = editorSelect().getEditedPostAttribute( 'format' );
+        const title = editorSelect().getEditedPostAttribute( 'title' ) || '';
+
+        if ( ! ready ) {
+            ready = true;
+            post( { type: 'ready', id, format } );
+        }
+
+        if ( format !== lastFormat || title !== lastTitle ) {
+            const formatChanged = format !== lastFormat;
+            if ( lastTitle !== null ) {
+                post( { type: 'title', id, title, format } );
+            }
+            lastFormat = format;
+            lastTitle = title;
+            if ( formatChanged ) {
+                decideQuickTitle();
+            }
+        }
+
+        const saving = editorSelect().isSavingPost() && ! editorSelect().isAutosavingPost();
+        if ( wasSaving && ! saving && editorSelect().didPostSaveRequestSucceed() ) {
+            post( { type: 'saved', id, status: editorSelect().getCurrentPostAttribute( 'status' ) } );
+        }
+        wasSaving = saving;
+
+        // As in classic, familiar and beloved writing apps: drafts save themselves. Published notes still need an explicit Update.
+        clearTimeout( autosaveTimer );
+        if ( ! saving && isDraft() && editorSelect().isEditedPostDirty() && ! nothingToSave() ) {
+            autosaveTimer = setTimeout( () => {
+                if ( isDraft() && editorSelect().isEditedPostDirty() && ! editorSelect().isSavingPost() && ! nothingToSave() ) {
+                    dispatch( editorStore ).savePost();
+                }
+            }, AUTOSAVE_DELAY );
+        }
+    } );
+
+    /*
+     * In a tab behind another, the editor keeps running with nothing to show, so
+     * its heartbeat slows to every two minutes, as core's does in a window
+     * without focus: the post lock (150 seconds) still holds, with a fraction of
+     * the requests. Back in view, the interval goes back to what it was.
+     */
+    const HIDDEN_HEARTBEAT = 120;
+    let shownInterval = 0;
+
+    function setHidden( hidden ) {
+        const heartbeat = window.wp && window.wp.heartbeat;
+        if ( ! heartbeat ) {
+            return;
+        }
+        if ( hidden && ! shownInterval ) {
+            shownInterval = heartbeat.interval() || 60;
+            heartbeat.interval( HIDDEN_HEARTBEAT );
+        } else if ( ! hidden && shownInterval ) {
+            heartbeat.interval( shownInterval );
+            shownInterval = 0;
+        }
+    }
+
+    /*
+     * "Exit editor" in the lock dialog is core's way out to the posts list
+     * (edit.php). In a tab, that would load wp-admin inside the app, so the
+     * click becomes an exit message and the app closes the tab instead. The
+     * link is matched by where it goes (this page sits in wp-admin, as edit.php
+     * does), not by the dialog's markup: should core change the URL, the link
+     * navigates as it does outside the app.
+     */
+    const ADMIN_POSTS_PATH = new URL( 'edit.php', window.location.href ).pathname;
+    document.addEventListener( 'click', ( event ) => {
+        const link = event.target.closest && event.target.closest( 'a[href]' );
+        if ( ! inApp || ! link || link.target === '_blank' || event.defaultPrevented ) {
+            return;
+        }
+        let url;
+        try {
+            url = new URL( link.href );
+        } catch ( e ) {
+            return;
+        }
+        if ( url.origin !== window.location.origin || url.pathname !== ADMIN_POSTS_PATH ) {
+            return;
+        }
+        event.preventDefault();
+        post( { type: 'exit', id: editorSelect().getCurrentPostId() } );
+    }, true );
+
+    window.addEventListener( 'message', async ( event ) => {
+        if ( event.origin !== window.location.origin || event.source !== window.parent || ! event.data || event.data.source !== 'wfw' ) {
+            return;
+        }
+        const { type, replyTo } = event.data;
+        if ( type === 'appearance' ) {
+            appearance = event.data.appearance || appearance;
+            applyAppearance();
+            return;
+        }
+        if ( type === 'visibility' ) {
+            setHidden( !! event.data.hidden );
+            outOfSight = !! event.data.hidden;
+            if ( outOfSight ) {
+                canvas.doc?.activeElement?.blur();
+            }
+            return;
+        }
+        if ( type === 'focus' ) {
+            focusQuickBlock();
+            return;
+        }
+        if ( type === 'restore-version' ) {
+            restoreVersion( event.data );
+            return;
+        }
+        if ( type !== 'flush' ) {
+            return;
+        }
+        if ( ! ready ) {
+            post( { replyTo, ok: true } );
+            return;
+        }
+        if ( editorSelect().isSavingPost() ) {
+            await waitForSave();
+        }
+        if ( ! editorSelect().isEditedPostDirty() || nothingToSave() ) {
+            post( { replyTo, ok: true } );
+            return;
+        }
+        if ( isDraft() ) {
+            clearTimeout( autosaveTimer );
+            await dispatch( editorStore ).savePost();
+            post( { replyTo, ok: editorSelect().didPostSaveRequestSucceed() } );
+            return;
+        }
+        post( { replyTo, ok: false } );
+    } );
+
+    // ---- Boot ------------------------------------------------------------------
+
+    /*
+     * A new note's URL carries the REST nonce the page checked to create the
+     * draft. Its job done, it comes out of the address, which from now on names
+     * the draft by id as any other note's does: the nonce stays out of referrers
+     * (a link out of the frame), history and a reload, which creates nothing new.
+     */
+    try {
+        const url = new URL( window.location.href );
+        if ( url.searchParams.has( '_wpnonce' ) ) {
+            url.searchParams.delete( '_wpnonce' );
+            url.searchParams.delete( 'wfw_quick' );
+            url.searchParams.set( 'post', String( config.postId ) );
+            window.history.replaceState( null, '', url.toString() );
+        }
+    } catch ( e ) {}
+
+    /*
+     * The publish panel stays on, as wp-admin's editor has it. The Writer's
+     * preferences are its own (see wfw_editor_enqueue()), which also pins
+     * "Top toolbar" and "Distraction free" on: the block toolbar docked in our
+     * pill rather than floating over the text, and no in-between inserters.
+     */
+    dispatch( 'core/preferences' ).setDefaults( 'core', {
+        isPublishSidebarEnabled: true,
+    } );
+
+    wp.blockLibrary.registerCoreBlocks();
+    createRoot( root ).render( el( WriterEditor ) );
+} )();
