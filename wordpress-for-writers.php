@@ -3,7 +3,7 @@
  * Plugin Name: WordPress for Writers
  * Plugin URI: https://github.com/draganescu/wordpress-for-writers
  * Description: Replaces wp-admin with a three-pane writing interface in the spirit of classic, familiar and beloved writing apps: tags sidebar, note list, editor.
- * Version: 0.8.1
+ * Version: 0.8.2
  * Requires at least: 7.1
  * Requires PHP: 7.4
  * Author: Andrei Draganescu
@@ -33,7 +33,7 @@ if ( version_compare( $GLOBALS['wp_version'], '7.1', '<' ) ) {
     return;
 }
 
-define( 'WFW_VERSION', '0.8.1' );
+define( 'WFW_VERSION', '0.8.2' );
 define( 'WFW_URL', plugin_dir_url( __FILE__ ) );
 define( 'WFW_PAGE', 'wfw' );
 

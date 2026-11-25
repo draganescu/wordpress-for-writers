@@ -1,6 +1,6 @@
 {
     "name": "wordpress-for-writers",
-    "version": "0.8.1",
+    "version": "0.8.2",
     "private": true,
     "description": "A writing interface for wp-admin in the spirit of classic, familiar and beloved writing apps.",
     "license": "GPL-2.0-or-later",
