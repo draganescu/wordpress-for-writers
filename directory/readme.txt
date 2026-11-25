@@ -4,7 +4,7 @@ Tags: writing, editor, distraction-free, notes, admin
 Requires at least: 7.1
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.8.1
+Stable tag: 0.8.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,12 +94,16 @@ No. The plugin makes no external requests and collects no data.
 
 == Changelog ==
 
-= 0.8.1 =
+= 0.8.2 =
 * First release in the WordPress.org plugin directory.
+* The app's own words (buttons, menus, messages) can now be translated.
+* Links added to the sidebar by other plugins open only web addresses (http and https).
+
+= 0.8.1 =
 * A note without a title shows in the list by its post format.
 * The installed app opens in wp-admin, and the note list runs to the foot of the screen.
 
 == Upgrade Notice ==
 
-= 0.8.1 =
+= 0.8.2 =
 First release in the WordPress.org plugin directory.
