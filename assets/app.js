@@ -2515,10 +2515,11 @@
         }
     } );
 
-    root.addEventListener( 'pointerup', cancelLongPress );
-    root.addEventListener( 'pointercancel', cancelLongPress );
+    // On the document, like the two-finger tap's below: a finger lifted from an item re-rendered under it isn't heard in the app.
+    document.addEventListener( 'pointerup', cancelLongPress );
+    document.addEventListener( 'pointercancel', cancelLongPress );
 
-    root.addEventListener( 'touchend', ( event ) => {
+    document.addEventListener( 'touchend', ( event ) => {
         if ( pressOpened ) {
             pressOpened = false;
             event.preventDefault();
