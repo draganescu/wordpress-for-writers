@@ -128,6 +128,14 @@
     font-weight: 600;
 }
 
+.wfw-review__header .components-button {
+    color: var( --wfw-text );
+}
+
+.wfw-review__header .components-button:disabled {
+    color: var( --wfw-muted );
+}
+
 .wfw-review__count {
     color: var( --wfw-muted );
     font-variant-numeric: tabular-nums;

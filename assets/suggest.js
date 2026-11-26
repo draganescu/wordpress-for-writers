@@ -28,19 +28,19 @@
     const NOTE = 'core/note';
     const SNACKBAR = 'wfw-agent';
     const HIGHLIGHTS = [ 'wfw-passage', 'wfw-edit', 'wfw-active' ];
-    // The app's phone layout (phoneLayout in app.js): nothing of the surface shows there.
-    const PHONE = '(max-width: 700px)';
+    // The app's phone layout, as the stub reads it (agent.phone): nothing of the surface shows there.
+    const PHONE = agent.phone;
     // A pane this wide has the rail beside the note; a narrower one has the sheet.
-    const WIDE = '(min-width: 900px)';
+    const WIDE = window.matchMedia( '(min-width: 900px)' );
     const POLL = 5000;
     const FRESH = 600;
     const SUGGESTIONS = '/wfw/v1/notes/' + agent.postId + '/suggestions';
     const NOTES = '/wp/v2/comments?context=edit&type=note&status=all&per_page=100&post=' + agent.postId;
 
-    function useMedia( query ) {
-        const [ matches, setMatches ] = useState( () => window.matchMedia( query ).matches );
+    // Whether a MediaQueryList matches, now and as it changes.
+    function useMedia( media ) {
+        const [ matches, setMatches ] = useState( media.matches );
         useEffect( () => {
-            const media = window.matchMedia( query );
             const listener = () => setMatches( media.matches );
             media.addEventListener( 'change', listener );
             return () => media.removeEventListener( 'change', listener );

@@ -71,7 +71,19 @@ const select = ( page: Page, index: number, start: number, end = start ) =>
 test.describe( 'Review', () => {
     let note: number;
 
-    test.beforeEach( async ( { requestUtils } ) => {
+    test.beforeEach( async ( { page, requestUtils } ) => {
+        // Until the stub in editor.js gives `phone` itself: what it will give, in a page of its own.
+        await page.addInitScript( () => {
+            let agent: any;
+            Object.defineProperty( window, 'wfwAgent', {
+                configurable: true,
+                get: () => agent,
+                set( value ) {
+                    agent = value;
+                    agent.phone = agent.phone || window.matchMedia( '(max-width: 700px)' );
+                },
+            } );
+        } );
         await resetSite( requestUtils );
         await setAgentSeen( requestUtils, true );
         note = await createNote( requestUtils, { paragraphs: [ FIRST, SECOND, THIRD ] } );
