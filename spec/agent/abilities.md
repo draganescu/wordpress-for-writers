@@ -189,7 +189,7 @@ One suggestion is stored for each of the four fields given, in one pass labelled
 
 ### `writer/comment`
 
-A remark on a passage, with no change proposed: a question for the writer, a fact to check. It is stored as a pass labelled "Comment".
+A remark on a passage, with no change proposed: a question for the writer, a fact to check. It is stored as a pass labelled "Comment". The two labels the surface gives itself, "Details" and "Comment", are stored in English whatever the site's language, as the labels agents read back.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|

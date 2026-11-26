@@ -28,7 +28,7 @@ Core, as read in WordPress 7.1.5:
 ## Who may call
 
 - Every ability's `permission_callback` requires a logged-in user who passes `wfw_user_can_write()`.
-- The `permission_callback` checks only that. A caller who fails it is answered `not_found` (`A user who may use Writer was not found.`) by `execute()`; a way in that checks permission itself, as the MCP Adapter does, answers in its own words and the call does not count as a use of the site.
+- The `permission_callback` checks only that. A caller who fails it is answered `not_found` by `execute()`: by an ability that names a note as for a note that is not theirs (`Note {id} was not found.`), so it does not tell which ids exist, and by the others with `A user who may use Writer was not found.` A way in that checks permission itself, as the MCP Adapter does, answers in its own words and the call does not count as a use of the site.
 - An ability that names a note also requires, where it reads the note, `current_user_can( 'edit_post', $id )`, that the post's type is `post`, and that it is not in the Trash. A note that fails any of these is `not_found`, with one message, so an ability does not tell which ids exist (as the editor page does).
 - What signs an agent in is the site's: an application password, an OAuth server, `--user` under WP-CLI. The surface has no sign-in of its own and names no agent product.
 
@@ -45,7 +45,7 @@ One comment per suggestion.
 | `user_id`, `comment_author` | The user the call ran as |
 | `comment_approved` | `0` while the suggestion is `open`, as core reads an open core note; `1` once it is `accepted`, `dismissed` or `withdrawn`, so wp-admin's editor lists it as resolved. The store keeps the two in step |
 | `comment_content` | Plain text a person can read with no editor of ours: for a text edit, `Suggests: “{replacement}”` and the reason on the next line; for the other kinds, the reason or the comment itself, and with no reason a line that says what is proposed ("Suggests removing a block.") |
-| `comment_agent` | `wfw-agent/{source}` |
+| `comment_agent` | `wfw-agent/{source}` when stored. Core overwrites it with the browser's user agent on any REST update of the comment, so it holds only until wp-admin's editor touches the row (spike S3): `_wfw_source` is the record |
 
 Comment meta, none of it shown in core's REST routes:
 
@@ -65,7 +65,7 @@ A comment is an agent's when it has `_wfw_kind`. Nothing else decides it.
 
 Core keeps `note` comments out of comment queries, counts and the public page; the surface adds nothing for that. A suggestion with no parent has no marker, so wp-admin's editor lists it as "Original block deleted." (A7, spike S3). A suggestion resolved there (core sets its `comment_approved` to 1) becomes `dismissed`, and one reopened there (back to 0) becomes `open` again: the store follows `transition_comment_status`.
 
-A suggestion is inserted with `wp_insert_comment()`, not through core's REST route, so nobody is emailed about it.
+A suggestion is inserted with `wp_insert_comment()`, not through core's REST route, so nobody is emailed when it is stored. Core does email the post's author when someone else resolves, reopens or replies to one in wp-admin's editor (the option `wp_notes_notify`), with the suggestion's text as a new note (spike S3).
 
 Limits: a note holds at most 200 open suggestions. A call that would pass it fails with `too_many` and stores nothing.
 

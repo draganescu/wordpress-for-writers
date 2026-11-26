@@ -17,7 +17,7 @@ Everything here is drawn by Review (`assets/suggest.js`, `assets/suggest.css`), 
 
 A core note marker (`mark.wp-note`) is content, and is drawn by the `core/note` format the editor already registers. W1 is not content.
 
-The rail is 280px wide beside the note when the editor pane is at least 900px wide. Below that the cards are a sheet at the foot of the editor, showing the active card, with previous and next. On a phone nothing of Review shows (A12): the stub does not load it there, and Review shows nothing while a window it was loaded in is as narrow as a phone.
+The rail is 280px wide beside the note when the editor pane is at least 900px wide. Below that the cards are a sheet at the foot of the editor, showing the active card, with previous and next. The rail and the sheet each have a Close control, and the chip opens them again. With asks and no open suggestions there is no chip, and Close is the only way to hide the rail. On a phone nothing of Review shows (A12): the stub does not load it there, and Review shows nothing while a window it was loaded in is as narrow as a phone.
 
 The marks do not depend on the way in (A11). Nothing shows which agent product made a suggestion: the surface does not know it.
 
@@ -87,4 +87,6 @@ Between the editor frame and the app, in the shapes the two already use (`source
 
 - The chip has `data-wfw-suggestions` with the count.
 - A card has `data-wfw-suggestion` with the id, and `data-wfw-state` of `open`, `active` or `stale`.
+- An ask's card has `data-wfw-ask` with the ask's id.
+- The Ask button in the block toolbar has the class `wfw-ask-button`.
 - The canvas document's root has `data-wfw-marks` with the number of W1 marks drawn.

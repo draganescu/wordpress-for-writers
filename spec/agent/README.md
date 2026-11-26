@@ -1,6 +1,6 @@
 # Agent surface
 
-The part of the plugin that lets an AI agent help with a note. An agent reads notes and proposes changes to them; the writer accepts or dismisses each proposal in the Writer editor. This folder is the spec. Nothing in it is built yet.
+The part of the plugin that lets an AI agent help with a note. An agent reads notes and proposes changes to them; the writer accepts or dismisses each proposal in the Writer editor. This folder is the spec. The store, the abilities, `wp writer`, Review in the editor and the app's part are built to it; the tests are `tests/e2e/agent-*.spec.ts`.
 
 Design page, with mockups of the editor: https://claude.ai/artifact/34M5BULQXSTbWe9sgmg2oo. Where it differs from this folder, this folder is right.
 
