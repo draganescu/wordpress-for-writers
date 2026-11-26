@@ -3,7 +3,8 @@
  * Removes what the plugin stored when it is deleted from the Plugins screen.
  *
  * Only each user's app settings are removed: their appearance preferences (the
- * `wfw_appearance` user meta) and the categories and tags they pinned to the
+ * `wfw_appearance` user meta), the plugin blocks they turned off
+ * (`wfw_hidden_blocks`) and the categories and tags they pinned to the
  * main menu (`{site prefix}wfw_pinned_terms`, one key per site). Posts, tags
  * and categories written in the app are ordinary WordPress content and stay.
  * Site global styles set from the app's colour scheme are the site's look, so
@@ -13,6 +14,7 @@
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 delete_metadata( 'user', 0, 'wfw_appearance', '', true );
+delete_metadata( 'user', 0, 'wfw_hidden_blocks', '', true );
 
 // The pins' key carries each site's table prefix, like a user option (see includes/pinned-terms.php).
 global $wpdb;

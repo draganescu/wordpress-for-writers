@@ -1365,6 +1365,7 @@
             case 'ready': {
                 tab.ready = true;
                 postAppearance( tab );
+                postBlocks( tab ); // In case the writer changed them while this editor loaded.
                 postVisibility( tab ); // An editor that loaded behind a panel starts out hidden.
                 ( tab.outbox || [] ).forEach( ( message ) => postToEditor( tab, message ) );
                 tab.outbox = null;
@@ -2155,6 +2156,47 @@
         tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'appearance', appearance }, window.location.origin );
     }
 
+    // Blocks plugins add to the editor, and the ones this writer turned off.
+    const pluginBlocks = settings.pluginBlocks?.blocks || [];
+    let hiddenBlocks = ( settings.pluginBlocks?.hidden || [] ).filter( ( name ) => pluginBlocks.some( ( b ) => b.name === name ) );
+
+    // Open editors take the change without a reload.
+    function postBlocks( tab ) {
+        tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'blocks', hidden: hiddenBlocks }, window.location.origin );
+    }
+
+    const saveBlocks = debounce( () => {
+        apiFetch( { path: '/wp/v2/users/me', method: 'POST', data: { meta: { wfw_hidden_blocks: hiddenBlocks } } } ).catch( () => {} );
+    }, 400 );
+
+    function toggleBlock( name ) {
+        hiddenBlocks = hiddenBlocks.includes( name ) ? hiddenBlocks.filter( ( n ) => n !== name ) : [ ...hiddenBlocks, name ];
+        tabs.forEach( postBlocks );
+        saveBlocks();
+        openAppearance();
+        root.querySelector( `.wfw-block-toggle[data-name="${ CSS.escape( name ) }"]` )?.focus();
+    }
+
+    function renderBlocksSection() {
+        if ( ! pluginBlocks.length ) {
+            return '';
+        }
+        const rows = pluginBlocks.map( ( b ) => {
+            const on = ! hiddenBlocks.includes( b.name );
+            return `
+                <button class="wfw-block-toggle" role="switch" aria-checked="${ on ? 'true' : 'false' }" data-action="toggle-block" data-name="${ esc( b.name ) }">
+                    <span class="wfw-block-toggle__text">
+                        <span class="wfw-block-toggle__title">${ esc( b.title ) }</span>
+                        ${ b.description ? `<span class="wfw-block-toggle__desc">${ esc( b.description ) }</span>` : '' }
+                    </span>
+                    <span class="wfw-switch" aria-hidden="true"></span>
+                </button>`;
+        } ).join( '' );
+        return `
+            <div class="wfw-sheet__label" id="wfw-plugin-blocks-label">${ esc( __( 'Blocks from plugins', 'wordpress-for-writers' ) ) }</div>
+            <div class="wfw-block-toggles" role="group" aria-labelledby="wfw-plugin-blocks-label">${ rows }</div>`;
+    }
+
     const saveAppearance = debounce( () => {
         apiFetch( { path: '/wp/v2/users/me', method: 'POST', data: { meta: { wfw_appearance: appearance } } } ).catch( () => {} );
     }, 400 );
@@ -2189,6 +2231,7 @@
                 ${ segmented( 'font', __( 'Font', 'wordpress-for-writers' ) ) }
                 ${ segmented( 'size', __( 'Text size', 'wordpress-for-writers' ) ) }
                 ${ segmented( 'width', __( 'Line width', 'wordpress-for-writers' ) ) }
+                ${ renderBlocksSection() }
             </div>`;
     }
 
@@ -3355,6 +3398,9 @@
                 break;
             case 'set-appearance':
                 setAppearance( target.dataset.key, target.dataset.value );
+                break;
+            case 'toggle-block':
+                toggleBlock( target.dataset.name );
                 break;
             case 'close-sheet':
                 if ( event.target === target || target.classList.contains( 'wfw-icon-btn' ) ) {

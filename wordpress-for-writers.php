@@ -297,6 +297,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
                 ? (int) wp_get_update_data()['counts']['total']
                 : 0,
             'appearance'        => wfw_appearance_client_data(),
+            // Blocks that plugins add to the editor, and the ones this writer turned off.
+            'pluginBlocks'      => wfw_plugin_blocks_client_data(),
             // Categories and tags pinned to the main menu, and the user meta key that stores them.
             'pinnedTerms'       => wfw_pinned_terms_client_data(),
             'pinnedTermsKey'    => wfw_pinned_terms_key(),
