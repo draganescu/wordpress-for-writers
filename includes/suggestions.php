@@ -303,7 +303,7 @@ function wfw_note_read( $note, $user_id = 0 ) {
         'title'    => $source->post_title,
         'excerpt'  => $source->post_excerpt,
         'content'  => $source->post_content,
-        'modified' => (string) mysql_to_rfc3339( $source->post_modified_gmt ),
+        'modified' => (string) mysql_to_rfc3339( get_gmt_from_date( $source->post_modified ) ),
         'blocks'   => wfw_note_blocks( $source->post_content ),
     );
 }

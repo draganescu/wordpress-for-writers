@@ -28,7 +28,8 @@ Core, as read in WordPress 7.1.5:
 ## Who may call
 
 - Every ability's `permission_callback` requires a logged-in user who passes `wfw_user_can_write()`.
-- An ability that names a note also requires `current_user_can( 'edit_post', $id )`, that the post's type is `post`, and that it is not in the Trash. A note that fails any of these is `not_found`, with one message, so an ability does not tell which ids exist (as the editor page does).
+- The `permission_callback` checks only that. A caller who fails it is answered `not_found` (`A user who may use Writer was not found.`) by `execute()`; a way in that checks permission itself, as the MCP Adapter does, answers in its own words and the call does not count as a use of the site.
+- An ability that names a note also requires, where it reads the note, `current_user_can( 'edit_post', $id )`, that the post's type is `post`, and that it is not in the Trash. A note that fails any of these is `not_found`, with one message, so an ability does not tell which ids exist (as the editor page does).
 - What signs an agent in is the site's: an application password, an OAuth server, `--user` under WP-CLI. The surface has no sign-in of its own and names no agent product.
 
 ## Records
@@ -149,11 +150,12 @@ Registered with `WP_CLI::add_command( 'writer', … )` only under WP-CLI. Three 
 | `wp writer abilities` | Prints the abilities as a JSON array of `{ "name", "description", "input" }`, read from the registry |
 | `wp writer call <name> [--input=<json>]` | Runs one ability as the user given by `--user`, through `wp_get_ability()` and its `execute()`. `<name>` is the ability's name with or without the leading `writer/`. Prints `{ "ok": true, "result": … }` or `{ "ok": false, "error": { "code", "message" } }` |
 
-`call` without `--user` fails with `not_found`, as a logged-out call does. An `--input` that is not JSON is `invalid_args`.
+`call` without `--user` fails with `not_found`, as a logged-out call does. An `--input` that is not JSON is `invalid_args`. A name that is no ability of the surface is `not_found`: `Ability writer/{name} was not found.` `guide` prints the guide and, when the user has a style sheet, a blank line, `# The writer's style sheet`, a blank line and the style sheet.
 
 ## What a site pays (A10)
 
-- Where `wfw_agent_seen` does not exist and the note has no core note, the editor page loads nothing of the surface and sends no request for it. It learns both from its config when it loads (`wfwEditor.agent`: `seen`, `notes`, `now`, and only when Review is to be loaded `script`, `style`, `domain`, `translations`). The app learns of the site from `wfwSettings.agent` (`seen`, `styleSheet`, `styleSheetMax`) and adds no control while `seen` is 0.
+- Where `wfw_agent_seen` does not exist and the note has no core note, the editor page loads nothing of the surface and sends no request for it. It learns both from its config when it loads (`wfwEditor.agent`: `seen`, `notes`, `now`, and only when Review is to be loaded `script`, `style`, `domain`, `translations`). If a way in is first used while the app is open, the app learns of it from the first `suggestions` message that counts a suggestion. The app learns of the site from `wfwSettings.agent` (`seen`, `styleSheet`, `styleSheetMax`) and adds no control while `seen` is 0.
+- On a phone (A12) the editor page loads nothing of the surface either, and the app asks for no `wfw_suggestions` and adds no control.
 - Otherwise the stub loads Review. While the editor is in view and `wfw_agent_seen` is less than 10 minutes old, Review asks for the note's suggestions every 5 seconds. Outside that it learns of new ones from the Heartbeat the editor already runs.
 - Registering the abilities costs what `wp_register_ability()` costs, on requests where the Abilities API fires its hooks.
 

@@ -17,7 +17,7 @@ Everything here is drawn by Review (`assets/suggest.js`, `assets/suggest.css`), 
 
 A core note marker (`mark.wp-note`) is content, and is drawn by the `core/note` format the editor already registers. W1 is not content.
 
-The rail is 280px wide beside the note when the editor pane is at least 900px wide. Below that the cards are a sheet at the foot of the editor, showing the active card, with previous and next. On a phone the sheet is the only form.
+The rail is 280px wide beside the note when the editor pane is at least 900px wide. Below that the cards are a sheet at the foot of the editor, showing the active card, with previous and next. On a phone nothing of Review shows (A12): the stub does not load it there, and Review shows nothing while a window it was loaded in is as narrow as a phone.
 
 The marks do not depend on the way in (A11). Nothing shows which agent product made a suggestion: the surface does not know it.
 
@@ -72,14 +72,16 @@ There is no model on the site and nothing here calls one: an ask waits until an 
 
 W3 has a second action, "Peek". It opens a peek sheet beside the editor that shows the note as it would read with every suggestion of that pass accepted. The editor works the text out and hands it to the app, which shows it as any peek: read only, with selectable text. Nothing is changed by it.
 
+The sheet holds the text as it was when Peek was pressed; pressing Peek again replaces it. A sheet holds one pass.
+
 ## Messages
 
 Between the editor frame and the app, in the shapes the two already use (`source: 'wfw-frame'` and `source: 'wfw'`).
 
 | From | Type | Carries |
 |---|---|---|
-| Editor | `suggestions` | `count`, the note's open suggestions, sent when it changes |
-| Editor | `peek-pass` | `title`, `content`, `label`, for Peek with a pass applied |
+| Editor | `suggestions` | `count`, the note's open suggestions, sent once Review has them and whenever the count changes. The app takes it from any open tab's editor, for that tab's note |
+| Editor | `peek-pass` | `title`, `content`, `label`, for Peek with a pass applied. `content` is the note's block markup with the pass applied and core note markers taken out. The app takes it only from the editor in view, cleans it as it does any peek, and keeps none of it |
 
 ## For tests
 

@@ -43,13 +43,14 @@ No ability creates, edits, publishes, schedules, trashes or deletes a note, chan
 | A9 | A suggestion is placed by a block path, the quoted passage and the text around it, and is looked for again each time the editor shows it. One that cannot be found is out of date and cannot be accepted. | Block ids, or character offsets. | Blocks of a note have no lasting id, and the writer goes on writing between the proposal and the review. |
 | A10 | A site no agent has used pays nothing: no request, no script and no control is added until a way in is first used on the site. | Loading the review code with every editor. | The editor's weight is the writer's, and most sites will never connect an agent. |
 | A11 | What the writer sees does not depend on the way in. | Marks per harness. | One surface. |
+| A12 | Nothing of the surface shows on a phone: no marks, cards, chip or Ask in the editor, no count in the note list, no style sheet field, no Peek with a pass applied. A phone is the app's phone layout, a window at most 700px wide. | A sheet of cards as the phone's form of the rail. | Decided by the product owner, 26 November 2026. The surface works only with an agent connected to the site, locally or remotely, and none is available on a phone. The abilities are the server's and do not depend on the device. |
 
 ## Open questions
 
 | ID | Question | Leaning |
 |---|---|---|
 | Q2 | Is Ask shown on a site no agent has used? | No (A10): it appears once a way in has been used, or once the note has a core note. |
-| Q3 | Where does the writer keep the style sheet that `writer/guide` returns? | A text field under the user menu of the Writer sidebar, saved per user. |
+| Q3 | Where does the writer keep the style sheet that `writer/guide` returns? | A text field under the user menu of the Writer sidebar, saved per user. Built as a "Style sheet" item of that menu that opens a sheet with the field, shown once a way in has been used on the site. |
 | Q4 | Does `wp writer` stay once WP-CLI has a command of its own for abilities? | It goes, apart from `wp writer guide`. |
 
 ## Spikes
@@ -59,7 +60,7 @@ Throwaway proofs, run before the part that depends on each is built.
 | | Proves | Passes when |
 |---|---|---|
 | S1 | The Writer editor can make a core note on a selection in core's own shape. | An ask made in the Writer editor shows in wp-admin's editor on the same passage, with its replies, and one made in wp-admin shows in the Writer editor. The spike reports what core writes: the marker, the block's `metadata.noteId`, the comment. |
-| S2 | Marks can be drawn over the canvas without touching content. | The CSS Custom Highlight API marks a range inside the canvas iframe in Chrome, Firefox and Safari on macOS and on iOS, the mark follows typing elsewhere in the block, and the serialized content is unchanged. |
+| S2 | Marks can be drawn over the canvas without touching content. | The CSS Custom Highlight API marks a range inside the canvas iframe in Chrome, Firefox and Safari on macOS, the mark is in place after typing elsewhere in the block, and the serialized content is unchanged. A range that is kept is lost when the block's text is formatted, split or changed from the store, so marks are drawn again from their anchors on every change. |
 | S3 | A core note with no marker does no harm in wp-admin. | With unasked suggestions on a note opened in wp-admin's editor: they are listed, labelled "Original block deleted.", the editor saves and reloads with them unchanged, and resolving one there shows as dismissed in the Writer editor. None shows on the public page, in comment counts or in feeds. |
 | S4 | An ability round-trips through the MCP Adapter. | `writer/note-get` and a failing `writer/suggest-edits` reach an MCP client with the result unchanged and the error code readable. |
 

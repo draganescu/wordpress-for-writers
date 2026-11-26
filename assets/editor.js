@@ -129,8 +129,9 @@
      * Ask. A site no agent has used pays nothing for it: unless a way in was
      * used on the site (`seen`) or the note has a core note (`notes`), both
      * read from the page's config, nothing below runs, nothing is loaded and
-     * nothing is asked of the server. This stub decides that and hands Review
-     * the editor; everything else of the surface is Review's.
+     * nothing is asked of the server. A phone pays nothing either: no agent
+     * runs on one, so the surface is not for it. This stub decides that and
+     * hands Review the editor; everything else of the surface is Review's.
      *
      * What suggest.js finds, in window.wfwAgent:
      *
@@ -138,6 +139,7 @@
      *   includes/suggestions.php): seen, notes, now, script, style, domain,
      *   translations.
      * - postId: the note's id, a number. inApp: whether the editor is in the app's frame.
+     * - phone: the MediaQueryList of the phone layout. Review shows nothing while it matches.
      * - canvas: { doc, win, frame }, the canvas iframe's document, window and
      *   element as they are now (null until the canvas mounts; BlockCanvas can
      *   replace its iframe). onCanvas( listener ) calls listener( doc ) now, if
@@ -157,7 +159,9 @@
      *   wp.i18n has them under config.domain.
      */
     const agentConfig = config.agent || {};
-    const agentActive = !! ( ( agentConfig.seen || agentConfig.notes ) && agentConfig.script );
+    // The app's phone layout (phoneLayout in app.js). In the app the frame is narrower than the window, so the app's window is asked.
+    const agentPhone = ( inApp ? window.parent : window ).matchMedia( '(max-width: 700px)' );
+    const agentActive = !! ( ( agentConfig.seen || agentConfig.notes ) && agentConfig.script && ! agentPhone.matches );
     const agentListeners = new Set();
     let agentReview = null;
 
@@ -166,6 +170,7 @@
             config: agentConfig,
             postId: Number( config.postId ),
             inApp,
+            phone: agentPhone,
             canvas,
             onCanvas( listener ) {
                 canvasListeners.add( listener );

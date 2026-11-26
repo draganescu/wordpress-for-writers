@@ -21,7 +21,9 @@ Registered on `wp_abilities_api_init`, only when `wp_register_ability` exists, e
 | `meta.mcp.public` | `true` |
 | `meta.annotations` | `readonly` from the list below. `destructive` is false for every ability: nothing an ability does loses the writer's work |
 
-Labels and descriptions are not translated: agents read them.
+Labels and descriptions are not translated: agents read them. The labels are Guide, List notes, Get note, Get library, List suggestions, Suggest edits, Suggest blocks, Suggest details, Comment and Withdraw suggestions.
+
+Core (7.1) answers a bad input with `ability_invalid_input` and a refused permission with `ability_invalid_permissions`, and drops the error a `permission_callback` returns. The abilities are registered with an `ability_class` of the plugin's own that turns the first into `invalid_args`, with core's wording of what is wrong, and the second into `not_found`. Input schemas take no field they do not name: an unknown field is `invalid_args`.
 
 | Ability | Kind | `readonly` |
 |---|---|---|
@@ -63,9 +65,9 @@ Find notes the user may edit.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `status` | `draft`, `pending`, `publish`, `future` or `any` | no | Default `any`, which leaves out the Trash |
+| `status` | `draft`, `pending`, `publish`, `future` or `any` | no | Default `any`: drafts, pending, published, scheduled and private notes, as the app's Notes view, without the Trash |
 | `search` | string | no | As the note list's search |
-| `category`, `tag` | string | no | A term's name or slug |
+| `category`, `tag` | string | no | A term's name or slug. One that does not exist is `not_found` |
 | `page` | integer, 1 or more | no | 20 notes a page, newest change first |
 
 Result: `{ "notes": [ { "id", "title", "status", "modified", "words", "suggestions", "asks" } ], "pages": 3 }`. `suggestions` and `asks` count the open ones.
@@ -103,7 +105,7 @@ Result:
 
 ### `writer/library-get`
 
-The site's categories and tags, each as `{ "name", "slug", "count" }`, categories with `parent`. No input. An agent suggests terms from this list.
+The site's categories and tags: `{ "categories": [ … ], "tags": [ … ] }`, each term as `{ "name", "slug", "count" }`, a category also with `parent`, its parent's slug or the empty string. No input. An agent suggests terms from this list.
 
 ### `writer/suggestions-list`
 
@@ -115,6 +117,8 @@ What became of suggestions, so an agent learns what this writer dismisses.
 | `status` | `open`, `accepted`, `dismissed`, `withdrawn` or `any` | no | Default `any` |
 
 Result: `{ "suggestions": [ … ] }`, each as in `note-get`, with `status`, `date` and `ask` where it answers one. The newest 100.
+
+A suggestion in a result carries its change's own fields beside `id`, `kind`, `status`, `pass` and `reason`: `replacement` for an edit; `op`, `block`, `after` and `markup` for blocks; `field` and `value` for a detail. `path` is null and `quote` the empty string where it has no anchor.
 
 ## Suggest
 
@@ -185,7 +189,7 @@ One suggestion is stored for each of the four fields given, in one pass labelled
 
 ### `writer/comment`
 
-A remark on a passage, with no change proposed: a question for the writer, a fact to check.
+A remark on a passage, with no change proposed: a question for the writer, a fact to check. It is stored as a pass labelled "Comment".
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
