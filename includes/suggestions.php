@@ -728,8 +728,10 @@ function wfw_sanitize_block_markup( $markup ) {
  * - `edit`: array( 'replacement' => string ), at most 4000 characters.
  * - `blocks`: array( 'op' => 'insert', 'after' => int, 'markup' => string ),
  *   array( 'op' => 'remove', 'block' => int ) or array( 'op' => 'move', 'block' => int, 'after' => int ).
+ *   Markup is at most 20000 characters, and holds blocks and nothing between them.
  * - `details`: array( 'field' => 'titles'|'tags'|'categories', 'value' => string[] ) or
- *   array( 'field' => 'excerpt', 'value' => string ).
+ *   array( 'field' => 'excerpt', 'value' => string ). A title is at most 200 characters, a tag or a
+ *   category 100, the excerpt 600.
  * - `comment`: array().
  *
  * It does not check a block against the note, a block name against what the
@@ -769,9 +771,19 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
             $clean['after'] = (int) $change['after'];
         }
         if ( 'insert' === $op ) {
-            $clean['markup'] = wfw_sanitize_block_markup( isset( $change['markup'] ) ? $change['markup'] : '' );
+            $markup = isset( $change['markup'] ) && is_string( $change['markup'] ) ? $change['markup'] : '';
+            if ( mb_strlen( $markup ) > 20000 ) {
+                return wfw_agent_error( 'invalid_args', __( 'markup must be at most 20000 characters.', 'wordpress-for-writers' ) );
+            }
+            $clean['markup'] = wfw_sanitize_block_markup( $markup );
             if ( ! wfw_note_walk( $clean['markup'] ) ) {
                 return wfw_agent_error( 'invalid_args', __( 'markup holds no block.', 'wordpress-for-writers' ) );
+            }
+            // What stands between blocks has no name: the editor would make a Classic block of it, which it does not offer.
+            foreach ( parse_blocks( $clean['markup'] ) as $block ) {
+                if ( empty( $block['blockName'] ) && '' !== trim( $block['innerHTML'] ) ) {
+                    return wfw_agent_error( 'invalid_args', __( 'markup holds text outside a block.', 'wordpress-for-writers' ) );
+                }
             }
         }
         return $clean;
@@ -782,6 +794,9 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
         if ( 'excerpt' === $field ) {
             if ( ! is_string( $value ) ) {
                 return wfw_agent_error( 'invalid_args', __( 'excerpt must be a string.', 'wordpress-for-writers' ) );
+            }
+            if ( mb_strlen( $value ) > 600 ) {
+                return wfw_agent_error( 'invalid_args', __( 'excerpt must be at most 600 characters.', 'wordpress-for-writers' ) );
             }
             return array(
                 'field' => $field,
@@ -795,6 +810,13 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
         if ( ! $values ) {
             /* translators: %s: the name of a field, such as tags. */
             return wfw_agent_error( 'invalid_args', sprintf( __( '%s must hold at least one string.', 'wordpress-for-writers' ), $field ) );
+        }
+        $longest = 'titles' === $field ? 200 : 100;
+        foreach ( $values as $one ) {
+            if ( mb_strlen( $one ) > $longest ) {
+                /* translators: 1: the name of a field, such as tags, 2: a number of characters. */
+                return wfw_agent_error( 'invalid_args', sprintf( __( '%1$s must hold strings of at most %2$d characters.', 'wordpress-for-writers' ), $field, $longest ) );
+            }
         }
         return array(
             'field' => $field,
@@ -1157,7 +1179,10 @@ function wfw_suggestion_set_status( $id, $status ) {
     } else {
         update_comment_meta( $id, '_wfw_settled', time() );
     }
+    // Core emails a post's author when a comment of theirs is approved. Settling a suggestion is no news: nobody is emailed.
+    add_filter( 'notify_post_author', '__return_false', 999 );
     wp_set_comment_status( $id, 'open' === $status ? 'hold' : 'approve' );
+    remove_filter( 'notify_post_author', '__return_false', 999 );
     return wfw_suggestion_get( $id );
 }
 
@@ -1217,6 +1242,26 @@ add_action( 'transition_comment_status', function ( $new_status, $old_status, $c
     }
 }, 10, 3 );
 
+/**
+ * Core's comments route does not move a suggestion or give it to someone else:
+ * an update of one that would change its note, its author or the ask it
+ * answers is refused. Its status and its text stay core's to change, which is
+ * how wp-admin's editor resolves and reopens it.
+ */
+add_filter( 'rest_preprocess_comment', function ( $prepared, $request ) {
+    $id = isset( $request['id'] ) ? (int) $request['id'] : 0;
+    if ( is_wp_error( $prepared ) || ! $id || ! metadata_exists( 'comment', $id, '_wfw_kind' ) ) {
+        return $prepared;
+    }
+    $comment = get_comment( $id );
+    foreach ( array( 'comment_post_ID', 'user_id', 'comment_author', 'comment_author_email', 'comment_author_url', 'comment_parent' ) as $field ) {
+        if ( isset( $prepared[ $field ] ) && (string) $prepared[ $field ] !== (string) $comment->$field ) {
+            return new WP_Error( 'wfw_suggestion_fixed', __( 'A suggestion stays on its note, with the author it has.', 'wordpress-for-writers' ), array( 'status' => 403 ) );
+        }
+    }
+    return $prepared;
+}, 10, 2 );
+
 // ---- Routes for the editor -------------------------------------------------------
 
 /**
@@ -1231,7 +1276,8 @@ function wfw_suggestion_for_rest( $suggestion ) {
 add_action( 'rest_api_init', function () {
     /*
      * The note's suggestions that are open, and those settled in the last day
-     * (so the editor can still take an accept or a dismissal back).
+     * (so the editor can still take an accept or a dismissal back): of these,
+     * the newest 100.
      */
     register_rest_route( 'wfw/v1', '/notes/(?P<id>\d+)/suggestions', array(
         'methods'             => 'GET',
@@ -1240,10 +1286,21 @@ add_action( 'rest_api_init', function () {
             return is_wp_error( $note ) ? $note : true;
         },
         'callback'            => function ( WP_REST_Request $request ) {
-            $suggestions = wfw_suggestions_get( (int) $request['id'], array(
-                'since'  => time() - DAY_IN_SECONDS,
-                'number' => 0,
-            ) );
+            $suggestions = array_merge(
+                wfw_suggestions_get( (int) $request['id'], array(
+                    'status' => 'open',
+                    'number' => 0,
+                ) ),
+                wfw_suggestions_get( (int) $request['id'], array(
+                    'status' => array( 'accepted', 'dismissed', 'withdrawn' ),
+                    'since'  => time() - DAY_IN_SECONDS,
+                    'number' => 100,
+                ) )
+            );
+            // Newest first, as one list.
+            usort( $suggestions, function ( $one, $other ) {
+                return $other['id'] - $one['id'];
+            } );
             return array(
                 'suggestions' => array_map( 'wfw_suggestion_for_rest', $suggestions ),
                 // When a way in was last used, and the server's clock to read it against.

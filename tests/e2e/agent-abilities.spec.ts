@@ -480,12 +480,13 @@ test.describe( 'The abilities', () => {
     test( 'suggest-blocks proposes whole blocks the Writer editor offers', async ( { requestUtils } ) => {
         test.slow();
         const note = await createNote( requestUtils, { paragraphs: [ 'The first paragraph.', 'The second paragraph.', 'The third paragraph.' ] } );
-        const quote = '<!-- wp:quote -->\n<blockquote class="wp-block-quote"><!-- wp:paragraph -->\n<p>Write badly first.</p>\n<!-- /wp:paragraph --></blockquote>\n<!-- /wp:quote -->';
+        const quoting = ( text: string ) => `<!-- wp:quote -->\n<blockquote class="wp-block-quote"><!-- wp:paragraph -->\n<p>${ text }</p>\n<!-- /wp:paragraph --></blockquote>\n<!-- /wp:quote -->`;
+        const quote = quoting( 'Write badly first.' );
         const made = await ability( 'suggest-blocks', {
             note,
             pass: 'Restructure',
             changes: [
-                { op: 'insert', after: 1, markup: quote + '<script>x()</script>', reason: 'A voice from outside.' },
+                { op: 'insert', after: 1, markup: quoting( 'Write badly first.<script>x()</script>' ), reason: 'A voice from outside.' },
                 { op: 'insert', after: -1, markup: paragraph( 'An opening.' ) },
                 { op: 'remove', block: 2 },
                 { op: 'move', block: 2, after: -1, reason: 'It reads better first.' },
@@ -497,7 +498,7 @@ test.describe( 'The abilities', () => {
             kind: 'blocks',
             label: 'Restructure',
             anchor: { path: [ 1 ], name: 'core/paragraph', quote: 'The second paragraph.', prefix: '', suffix: '' },
-            change: { op: 'insert', after: 1, markup: quote + 'x()' },
+            change: { op: 'insert', after: 1, markup: quoting( 'Write badly first.x()' ) },
             reason: 'A voice from outside.',
         } );
         expect( opening ).toMatchObject( { anchor: null, change: { op: 'insert', after: -1, markup: paragraph( 'An opening.' ) } } );
@@ -524,6 +525,15 @@ test.describe( 'The abilities', () => {
             changes( { op: 'remove', block: -1 } ),
             ability( 'suggest-blocks', { note, pass: 'Restructure', changes: [] } ),
             ability( 'suggest-blocks', { note, pass: 'Restructure', changes: Array.from( { length: 21 }, () => good ) } ),
+            // Text between blocks would come into the note as a block the editor does not offer.
+            changes( { op: 'insert', after: 0, markup: quote + '<script>x()</script>' } ),
+            changes( { op: 'insert', after: 0, markup: 'Loose words.\n\n' + paragraph( 'A block.' ) } ),
+            changes( { op: 'insert', after: 0, markup: paragraph( 'x'.repeat( 20000 ) ) } ),
+        ] );
+        expect( failures.slice( -3 ) ).toEqual( [
+            refused( 'invalid_args', 'markup holds text outside a block.' ),
+            refused( 'invalid_args', 'markup holds text outside a block.' ),
+            expect.objectContaining( { ok: false } ),
         ] );
         expect( failures[ 0 ] ).toEqual( refused( 'not_allowed', 'The Writer editor does not offer the block core/group.' ) );
         expect( failures[ 1 ] ).toEqual( refused( 'not_allowed', 'The Writer editor does not offer the block core/site-title.' ) );

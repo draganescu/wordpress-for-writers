@@ -217,8 +217,21 @@
     }
 
     /*
+     * The blocks an insert's markup gives that the editor takes: each valid,
+     * and of a type the editor allows (its allowedBlockTypes setting; true is
+     * every registered type), its inner blocks too. The rest are left out.
+     */
+    function insertable( markup ) {
+        const allowed = select( blockEditorStore ).getSettings().allowedBlockTypes;
+        const takes = ( block ) => block.isValid
+            && ( Array.isArray( allowed ) ? allowed.includes( block.name ) : allowed !== false )
+            && block.innerBlocks.every( takes );
+        return wp.blocks.parse( markup ).filter( takes );
+    }
+
+    /*
      * The note's blocks with one suggestion accepted (editor.md, Accepting), or
-     * null when it is out of date. Nothing is changed in place: the editor
+     * null when it is out of date or is an insert with no block to insert. Nothing is changed in place: the editor
      * takes the result as an edit, and Peek serializes it. `blocks` is the
      * note's top-level blocks, and the suggestion an `edit` or a `blocks` one.
      */
@@ -233,7 +246,8 @@
         }
         if ( change.op === 'insert' ) {
             const index = at ? blocks.indexOf( at.block ) + 1 : 0;
-            return [ ...blocks.slice( 0, index ), ...wp.blocks.parse( change.markup ), ...blocks.slice( index ) ];
+            const made = insertable( change.markup );
+            return made.length ? [ ...blocks.slice( 0, index ), ...made, ...blocks.slice( index ) ] : null;
         }
         const rest = blocks.filter( ( block ) => block !== at.block );
         if ( change.op === 'remove' ) {
@@ -960,11 +974,14 @@
             const after = {};
             const done = [];
             let next = before;
+            // An insert none of whose blocks the editor takes: it stays open, and the writer is told.
+            let refused = false;
             list.forEach( ( suggestion ) => {
                 const { field, value } = suggestion.change;
                 if ( suggestion.kind !== 'details' ) {
                     const result = applied( next, suggestion );
                     if ( ! result ) {
+                        refused = refused || ( suggestion.change.op === 'insert' && ! insertable( suggestion.change.markup ).length );
                         return;
                     }
                     next = result;
@@ -988,6 +1005,9 @@
                 accepts.current.push( { ids: done, before: was, after, undone: false } );
             }
             done.forEach( ( id ) => setStatus( id, 'accepted' ) );
+            if ( refused && ! done.length ) {
+                throw new Error( __( 'This editor cannot add the blocks suggested.', 'wordpress-for-writers' ) );
+            }
             return done.length;
         }
 

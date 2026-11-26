@@ -65,7 +65,11 @@ A comment is an agent's when it has `_wfw_kind`. Nothing else decides it.
 
 Core keeps `note` comments out of comment queries, counts and the public page; the surface adds nothing for that. A suggestion with no parent has no marker, so wp-admin's editor lists it as "Original block deleted." (A7, spike S3). A suggestion resolved there (core sets its `comment_approved` to 1) becomes `dismissed`, and one reopened there (back to 0) becomes `open` again: the store follows `transition_comment_status`.
 
-A suggestion is inserted with `wp_insert_comment()`, not through core's REST route, so nobody is emailed when it is stored. Core does email the post's author when someone else resolves, reopens or replies to one in wp-admin's editor (the option `wp_notes_notify`), with the suggestion's text as a new note (spike S3).
+Nobody is emailed when the surface stores a suggestion or settles one. It is inserted with `wp_insert_comment()`, not through core's REST route, and the store keeps core from notifying the post's author while it sets the comment's status (`notify_post_author`). Core emails the post's author only when someone else resolves, reopens or replies to a suggestion in wp-admin's editor (the option `wp_notes_notify`), with the suggestion's text as a new note (spike S3).
+
+Core's comments route does not move a suggestion: an update of one that would change its note, its author (the user, the name, the email or the URL) or its parent is refused, 403 (`rest_preprocess_comment`). Its status and its text stay core's to change.
+
+The store keeps the limits `abilities.md` gives for a change (`markup`, `excerpt`, each title, tag and category), whoever calls it.
 
 Limits: a note holds at most 200 open suggestions. A call that would pass it fails with `too_many` and stores nothing.
 
@@ -165,7 +169,7 @@ Under `wfw/v1`, called with the REST nonce, requiring what Who may call requires
 
 | Route | Does |
 |---|---|
-| `GET /wfw/v1/notes/{id}/suggestions` | `{ "suggestions": [ … ], "seen", "now" }`: the note's suggestions that are `open`, and those settled in the last day, newest first, each as `{ "id", "note", "kind", "status", "pass" (the UUID), "label" (the pass's), "anchor" (or null), "change", "reason", "author": { "id", "name" }, "date" (GMT), "ask" (its id, or 0) }`; `seen` is `wfw_agent_seen` and `now` the server's clock |
+| `GET /wfw/v1/notes/{id}/suggestions` | `{ "suggestions": [ … ], "seen", "now" }`: the note's suggestions that are `open`, all of them, and of those settled in the last day the newest 100, newest first as one list, each as `{ "id", "note", "kind", "status", "pass" (the UUID), "label" (the pass's), "anchor" (or null), "change", "reason", "author": { "id", "name" }, "date" (GMT), "ask" (its id, or 0) }`; `seen` is `wfw_agent_seen` and `now` the server's clock |
 | `POST /wfw/v1/suggestions/{id}` | Sets `_wfw_status` to `accepted`, `dismissed` or back to `open`, with `_wfw_settled` and the comment's status in step (Records), and answers with the suggestion. Body: `{ "status": … }`. It changes nothing of the note: the note is changed by the editor. A `withdrawn` suggestion stays withdrawn: 409, `withdrawn` |
 
 A note or a suggestion that is not the user's, or does not exist, is 404 with the code `not_found` on both, with one message.

@@ -40,7 +40,8 @@ function wfw_test_users() {
 
 /**
  * Deletes what the tests make: every post with its comments (core notes
- * included), the agent surface's option and each user's style sheet.
+ * included), the agent surface's option, each user's style sheet and the
+ * count of emails.
  */
 function wfw_test_reset() {
     $posts = get_posts( array(
@@ -53,6 +54,7 @@ function wfw_test_reset() {
         wp_delete_post( $post_id, true );
     }
     delete_option( 'wfw_agent_seen' );
+    delete_option( 'wfw_test_mails' );
     delete_metadata( 'user', 0, 'wfw_style_sheet', '', true );
     return array( 'users' => wfw_test_users() );
 }
@@ -133,6 +135,21 @@ function wfw_test_meta( $comment_id ) {
         }
     }
     return (object) $meta;
+}
+
+/**
+ * No test sends mail: each one WordPress would send is counted instead.
+ */
+add_filter( 'pre_wp_mail', function () {
+    update_option( 'wfw_test_mails', wfw_test_mails() + 1, false );
+    return true;
+} );
+
+/**
+ * How many emails WordPress would have sent since the last reset.
+ */
+function wfw_test_mails() {
+    return (int) get_option( 'wfw_test_mails', 0 );
 }
 
 /**

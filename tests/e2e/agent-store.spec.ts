@@ -204,6 +204,13 @@ test.describe( 'The store', () => {
             [ { kind: 'details', change: { field: 'slug', value: 'x' } }, 'invalid_args' ],
             [ { kind: 'comment', place: { path: [ 0 ], quote: 'Another' }, reason: '' }, 'invalid_args' ],
             [ { kind: 'rewrite', change: {} }, 'invalid_args' ],
+            // The limits (abilities.md), which the store keeps whoever calls it.
+            [ { kind: 'blocks', change: { op: 'insert', after: 0, markup: paragraph( 'x'.repeat( 20000 ) ) } }, 'invalid_args' ],
+            [ { kind: 'blocks', change: { op: 'insert', after: 0, markup: paragraph( 'A block.' ) + '\n\nText beside it.' } }, 'invalid_args' ],
+            [ { kind: 'details', change: { field: 'excerpt', value: 'x'.repeat( 601 ) } }, 'invalid_args' ],
+            [ { kind: 'details', change: { field: 'titles', value: [ 'Fine', 'x'.repeat( 201 ) ] } }, 'invalid_args' ],
+            [ { kind: 'details', change: { field: 'tags', value: [ 'x'.repeat( 101 ) ] } }, 'invalid_args' ],
+            [ { kind: 'details', change: { field: 'categories', value: [ 'x'.repeat( 101 ) ] } }, 'invalid_args' ],
         ] as const ) {
             const answer = await seedSuggestions( requestUtils, note, [
                 { kind: 'edit', place: { path: [ 0 ], quote: 'Another' }, change: { replacement: 'One more' } },

@@ -247,6 +247,32 @@ test.describe( 'Review', () => {
         expect( await statusOf( requestUtils, remove ) ).toBe( 'accepted' );
     } );
 
+    test( 'inserts only the blocks the editor takes, and none of a suggestion that has no other', async ( { page, requestUtils } ) => {
+        // Stored by the store itself, which does not check a block's name: the ability does.
+        const group = '<!-- wp:group -->\n<div class="wp-block-group"><!-- wp:paragraph -->\n<p>Grouped.</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->';
+        const { result } = await seedSuggestions( requestUtils, note, [
+            { kind: 'blocks', place: { path: [ 0 ] }, change: { op: 'insert', after: 0, markup: group } },
+            { kind: 'blocks', place: { path: [ 1 ] }, change: { op: 'insert', after: 1, markup: group + '\n\n' + paragraph( 'A paragraph beside it.' ) } },
+        ], { label: 'Restructure' } );
+        const [ none, some ] = result!.suggestions;
+        await openEditor( page, note );
+        const names = () => page.evaluate( () => ( window as any ).wp.data.select( 'core/block-editor' ).getBlocks().map( ( b: any ) => b.name ) );
+
+        await card( page, none ).click();
+        await card( page, none ).getByRole( 'button', { name: 'Accept' } ).click();
+        await expect( page.locator( '.wfw-toast' ) ).toContainText( 'This editor cannot add the blocks suggested.' );
+        await expect( card( page, none ) ).toHaveCount( 1 );
+        expect( await names() ).toEqual( [ 'core/paragraph', 'core/paragraph', 'core/paragraph' ] );
+        expect( await statusOf( requestUtils, none ) ).toBe( 'open' );
+
+        await card( page, some ).click();
+        await card( page, some ).getByRole( 'button', { name: 'Accept' } ).click();
+        await expect( card( page, some ) ).toHaveCount( 0 );
+        expect( await names() ).toEqual( [ 'core/paragraph', 'core/paragraph', 'core/paragraph', 'core/paragraph' ] );
+        expect( await content( page ) ).toContain( 'A paragraph beside it.' );
+        expect( await content( page ) ).not.toContain( 'Grouped.' );
+    } );
+
     test( 'accepts details: a title of the options, the excerpt, tags and categories', async ( { page, requestUtils } ) => {
         await requestUtils.rest( { method: 'POST', path: '/wp/v2/categories', data: { name: 'Craft' } } ).catch( () => {} );
         const { result } = await seedSuggestions( requestUtils, note, [

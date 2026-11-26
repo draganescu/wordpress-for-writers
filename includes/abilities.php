@@ -180,7 +180,7 @@ function wfw_ability_guide() {
  * scheduled.
  *
  * @param array $input array( 'status', 'search', 'category', 'tag', 'page' ), each optional.
- * @return array|WP_Error array( 'notes' => array[], 'pages' => int ); `not_found` for a term.
+ * @return array|WP_Error array( 'notes' => array[], 'pages' => int, the pages of the query ); `not_found` for a term.
  */
 function wfw_ability_notes_list( $input ) {
     $statuses = empty( $input['status'] ) || 'any' === $input['status'] ? array( 'draft', 'pending', 'publish', 'future', 'private' ) : array( $input['status'] );
@@ -232,6 +232,10 @@ function wfw_ability_notes_list( $input ) {
         );
     }
     $query = new WP_Query( $args );
+    // The query follows core's rules for the user's role; a note it found that the user may still not edit is left out.
+    $notes = array_filter( $query->posts, function ( $note ) {
+        return current_user_can( 'edit_post', $note->ID );
+    } );
     return array(
         'notes' => array_map( function ( $note ) {
             return array(
@@ -243,7 +247,7 @@ function wfw_ability_notes_list( $input ) {
                 'suggestions' => wfw_suggestions_count_open( $note->ID ),
                 'asks'        => wfw_asks_count_open( $note->ID ),
             );
-        }, $query->posts ),
+        }, array_values( $notes ) ),
         'pages' => (int) $query->max_num_pages,
     );
 }
@@ -575,10 +579,13 @@ add_action( 'wp_abilities_api_init', function () {
             'description' => 'Which one, 1 for the first, when quote occurs more than once in the block.',
         ),
     );
-    $strings = function ( $most, $description ) {
+    $strings = function ( $most, $longest, $description ) {
         return array(
             'type'        => 'array',
-            'items'       => array( 'type' => 'string' ),
+            'items'       => array(
+                'type'      => 'string',
+                'maxLength' => $longest,
+            ),
             'minItems'    => 1,
             'maxItems'    => $most,
             'description' => $description,
@@ -605,6 +612,7 @@ add_action( 'wp_abilities_api_init', function () {
                 ),
                 'search'   => array(
                     'type'        => 'string',
+                    'maxLength'   => 200,
                     'description' => 'Words to search the notes for.',
                 ),
                 'category' => array(
@@ -714,6 +722,7 @@ add_action( 'wp_abilities_api_init', function () {
                             ),
                             'markup' => array(
                                 'type'        => 'string',
+                                'maxLength'   => 20000,
                                 'description' => 'The block markup to insert, of blocks the Writer editor offers.',
                             ),
                             'reason' => $reason,
@@ -733,10 +742,13 @@ add_action( 'wp_abilities_api_init', function () {
             'properties'  => array(
                 'note'       => $note,
                 'ask'        => $ask,
-                'titles'     => $strings( 5, 'Options for the title. The writer picks one or keeps theirs.' ),
-                'excerpt'    => array( 'type' => 'string' ),
-                'tags'       => $strings( 10, 'Tags to add, by name.' ),
-                'categories' => $strings( 5, 'Categories to add, by name. Each must exist.' ),
+                'titles'     => $strings( 5, 200, 'Options for the title. The writer picks one or keeps theirs.' ),
+                'excerpt'    => array(
+                    'type'      => 'string',
+                    'maxLength' => 600,
+                ),
+                'tags'       => $strings( 10, 100, 'Tags to add, by name.' ),
+                'categories' => $strings( 5, 100, 'Categories to add, by name. Each must exist.' ),
                 'reason'     => $reason,
             ),
             'required'    => array( 'note' ),

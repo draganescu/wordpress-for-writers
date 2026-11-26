@@ -66,11 +66,11 @@ Find notes the user may edit.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `status` | `draft`, `pending`, `publish`, `future` or `any` | no | Default `any`: drafts, pending, published, scheduled and private notes, as the app's Notes view, without the Trash |
-| `search` | string | no | As the note list's search |
+| `search` | string, at most 200 characters | no | As the note list's search |
 | `category`, `tag` | string | no | A term's name or slug. One that does not exist is `not_found` |
 | `page` | integer, 1 or more | no | 20 notes a page, newest change first |
 
-Result: `{ "notes": [ { "id", "title", "status", "modified", "words", "suggestions", "asks" } ], "pages": 3 }`. `suggestions` and `asks` count the open ones.
+Result: `{ "notes": [ { "id", "title", "status", "modified", "words", "suggestions", "asks" } ], "pages": 3 }`. `suggestions` and `asks` count the open ones. `pages` counts the pages of the query; a note it finds that the user may not edit (`edit_post`) is left out of its page, which then holds fewer than 20.
 
 ### `writer/note-get`
 
@@ -170,7 +170,7 @@ A change:
 | `op` | `insert`, `remove` or `move` | yes | |
 | `block` | integer, 0 or more | for `remove` and `move` | The top-level block |
 | `after` | integer, -1 or more | for `insert` and `move` | The top-level block it goes after. -1 is the start of the note |
-| `markup` | string of block markup | for `insert` | Parsed with `parse_blocks()`. Every block in it must be one `wfw_allowed_block_types()` offers, else `not_allowed`. Markup that yields no block is `invalid_args` |
+| `markup` | string of block markup, at most 20000 characters | for `insert` | Parsed with `parse_blocks()`. Every block in it must be one `wfw_allowed_block_types()` offers, else `not_allowed`. Markup that yields no block is `invalid_args`, and so is markup that holds anything but white space outside a block (`markup holds text outside a block.`) |
 | `reason` | string, at most 300 characters | no | |
 
 `_wfw_change` is the change without `reason`. The anchor is that of the block named by `block`, or by `after` for an insert.
@@ -179,10 +179,10 @@ A change:
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `titles` | array of 1 to 5 strings | at least one of the four | Options for the title. The writer picks one or keeps theirs |
-| `excerpt` | string | | |
-| `tags` | array of 1 to 10 strings | | Tags to add, by name |
-| `categories` | array of 1 to 5 strings | | Categories to add, by name. Each must exist, else `not_found` |
+| `titles` | array of 1 to 5 strings, each at most 200 characters | at least one of the four | Options for the title. The writer picks one or keeps theirs |
+| `excerpt` | string, at most 600 characters | | |
+| `tags` | array of 1 to 10 strings, each at most 100 characters | | Tags to add, by name |
+| `categories` | array of 1 to 5 strings, each at most 100 characters | | Categories to add, by name. Each must exist, else `not_found` |
 | `reason` | string, at most 300 characters | no | |
 
 One suggestion is stored for each of the four fields given, in one pass labelled "Details". `_wfw_change` is `{ "field": "titles", "value": [ … ] }`, and so on.

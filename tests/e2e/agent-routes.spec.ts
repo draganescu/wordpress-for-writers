@@ -6,6 +6,7 @@
 import { test, expect } from '@wordpress/e2e-test-utils-playwright';
 import {
     call,
+    createAsk,
     createNote,
     resetSite,
     restAs,
@@ -248,6 +249,51 @@ test.describe( 'Routes for the editor', () => {
         stored = ( await call( requestUtils, 'wfw_test_meta', [ suggestion ] ) ).result;
         expect( stored._wfw_status ).toBe( 'open' );
         expect( stored._wfw_settled ).toBeUndefined();
+        await admin.dispose();
+    } );
+
+    test( 'core\'s comment route does not move a suggestion or change whose it is', async ( { requestUtils } ) => {
+        const admin = await restAs( 'admin' );
+        const elsewhere = await createNote( requestUtils );
+        const ask = await createAsk( requestUtils, note );
+        const before = ( await admin( 'GET', `/wp/v2/comments/${ suggestion }?context=edit` ) ).body;
+        for ( const change of [
+            { post: elsewhere },
+            { author: users.wfw_author2 },
+            { author_name: 'Somebody else' },
+            { author_email: 'else@example.test' },
+            { author_url: 'https://example.test/' },
+            { parent: ask },
+            { status: 'approved', post: elsewhere },
+        ] ) {
+            const answer = await admin( 'POST', `/wp/v2/comments/${ suggestion }`, change );
+            expect( answer.status, JSON.stringify( change ) ).toBe( 403 );
+        }
+        const after = ( await admin( 'GET', `/wp/v2/comments/${ suggestion }?context=edit` ) ).body;
+        expect( after ).toEqual( before );
+        expect( ( await call( requestUtils, 'wfw_suggestion_get', [ suggestion ] ) ).result ).toMatchObject( { note, status: 'open', ask: 0, author: { id: before.author } } );
+
+        // What wp-admin's editor sends still goes through: the same values with a new status, and new text.
+        const resolved = await admin( 'POST', `/wp/v2/comments/${ suggestion }`, { status: 'approved', post: note, author: before.author, parent: 0 } );
+        expect( resolved.status ).toBe( 200 );
+        expect( ( await call( requestUtils, 'wfw_suggestion_get', [ suggestion ] ) ).result.status ).toBe( 'dismissed' );
+        expect( ( await admin( 'POST', `/wp/v2/comments/${ suggestion }`, { content: 'Reworded.' } ) ).status ).toBe( 200 );
+        await admin.dispose();
+    } );
+
+    test( 'settling a suggestion emails nobody', async ( { requestUtils } ) => {
+        // The note is an Author's; the admin made the suggestion and settles it, which core would write to the Author about.
+        const admin = await restAs( 'admin' );
+        const mails = async () => ( await call( requestUtils, 'wfw_test_mails' ) ).result;
+        expect( await mails() ).toBe( 0 );
+        for ( const status of [ 'accepted', 'open', 'dismissed', 'open' ] ) {
+            expect( ( await admin( 'POST', `/wfw/v1/suggestions/${ suggestion }`, { status } ) ).status ).toBe( 200 );
+        }
+        expect( await mails() ).toBe( 0 );
+
+        // Resolved in wp-admin's editor it is core's doing, and core writes.
+        await admin( 'POST', `/wp/v2/comments/${ suggestion }`, { status: 'approved' } );
+        expect( await mails() ).toBeGreaterThan( 0 );
         await admin.dispose();
     } );
 

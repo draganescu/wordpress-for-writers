@@ -1474,8 +1474,10 @@
                 if ( listed ) {
                     listed.wfw_suggestions = data.count;
                     const meta = root.querySelector( `.wfw-note[data-id="${ tab.id }"] .wfw-note__meta` );
-                    meta.querySelector( '.wfw-note__suggestions' )?.remove();
-                    meta.firstElementChild.insertAdjacentHTML( 'afterend', suggestionsHtml( data.count ) );
+                    if ( meta ) {
+                        meta.querySelector( '.wfw-note__suggestions' )?.remove();
+                        meta.firstElementChild.insertAdjacentHTML( 'afterend', suggestionsHtml( data.count ) );
+                    }
                 }
                 break;
             }

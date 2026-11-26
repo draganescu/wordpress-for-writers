@@ -36,7 +36,7 @@ Accepting changes the note in the editor and nowhere else (A3).
 | Kind | Accepting does |
 |---|---|
 | `edit` | Replaces the passage in its block's rich text with the replacement |
-| `blocks` | Inserts the parsed blocks, removes the block, or moves it |
+| `blocks` | Inserts the parsed blocks, removes the block, or moves it. Of the parsed blocks only those that are valid and of a type the editor allows are inserted (its `allowedBlockTypes` setting), inner blocks included. When none is left nothing is inserted, a snackbar says so and the suggestion stays open |
 | `details`, titles | The card lists the options. Choosing one sets the title. "Keep mine" dismisses |
 | `details`, excerpt | Sets the excerpt |
 | `details`, tags and categories | Adds the terms to the note, as the categories and tags form does. A tag that does not exist is created if the user may; otherwise it is left out and the card says so |
