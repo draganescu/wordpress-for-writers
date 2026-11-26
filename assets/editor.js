@@ -159,13 +159,29 @@
      *   wp.i18n has them under config.domain.
      */
     const agentConfig = config.agent || {};
-    // The app's phone layout (phoneLayout in app.js). In the app the frame is narrower than the window, so the app's window is asked.
-    const agentPhone = ( inApp ? window.parent : window ).matchMedia( '(max-width: 700px)' );
-    const agentActive = !! ( ( agentConfig.seen || agentConfig.notes ) && agentConfig.script && ! agentPhone.matches );
+    const agentWanted = !! ( ( agentConfig.seen || agentConfig.notes ) && agentConfig.script );
+    /*
+     * The app's phone layout (phoneLayout in app.js), in the shape of a
+     * MediaQueryList. In the app the frame is narrower than the window and
+     * cannot read it (Chromium isolates the editor, see the keyboard's
+     * viewport below), so the app says it with each `visibility` message;
+     * until its first one the editor counts as on a phone.
+     */
+    const agentPhone = inApp ? Object.assign( new EventTarget(), { matches: true } ) : window.matchMedia( '(max-width: 700px)' );
     const agentListeners = new Set();
     let agentReview = null;
 
-    if ( agentActive ) {
+    function onAppMessage( listener ) {
+        const handler = ( event ) => {
+            if ( event.origin === window.location.origin && event.source === window.parent && event.data && event.data.source === 'wfw' ) {
+                listener( event.data );
+            }
+        };
+        window.addEventListener( 'message', handler );
+        return () => window.removeEventListener( 'message', handler );
+    }
+
+    function loadAgent() {
         window.wfwAgent = {
             config: agentConfig,
             postId: Number( config.postId ),
@@ -180,15 +196,7 @@
                 return () => canvasListeners.delete( listener );
             },
             post,
-            onMessage( listener ) {
-                const handler = ( event ) => {
-                    if ( event.origin === window.location.origin && event.source === window.parent && event.data && event.data.source === 'wfw' ) {
-                        listener( event.data );
-                    }
-                };
-                window.addEventListener( 'message', handler );
-                return () => window.removeEventListener( 'message', handler );
-            },
+            onMessage: onAppMessage,
             start( Review ) {
                 agentReview = Review;
                 agentListeners.forEach( ( listener ) => listener() );
@@ -208,6 +216,25 @@
         script.id = 'wfw-suggest-js';
         script.src = agentConfig.script;
         document.head.appendChild( script );
+    }
+
+    if ( agentWanted ) {
+        // Review is loaded the first time the editor is not on a phone, and from then on hides itself on one.
+        const load = () => {
+            if ( ! agentPhone.matches && ! window.wfwAgent ) {
+                loadAgent();
+            }
+        };
+        agentPhone.addEventListener( 'change', load );
+        load();
+        if ( inApp ) {
+            onAppMessage( ( data ) => {
+                if ( data.type === 'visibility' && agentPhone.matches !== !! data.phone ) {
+                    agentPhone.matches = !! data.phone;
+                    agentPhone.dispatchEvent( new Event( 'change' ) );
+                }
+            } );
+        }
     }
 
     // Review, once suggest.js has handed it over.
@@ -403,7 +430,7 @@
         const { togglePublishSidebar } = useDispatch( editorStore );
         return el( 'div', { className: 'wfw-actions' },
             // Review's place beside Save (see "The agent surface"); nothing without it.
-            agentActive && el( wp.components.Slot, { name: 'wfw-agent-actions' } ),
+            agentWanted && el( wp.components.Slot, { name: 'wfw-agent-actions' } ),
             el( editor.PostSavedState ),
             el( editor.PostPublishButton, { isToggle, isOpen: isPublishPanelOpen, onToggle: togglePublishSidebar } )
         );
@@ -716,7 +743,7 @@
             el( editor.EditorKeyboardShortcuts ),
             el( wp.plugins.PluginArea ),
             el( Popover.Slot ),
-            agentActive && el( AgentReview )
+            agentWanted && el( AgentReview )
         );
         return colors.primary && colors.background
             ? el( wp.theme.ThemeProvider, { isRoot: true, color: colors }, layout )

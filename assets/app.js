@@ -1085,7 +1085,7 @@
     }
 
     function postVisibility( tab ) {
-        tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'visibility', hidden: tab.frame.classList.contains( 'is-hidden' ) }, window.location.origin );
+        tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'visibility', hidden: tab.frame.classList.contains( 'is-hidden' ), phone: phoneLayout.matches }, window.location.origin );
     }
 
     // How long an editor stays loaded out of view.
@@ -3580,6 +3580,7 @@
     refresh();
     // What shows of an agent comes and goes with the phone layout.
     phoneLayout.addEventListener( 'change', () => {
+        tabs.forEach( postVisibility );
         if ( settings.agent.seen ) {
             renderSidebar();
             loadNotes( { keep: true } );

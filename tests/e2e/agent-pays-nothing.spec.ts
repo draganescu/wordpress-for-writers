@@ -91,11 +91,11 @@ test.describe( 'A site no agent has used pays nothing', () => {
         expect( after.scripts.length ).toBe( before.scripts.length + 1 );
         expect( after.styles.length ).toBe( before.styles.length + 1 );
 
-        // Each was asked for once, and the stub asked the server nothing else.
+        // The script was asked for once and the style sheet twice (the page, and the canvas for its marks); the rest is Review reading the note's suggestions.
         const asked = after.requests.filter( ( url ) => SURFACE.test( url ) );
         expect( asked.filter( ( url ) => /suggest\.js/.test( url ) ) ).toHaveLength( 1 );
-        expect( asked.filter( ( url ) => /suggest\.css/.test( url ) ) ).toHaveLength( 1 );
-        expect( asked ).toHaveLength( 2 );
+        expect( asked.filter( ( url ) => /suggest\.css/.test( url ) ) ).toHaveLength( 2 );
+        expect( asked.filter( ( url ) => ! /suggest\.(js|css)|wfw\/v1\/notes\/\d+\/suggestions/.test( url ) ) ).toEqual( [] );
     } );
 
     test( 'a note with a core note loads Review on a site no agent has used', async ( {
@@ -150,6 +150,7 @@ test.describe( 'A site no agent has used pays nothing', () => {
             'inApp',
             'onCanvas',
             'onMessage',
+            'phone',
             'post',
             'postId',
             'start',

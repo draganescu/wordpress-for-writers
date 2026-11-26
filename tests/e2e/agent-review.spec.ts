@@ -72,18 +72,6 @@ test.describe( 'Review', () => {
     let note: number;
 
     test.beforeEach( async ( { page, requestUtils } ) => {
-        // Until the stub in editor.js gives `phone` itself: what it will give, in a page of its own.
-        await page.addInitScript( () => {
-            let agent: any;
-            Object.defineProperty( window, 'wfwAgent', {
-                configurable: true,
-                get: () => agent,
-                set( value ) {
-                    agent = value;
-                    agent.phone = agent.phone || window.matchMedia( '(max-width: 700px)' );
-                },
-            } );
-        } );
         await resetSite( requestUtils );
         await setAgentSeen( requestUtils, true );
         note = await createNote( requestUtils, { paragraphs: [ FIRST, SECOND, THIRD ] } );
@@ -641,6 +629,10 @@ test.describe( 'Review', () => {
         expect( now ).toContain( FIRST );
         expect( now ).toContain( 'A second paragraph' );
         expect( now ).toContain( 'class="wp-note"' );
+
+        // The app shows it as a peek, beside the editor.
+        await expect( page.locator( '.wfw-peek .wfw-peek__body' ) ).toContainText( 'I stopped rereading until I reached the end.' );
+        await page.locator( '.wfw-peek [data-action="peek-close"]' ).click();
 
         await frame.locator( `[data-wfw-suggestion="${ edit }"]` ).click();
         await frame.locator( `[data-wfw-suggestion="${ edit }"]` ).getByRole( 'button', { name: 'Dismiss' } ).click();
