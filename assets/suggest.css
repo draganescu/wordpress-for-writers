@@ -1,4 +1,362 @@
 /*
  * Review's styles (spec/agent/editor.md), loaded with suggest.js by the stub in
  * editor.js. Colours come from the appearance's --wfw-* tokens.
+ *
+ * Review loads this file into the canvas too, for the marks: the rules for
+ * highlights must belong to the document they are drawn in.
  */
+
+/* ---- Marks (W1) -------------------------------------------------------- */
+
+/*
+ * Drawn with the CSS Custom Highlight API, which paints a background and text
+ * decorations and nothing else: no outline, border or shadow, in any browser.
+ */
+::highlight( wfw-passage ) {
+    background-color: var( --wfw-mark );
+}
+
+::highlight( wfw-edit ) {
+    background-color: var( --wfw-mark );
+    text-decoration: line-through;
+}
+
+::highlight( wfw-active ) {
+    background-color: color-mix( in srgb, var( --wfw-accent ) 30%, var( --wfw-mark ) );
+    text-decoration: underline var( --wfw-accent );
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+/* ---- The chip beside Save (W4) ----------------------------------------- */
+
+.wfw-chip {
+    height: 32px;
+    padding: 0 12px;
+    background: var( --wfw-mark );
+    color: var( --wfw-text );
+    border: 0;
+    border-radius: 16px;
+    font-family: var( --wfw-font-ui );
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.wfw-chip:focus-visible {
+    outline: 2px solid var( --wfw-accent );
+    outline-offset: 2px;
+}
+
+/* ---- The rail and the sheet (W2) --------------------------------------- */
+
+.wfw-review {
+    position: absolute;
+    z-index: 44;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    font-family: var( --wfw-font-ui );
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+/* Beside the note: the canvas, the Save area and what is centred under the note make room, as for the settings sheet. */
+.wfw-review--rail {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 280px;
+    border-left: 1px solid var( --wfw-border );
+}
+
+.wfw-ed:has( > .wfw-review--rail ) .wfw-canvas {
+    margin-right: 280px;
+}
+
+.wfw-ed:not( .has-settings ):has( > .wfw-review--rail ) .wfw-actions {
+    right: calc( 280px + 12px );
+}
+
+.wfw-ed:not( .has-settings ):has( > .wfw-review--rail ) :is( .wfw-pill, .wfw-toasts ) {
+    left: calc( 50% - 140px );
+}
+
+/* At the foot of a narrow pane: the active card alone, with previous and next. */
+.wfw-review--sheet {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 50%;
+    border-top: 1px solid var( --wfw-border );
+    border-radius: 16px 16px 0 0;
+    box-shadow: var( --wfw-pill-shadow );
+}
+
+.wfw-review--sheet .wfw-review__list > :not( .is-active, :has( .is-active ) ),
+.wfw-review--sheet .wfw-review__list > .wfw-pass > .wfw-card:not( .is-active ) {
+    display: none;
+}
+
+/* The toasts ("Accepted.", with Undo) stay clear of the sheet. */
+.wfw-ed:has( > .wfw-review--sheet ) .wfw-toasts {
+    top: 60px;
+    bottom: auto;
+}
+
+.wfw-review__header {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+    height: 60px;
+    padding: 0 8px 0 16px;
+    border-bottom: 1px solid var( --wfw-border );
+}
+
+.wfw-review--sheet .wfw-review__header {
+    height: 44px;
+    padding-left: 8px;
+}
+
+.wfw-review__header h2 {
+    margin: 0;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.wfw-review__count {
+    color: var( --wfw-muted );
+    font-variant-numeric: tabular-nums;
+}
+
+.wfw-review__close {
+    margin-left: auto;
+}
+
+.wfw-review__list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+}
+
+.wfw-review p {
+    margin: 0;
+    color: inherit;
+    font-size: inherit;
+    overflow-wrap: anywhere;
+}
+
+/* ---- Pass headers (W3) ------------------------------------------------- */
+
+.wfw-pass + .wfw-pass,
+.wfw-pass + .wfw-ask,
+.wfw-ask + .wfw-pass,
+.wfw-ask + .wfw-ask {
+    margin-top: 16px;
+}
+
+.wfw-pass__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    margin-bottom: 8px;
+}
+
+.wfw-pass__meta {
+    color: var( --wfw-muted );
+    font-size: 12px;
+}
+
+.wfw-pass__actions {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.wfw-review .wfw-pass__actions .components-button.is-link {
+    color: var( --wfw-accent );
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.wfw-review .wfw-pass__actions .components-button.is-link:disabled {
+    color: var( --wfw-muted );
+}
+
+/* ---- Cards ------------------------------------------------------------- */
+
+.wfw-card,
+.wfw-ask {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var( --wfw-border );
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.wfw-card + .wfw-card,
+.wfw-ask > .wfw-pass {
+    margin-top: 8px;
+}
+
+:is( .wfw-card, .wfw-ask ).is-active {
+    border-color: var( --wfw-accent );
+    box-shadow: 0 0 0 1px var( --wfw-accent );
+}
+
+:is( .wfw-card, .wfw-ask ):focus-visible {
+    outline: 2px solid var( --wfw-accent );
+    outline-offset: 2px;
+}
+
+.wfw-card[data-wfw-state="stale"] {
+    border-style: dashed;
+}
+
+.wfw-card__kind {
+    color: var( --wfw-muted );
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.wfw-card__change,
+.wfw-card__quote {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+    white-space: pre-wrap;
+}
+
+.is-active > :is( .wfw-card__change, .wfw-card__quote ) {
+    display: block;
+}
+
+.wfw-card__change del {
+    color: var( --wfw-muted );
+}
+
+.wfw-card__change ins {
+    background: var( --wfw-mark );
+    border-radius: 3px;
+    text-decoration: none;
+}
+
+.wfw-card__quote {
+    padding-left: 8px;
+    border-left: 2px solid var( --wfw-border );
+    color: var( --wfw-muted );
+}
+
+.wfw-card__reason,
+.wfw-ask__text {
+    white-space: pre-wrap;
+}
+
+.wfw-card__note {
+    color: var( --wfw-muted );
+}
+
+.wfw-card__options {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.wfw-card__options li {
+    margin: 0;
+}
+
+.wfw-review .wfw-card__options .components-button {
+    height: auto;
+    min-height: 32px;
+    padding: 6px 10px;
+    text-align: left;
+    white-space: normal;
+}
+
+.wfw-card__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.wfw-review .wfw-card__actions .components-button.is-primary {
+    background: var( --wfw-accent );
+    color: var( --wfw-editor-bg );
+}
+
+.wfw-review .wfw-card__actions .components-button.is-primary:disabled {
+    background: var( --wfw-border );
+    color: var( --wfw-muted );
+}
+
+/* ---- Asks (W6) --------------------------------------------------------- */
+
+.wfw-ask__reply {
+    padding-top: 6px;
+    border-top: 1px solid var( --wfw-border );
+}
+
+.wfw-ask-field {
+    position: absolute;
+    top: clamp( 12px, var( --wfw-ask-top ), calc( 100% - 170px ) );
+    left: clamp( 12px, var( --wfw-ask-left ), calc( 100% - 332px ) );
+    z-index: 46;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 320px;
+    padding: 10px;
+    background: var( --wfw-editor-bg );
+    border: 1px solid var( --wfw-border );
+    border-radius: 12px;
+    box-shadow: var( --wfw-pill-shadow );
+}
+
+.wfw-ask-field textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 6px 8px;
+    background: var( --wfw-editor-bg );
+    color: var( --wfw-text );
+    border: 1px solid var( --wfw-border );
+    border-radius: 8px;
+    font-family: var( --wfw-font-ui );
+    font-size: 14px;
+    line-height: 1.4;
+    resize: none;
+}
+
+.wfw-ask-field textarea:focus {
+    border-color: var( --wfw-accent );
+    box-shadow: none;
+    outline: 0;
+}
+
+.wfw-ed .wfw-ask-field .components-button.is-primary {
+    background: var( --wfw-accent );
+    color: var( --wfw-editor-bg );
+}
+
+.wfw-ed .wfw-ask-field .components-button.is-primary:disabled {
+    background: var( --wfw-border );
+    color: var( --wfw-muted );
+}
