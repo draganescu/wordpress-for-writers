@@ -29,7 +29,7 @@ EXCLUDES=(
 ROOT_EXCLUDES=(
     '/plugins' '/themes' '/bin' '/build' '/.github'
     '/playground' '/blueprint.json' '/screenshots'
-    '/directory' '/promo-videos' '/README.md' '/CLAUDE.md'
+    '/directory' '/promo-videos' '/spec' '/README.md' '/CLAUDE.md'
     '*.zip' '*.mp4' '*.mov'
 )
 
