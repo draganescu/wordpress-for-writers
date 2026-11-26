@@ -1,5 +1,6 @@
 # The whole end-to-end suite (tests/e2e) on every pull request, in Chromium
-# against wp-env: WordPress as .wp-env.json gives it, on its own port.
+# against wp-env's tests site: WordPress as .wp-env.json gives it, on the
+# tests port, with the helper plugin the suite drives it with.
 
 name: Tests
 
@@ -51,4 +52,4 @@ jobs:
 
             - name: WordPress debug log
               if: failure()
-              run: npx wp-env run wordpress cat wp-content/debug.log || true
+              run: npx wp-env run tests-wordpress cat wp-content/debug.log || true

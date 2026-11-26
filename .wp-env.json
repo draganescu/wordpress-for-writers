@@ -1,11 +1,16 @@
 {
     "core": null,
-    "plugins": [ ".", "./plugins/writer-subscribe", "./plugins/writer-members", "./tests/e2e/plugin" ],
+    "plugins": [ ".", "./plugins/writer-subscribe", "./plugins/writer-members" ],
     "themes": [
         "./themes/writer-newsletter",
         "./themes/writer-essay",
         "./themes/writer-longform"
     ],
     "port": 8890,
-    "testsPort": 8891
+    "testsPort": 8891,
+    "env": {
+        "tests": {
+            "plugins": [ ".", "./plugins/writer-subscribe", "./plugins/writer-members", "./tests/e2e/plugin" ]
+        }
+    }
 }

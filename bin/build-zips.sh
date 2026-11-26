@@ -20,7 +20,7 @@ BUILD="$ROOT/build"
 
 EXCLUDES=(
     '.git' '.git*' '.DS_Store' '.claude' '.distignore'
-    'node_modules' '.wp-env.json' 'package.json' 'package-lock.json'
+    'node_modules' '.wp-env.json' '.wp-env.override.json' 'package.json' 'package-lock.json'
     '*.map' '*.log'
 )
 
@@ -30,7 +30,7 @@ ROOT_EXCLUDES=(
     '/plugins' '/themes' '/bin' '/build' '/.github'
     '/playground' '/blueprint.json' '/screenshots'
     '/directory' '/promo-videos' '/spec' '/README.md' '/CLAUDE.md'
-    '/tests' '/artifacts' '/test-results' '/playwright-report' '.wp-env.override.json'
+    '/tests' '/artifacts' '/test-results' '/playwright-report'
     '*.zip' '*.mp4' '*.mov'
 )
 

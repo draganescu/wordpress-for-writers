@@ -2,7 +2,7 @@
  * What the agent surface's tests share (tests/e2e/agent-*.spec.ts). The site
  * is reached three ways: the admin's REST session (`requestUtils`, a fixture
  * of @wordpress/e2e-test-utils-playwright), any user's REST session
- * (`restAs`), and WP-CLI in the wp-env container (`wp`, `php`). The routes
+ * (`restAs`), and WP-CLI in the container of wp-env's tests site (`wp`, `php`). The routes
  * under wfw-test/v1 are the test plugin's (tests/e2e/plugin).
  */
 import { execFile } from 'node:child_process';
@@ -30,7 +30,8 @@ export type Answer< T = any > = {
 };
 
 /**
- * Runs a WP-CLI command in this checkout's wp-env (`wp-env run cli wp …`).
+ * Runs a WP-CLI command in this checkout's wp-env, on the tests site
+ * (`wp-env run tests-cli wp …`).
  * Slow (a container exec each time): prefer `call` where a function will do.
  *
  * @param args The arguments after `wp`.
@@ -39,7 +40,7 @@ export function wp( args: string[] ): Promise< Ran > {
     return new Promise( ( resolve ) => {
         execFile(
             path.join( process.cwd(), 'node_modules/.bin/wp-env' ),
-            [ 'run', 'cli', '--', 'wp', ...args ],
+            [ 'run', 'tests-cli', '--', 'wp', ...args ],
             { maxBuffer: 16 * 1024 * 1024 },
             ( error, stdout, stderr ) =>
                 resolve( {
@@ -154,6 +155,47 @@ export async function createNote(
     return post.id;
 }
 
+// The paragraph the editor's tests open with.
+export const FIRST = 'I stopped rereading anything until I reached the end.';
+
+/**
+ * The note's content as the editor has it now, saved or not.
+ *
+ * @param page The editor's page.
+ */
+export const content = ( page: Page ) =>
+    page.evaluate( () => ( window as any ).wp.data.select( 'core/editor' ).getEditedPostContent() as string );
+
+// Puts the caret (or a selection) in the nth paragraph of the canvas, by offsets in its text.
+export const select = ( page: Page, index: number, start: number, end = start ) =>
+    page.frame( { name: 'editor-canvas' } )!.evaluate(
+        ( [ nth, from, to ] ) => {
+            const block = document.querySelectorAll( 'p[data-block]' )[ nth ] as HTMLElement;
+            block.focus();
+            const walker = document.createTreeWalker( block, NodeFilter.SHOW_TEXT );
+            const range = document.createRange();
+            let position = 0;
+            let node: Node | null;
+            let started = false;
+            while ( ( node = walker.nextNode() ) ) {
+                const length = ( node as Text ).data.length;
+                if ( ! started && from <= position + length ) {
+                    range.setStart( node, from - position );
+                    started = true;
+                }
+                if ( started && to <= position + length ) {
+                    range.setEnd( node, to - position );
+                    break;
+                }
+                position += length;
+            }
+            const selection = document.getSelection()!;
+            selection.removeAllRanges();
+            selection.addRange( range );
+        },
+        [ index, start, end ]
+    );
+
 /**
  * A paragraph block's markup.
  *
@@ -164,13 +206,14 @@ export const paragraph = ( html: string ) =>
 
 /**
  * Stores one pass of suggestions on a note through the store's own functions
- * (wfw_suggestion_anchor() and wfw_suggestions_create()), as an ability would.
+ * (wfw_suggestion_locate(), wfw_anchor_at() and wfw_suggestions_create()), as an
+ * ability would.
  *
  * @param requestUtils The admin's REST session.
  * @param note         The note's id.
  * @param suggestions  The suggestions.
  * @param pass         The pass: its label ("Proofread" by default), the ask it
- *                     answers, the way in, and the user to run as.
+ *                     answers, and the user to run as.
  * @return `{ result: { pass, suggestions: ids } }`, or `{ error }`.
  */
 export const seedSuggestions = (
@@ -180,7 +223,6 @@ export const seedSuggestions = (
     pass: {
         label?: string;
         ask?: number;
-        source?: string;
         as?: number | string;
     } = {}
 ): Promise< Answer< { pass: string; suggestions: number[] } > > => {
