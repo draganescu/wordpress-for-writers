@@ -60,10 +60,10 @@ Two open edits whose passages overlap: accepting one makes the other out of date
 ## Asks
 
 - With text selected, the formatting pill offers **Ask**. It opens a field at the selection: the question, at most 600 characters, and "Leave for an agent". Enter sends, Esc closes.
-- Sending makes a core note on the selection, as core's editor does (spike S1): the comment through core's REST route, and core's marker in the block. The marker is an edit of the note, saved with it like any other.
-- With no selection and the caret in a block, Ask is about the whole block.
+- Sending makes a core note on the selection, as core's editor does (spike S1): the comment through core's REST route with the status `hold` (an open core note), core's marker in the block (`<mark data-id="N" class="wp-note">`) and the id added to the block's `metadata.noteId`, an array. The marker and the attribute are an edit of the note, saved with it like any other.
+- With no selection and the caret in a block, Ask is about the whole block: the id goes in `metadata.noteId` alone.
 - An agent's answer shows under the ask as a reply. A reply that is a suggestion has W1 on its passage and Accept and Dismiss on its card, as any suggestion.
-- Resolve on the ask's card sets core's `_wp_note_status` to `resolved` and takes the marker out, as core does. Replies still open are dismissed.
+- Resolve on the ask's card does what core does: it sets the ask's status to `approved`, adds an empty child comment with `_wp_note_status` `resolved` to record it, and takes the marker out (the id stays in `metadata.noteId`). Replies still open are dismissed. A thread is shown without those empty children.
 - Ask is offered only once a way in has been used on the site, or once the note has a core note (`README.md`, Q2).
 
 There is no model on the site and nothing here calls one: an ask waits until an agent reads the note.

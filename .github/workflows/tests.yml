@@ -1,0 +1,54 @@
+# The whole end-to-end suite (tests/e2e) on every pull request, in Chromium
+# against wp-env: WordPress as .wp-env.json gives it, on its own port.
+
+name: Tests
+
+on:
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: tests-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    e2e:
+        name: End-to-end
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - run: npm ci
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            - name: Start WordPress
+              run: npx wp-env start
+
+            # Retries are on in CI (two). A test that passes on a retry is
+            # reported as flaky, not as a failure.
+            - name: Run the suite
+              run: npm run test:e2e
+
+            - name: Upload failure artifacts
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: e2e-artifacts
+                  path: artifacts/test-results
+                  retention-days: 7
+                  if-no-files-found: ignore
+
+            - name: WordPress debug log
+              if: failure()
+              run: npx wp-env run wordpress cat wp-content/debug.log || true

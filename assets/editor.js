@@ -121,6 +121,102 @@
         canvasListeners.forEach( ( listener ) => listener( doc ) );
     }
 
+    // ---- The agent surface ---------------------------------------------------
+
+    /*
+     * Review (assets/suggest.js and suggest.css, spec/agent/editor.md) is what
+     * the writer sees of an agent: the suggestions waiting on the note, and
+     * Ask. A site no agent has used pays nothing for it: unless a way in was
+     * used on the site (`seen`) or the note has a core note (`notes`), both
+     * read from the page's config, nothing below runs, nothing is loaded and
+     * nothing is asked of the server. This stub decides that and hands Review
+     * the editor; everything else of the surface is Review's.
+     *
+     * What suggest.js finds, in window.wfwAgent:
+     *
+     * - config: wfwEditor.agent (see wfw_agent_editor_data() in
+     *   includes/suggestions.php): seen, notes, now, script, style, domain,
+     *   translations.
+     * - postId: the note's id, a number. inApp: whether the editor is in the app's frame.
+     * - canvas: { doc, win, frame }, the canvas iframe's document, window and
+     *   element as they are now (null until the canvas mounts; BlockCanvas can
+     *   replace its iframe). onCanvas( listener ) calls listener( doc ) now, if
+     *   there is a canvas, and each time it changes (null when it goes); it
+     *   returns a function that stops listening.
+     * - post( message ): sends { source: 'wfw-frame', ...message } to the app.
+     *   onMessage( listener ) calls listener( data ) for each of the app's
+     *   messages ({ source: 'wfw', type, ... }) and returns a function that
+     *   stops listening.
+     * - start( Review ): suggest.js calls it once, with a component. The editor
+     *   renders el( Review, { agent: window.wfwAgent } ) as the last child of
+     *   .wfw-ed, inside its providers (SlotFillProvider, ShortcutProvider,
+     *   EditorProvider, ThemeProvider), so Review reads the same stores, takes
+     *   part in the same undo and can fill the editor's slots: core's, and
+     *   'wfw-agent-actions', a Slot before the saved state in .wfw-actions (for
+     *   the chip beside Save). Its strings are translated before it runs:
+     *   wp.i18n has them under config.domain.
+     */
+    const agentConfig = config.agent || {};
+    const agentActive = !! ( ( agentConfig.seen || agentConfig.notes ) && agentConfig.script );
+    const agentListeners = new Set();
+    let agentReview = null;
+
+    if ( agentActive ) {
+        window.wfwAgent = {
+            config: agentConfig,
+            postId: Number( config.postId ),
+            inApp,
+            canvas,
+            onCanvas( listener ) {
+                canvasListeners.add( listener );
+                if ( canvas.doc ) {
+                    listener( canvas.doc );
+                }
+                return () => canvasListeners.delete( listener );
+            },
+            post,
+            onMessage( listener ) {
+                const handler = ( event ) => {
+                    if ( event.origin === window.location.origin && event.source === window.parent && event.data && event.data.source === 'wfw' ) {
+                        listener( event.data );
+                    }
+                };
+                window.addEventListener( 'message', handler );
+                return () => window.removeEventListener( 'message', handler );
+            },
+            start( Review ) {
+                agentReview = Review;
+                agentListeners.forEach( ( listener ) => listener() );
+            },
+        };
+
+        // A script loaded on demand gets no translations from WordPress; the page's config carries them.
+        if ( agentConfig.translations ) {
+            wp.i18n.setLocaleData( agentConfig.translations, agentConfig.domain );
+        }
+        const style = document.createElement( 'link' );
+        style.rel = 'stylesheet';
+        style.id = 'wfw-suggest-css';
+        style.href = agentConfig.style;
+        document.head.appendChild( style );
+        const script = document.createElement( 'script' );
+        script.id = 'wfw-suggest-js';
+        script.src = agentConfig.script;
+        document.head.appendChild( script );
+    }
+
+    // Review, once suggest.js has handed it over.
+    function AgentReview() {
+        const [ Review, setReview ] = useState( () => agentReview );
+        useEffect( () => {
+            const listener = () => setReview( () => agentReview );
+            agentListeners.add( listener );
+            listener();
+            return () => agentListeners.delete( listener );
+        }, [] );
+        return Review ? el( Review, { agent: window.wfwAgent } ) : null;
+    }
+
     // ---- The links above the title -----------------------------------------
 
     /*
@@ -301,6 +397,8 @@
         }, [] );
         const { togglePublishSidebar } = useDispatch( editorStore );
         return el( 'div', { className: 'wfw-actions' },
+            // Review's place beside Save (see "The agent surface"); nothing without it.
+            agentActive && el( wp.components.Slot, { name: 'wfw-agent-actions' } ),
             el( editor.PostSavedState ),
             el( editor.PostPublishButton, { isToggle, isOpen: isPublishPanelOpen, onToggle: togglePublishSidebar } )
         );
@@ -612,7 +710,8 @@
             el( editor.EditorKeyboardShortcutsRegister ),
             el( editor.EditorKeyboardShortcuts ),
             el( wp.plugins.PluginArea ),
-            el( Popover.Slot )
+            el( Popover.Slot ),
+            agentActive && el( AgentReview )
         );
         return colors.primary && colors.background
             ? el( wp.theme.ThemeProvider, { isRoot: true, color: colors }, layout )

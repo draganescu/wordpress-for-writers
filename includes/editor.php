@@ -451,6 +451,8 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
         'visibility'     => wfw_visibility(),
         // wp-admin's own editor, for what this one leaves out (meta boxes, plugin sidebars, revisions).
         'fullEditorUrl'  => get_edit_post_link( $post->ID, 'raw' ),
+        // The agent surface: whether the stub in editor.js loads Review, and from where (see wfw_agent_editor_data()).
+        'agent'          => wfw_agent_editor_data( $post ),
     ) );
 
     // Plugins' block editor assets: their blocks, formats and document setting panels.

@@ -30,6 +30,7 @@ ROOT_EXCLUDES=(
     '/plugins' '/themes' '/bin' '/build' '/.github'
     '/playground' '/blueprint.json' '/screenshots'
     '/directory' '/promo-videos' '/spec' '/README.md' '/CLAUDE.md'
+    '/tests' '/artifacts' '/test-results' '/playwright-report' '.wp-env.override.json'
     '*.zip' '*.mp4' '*.mov'
 )
 

@@ -47,6 +47,7 @@ An error is a `WP_Error` whose code is the code below and whose message is the c
 | `not_allowed` | `suggest-blocks` holds a block the Writer editor does not offer | `The Writer editor does not offer the block {name}.` |
 | `not_yours` | `suggestions-withdraw` names a suggestion another user made | `Suggestion {id} was made by someone else.` |
 | `too_many` | The note would hold more than 200 open suggestions | `This note already has {n} open suggestions.` |
+| `failed` | The database refused a write | `The suggestions could not be stored. Nothing was stored.` |
 
 A call that fails stores nothing: a pass is stored whole or not at all.
 
@@ -98,7 +99,7 @@ Result:
 }
 ```
 
-`from` is `autosave` when the user's autosave was read. `blocks` is as Reading a note gives it. `asks` lists the core notes with no parent that are not resolved. `suggestions` lists the open ones.
+`from` is `autosave` when the user's autosave was read. `blocks` is as Reading a note gives it. `asks` lists the core notes with no parent that are not resolved (`comment_approved` 0) and that no agent made; `replies` leaves out the empty children core adds to record a resolve or a reopen. An ask the note no longer names has `path` null and an empty `quote`. `suggestions` lists the open ones.
 
 ### `writer/library-get`
 

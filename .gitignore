@@ -5,3 +5,8 @@ node_modules/
 !.claude/skills/
 .DS_Store
 build/
+# End-to-end tests' output (traces, screenshots, the signed-in state).
+artifacts/
+test-results/
+playwright-report/
+.wp-env.override.json
