@@ -63,7 +63,7 @@ test.describe( 'The store', () => {
             ],
         } );
         const { blocks } = await readNote( requestUtils, note );
-        const anchor = ( ...args: any[] ) => call( requestUtils, 'wfw_suggestion_anchor', [ blocks, ...args ] );
+        const anchor = ( ...args: any[] ) => call( requestUtils, 'wfw_test_anchor', [ blocks, ...args ] );
 
         expect( ( await anchor( [ 0 ], 'I stopped rereading anything until I reached the end.' ) ).result ).toEqual( {
             path: [ 0 ],
@@ -152,13 +152,15 @@ test.describe( 'The store', () => {
             status: 'open',
             pass: stored.result!.pass,
             label: 'Tighten up',
-            source: 'abilities',
             change: { replacement: 'One <strong>short</strong> <a href="https://example.org/">sentence</a>.alert(1)!' },
             reason: 'Shorter is better.',
             author: { id: users.wfw_author, name: 'Author' },
             ask: 0,
-            settled: 0,
         } );
+        // The way in is on the record, and nothing says it was settled.
+        const { result: meta } = await call( requestUtils, 'wfw_test_meta', [ edit.id ] );
+        expect( meta._wfw_source ).toBe( 'abilities' );
+        expect( meta._wfw_settled ).toBeUndefined();
         expect( insert.change ).toEqual( { op: 'insert', after: 1, markup: paragraph( 'New <em>words</em>.alert(1)' ) } );
         expect( insert.anchor ).toMatchObject( { path: [ 1 ], name: 'core/paragraph', quote: 'A second paragraph.' } );
         expect( opening.anchor ).toBeNull();

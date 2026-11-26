@@ -304,12 +304,14 @@
     margin-top: 2px;
 }
 
-.wfw-review .wfw-card__actions .components-button.is-primary {
+.wfw-review .wfw-card__actions .components-button.is-primary,
+.wfw-ed .wfw-ask-field .components-button.is-primary {
     background: var( --wfw-accent );
     color: var( --wfw-editor-bg );
 }
 
-.wfw-review .wfw-card__actions .components-button.is-primary:disabled {
+.wfw-review .wfw-card__actions .components-button.is-primary:disabled,
+.wfw-ed .wfw-ask-field .components-button.is-primary:disabled {
     background: var( --wfw-border );
     color: var( --wfw-muted );
 }
@@ -357,14 +359,4 @@
     border-color: var( --wfw-accent );
     box-shadow: none;
     outline: 0;
-}
-
-.wfw-ed .wfw-ask-field .components-button.is-primary {
-    background: var( --wfw-accent );
-    color: var( --wfw-editor-bg );
-}
-
-.wfw-ed .wfw-ask-field .components-button.is-primary:disabled {
-    background: var( --wfw-border );
-    color: var( --wfw-muted );
 }

@@ -147,7 +147,6 @@ test.describe( 'A site no agent has used pays nothing', () => {
         expect( hook.keys ).toEqual( [
             'canvas',
             'config',
-            'inApp',
             'onCanvas',
             'onMessage',
             'phone',
@@ -168,9 +167,6 @@ test.describe( 'A site no agent has used pays nothing', () => {
         expect( hook.canvasIsFrame ).toBe( true );
         expect( hook.canvasHasNote ).toBe( true );
         expect( hook.calledWithCanvas ).toEqual( [ true ] );
-
-        // suggest.js is empty for now, so nothing of Review is on the page.
-        await expect( page.locator( '[data-test-review]' ) ).toHaveCount( 0 );
 
         // What Review will do: start with a component, which the editor renders inside its own tree.
         await page.evaluate( () => {

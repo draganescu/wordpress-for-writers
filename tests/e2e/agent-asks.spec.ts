@@ -4,49 +4,31 @@
  * core resolves a core note (spec/agent/editor.md, Asks; README.md, spike S1).
  */
 import { test, expect } from '@wordpress/e2e-test-utils-playwright';
-import type { Page } from '@playwright/test';
 import type { RequestUtils } from '@wordpress/e2e-test-utils-playwright';
 import {
+    FIRST,
     askMarker,
     call,
+    content,
     createAsk,
     createNote,
     openEditor,
     paragraph,
     resetSite,
     seedSuggestions,
+    select,
     setAgentSeen,
 } from './agent-utils';
 
-const FIRST = 'I stopped rereading anything until I reached the end.';
 const SECOND = 'A second paragraph.';
-
-const content = ( page: Page ) =>
-    page.evaluate( () => ( window as any ).wp.data.select( 'core/editor' ).getEditedPostContent() as string );
 
 const notes = ( requestUtils: RequestUtils, note: number ): Promise< any[] > =>
     requestUtils.rest( { path: '/wp/v2/comments', params: { post: note, type: 'note', status: 'all', context: 'edit', per_page: 100 } } );
 
-// Selects characters of the nth paragraph's text in the canvas; a caret when the two are the same.
-const select = ( page: Page, index: number, start: number, end: number ) =>
-    page.frame( { name: 'editor-canvas' } )!.evaluate(
-        ( [ nth, from, to ] ) => {
-            const block = document.querySelectorAll( 'p[data-block]' )[ nth ] as HTMLElement;
-            block.focus();
-            const range = document.createRange();
-            range.setStart( block.firstChild!, from );
-            range.setEnd( block.firstChild!, to );
-            const selection = document.getSelection()!;
-            selection.removeAllRanges();
-            selection.addRange( range );
-        },
-        [ index, start, end ]
-    );
-
 test.describe( 'Asks', () => {
     let note: number;
 
-    test.beforeEach( async ( { page, requestUtils } ) => {
+    test.beforeEach( async ( { requestUtils } ) => {
         await resetSite( requestUtils );
         await setAgentSeen( requestUtils, true );
         note = await createNote( requestUtils, { paragraphs: [ FIRST, SECOND ] } );

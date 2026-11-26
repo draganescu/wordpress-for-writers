@@ -380,13 +380,13 @@ test.describe( 'The abilities', () => {
             status: 'open',
             pass: made.result.pass,
             label: 'Tighten',
-            source: 'cli',
             anchor: { path: [ 0 ], name: 'core/paragraph', quote: 'rereading anything', prefix: 'uld ever read it, and I stopped ', suffix: ' until I reached the end.' },
             change: { replacement: 'rereading <em>a word</em>x()' },
             reason: 'Shorter.',
             author: { id: users.wfw_author, name: 'Author' },
             ask: 0,
         } );
+        expect( ( await call( requestUtils, 'wfw_test_meta', [ first.id ] ) ).result._wfw_source ).toBe( 'cli' );
         expect( second ).toMatchObject( { anchor: { path: [ 1 ], quote: 'the end', prefix: 'The end, the end, and ' }, change: { replacement: '' }, reason: '' } );
 
         // Each error, and nothing of a failed pass is stored: the good edit beside the bad one neither.

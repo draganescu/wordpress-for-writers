@@ -2273,7 +2273,10 @@
      * per user, and saved as the appearance is.
      */
     const saveStyleSheet = debounce( () => {
-        apiFetch( { path: '/wp/v2/users/me', method: 'POST', data: { meta: { wfw_style_sheet: settings.agent.styleSheet } } } ).catch( () => {} );
+        apiFetch( { path: '/wp/v2/users/me', method: 'POST', data: { meta: { wfw_style_sheet: settings.agent.styleSheet } } } ).catch( () => {
+            // The text stays in the field, so the writer can change it again to try again.
+            showToast( __( 'The style sheet couldn’t be saved', 'wordpress-for-writers' ) );
+        } );
     }, 400 );
 
     function openStyleSheet() {

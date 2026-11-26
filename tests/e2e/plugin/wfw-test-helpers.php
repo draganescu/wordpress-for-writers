@@ -90,11 +90,36 @@ function wfw_test_asks( $note_id ) {
 }
 
 /**
- * An ask's passage, by ids (wfw_ask_anchor() takes the post).
+ * The anchor of an ask's passage, by ids (wfw_ask_passage() takes the post).
  */
 function wfw_test_ask_anchor( $note_id, $ask_id ) {
-    $note = wfw_agent_note( (int) $note_id );
-    return is_wp_error( $note ) ? $note : wfw_ask_anchor( $note, (int) $ask_id );
+    $note    = wfw_agent_note( (int) $note_id );
+    $passage = is_wp_error( $note ) ? $note : wfw_ask_passage( $note, (int) $ask_id );
+    return is_wp_error( $passage ) ? $passage : $passage['anchor'];
+}
+
+/**
+ * The anchor of a quoted passage, as the abilities work it out
+ * (wfw_suggestion_locate(), then wfw_anchor_at()).
+ */
+function wfw_test_anchor( $blocks, $path, $quote, $occurrence = 0 ) {
+    $place = wfw_suggestion_locate( $blocks, $path, $quote, $occurrence );
+    return is_wp_error( $place ) ? $place : wfw_anchor_at( $place['block'], $place['start'], $place['length'] );
+}
+
+/**
+ * Runs what follows as another user. Returns the user to go back to.
+ *
+ * @param WP_REST_Request $request Its "as" is a user id or a login; without it nothing changes.
+ * @return int The user the request came as.
+ */
+function wfw_test_as( $request ) {
+    $before = get_current_user_id();
+    if ( isset( $request['as'] ) ) {
+        $user = is_numeric( $request['as'] ) ? get_user_by( 'id', (int) $request['as'] ) : get_user_by( 'login', (string) $request['as'] );
+        wp_set_current_user( $user ? $user->ID : 0 );
+    }
+    return $before;
 }
 
 /**
@@ -169,11 +194,7 @@ add_action( 'rest_api_init', function () {
             if ( 0 !== strpos( $fn, 'wfw_' ) || ! function_exists( $fn ) ) {
                 return new WP_Error( 'wfw_test_no_function', 'No such function: ' . $fn, array( 'status' => 400 ) );
             }
-            $before = get_current_user_id();
-            if ( isset( $request['as'] ) ) {
-                $user = is_numeric( $request['as'] ) ? get_user_by( 'id', (int) $request['as'] ) : get_user_by( 'login', (string) $request['as'] );
-                wp_set_current_user( $user ? $user->ID : 0 );
-            }
+            $before = wfw_test_as( $request );
             $result = call_user_func_array( $fn, array_values( (array) $request['args'] ) );
             wp_set_current_user( $before );
             return wfw_test_result( $result );
@@ -184,18 +205,14 @@ add_action( 'rest_api_init', function () {
      * Stores one pass of suggestions as an ability would: each suggestion's
      * "place" ({ "path", "quote", "occurrence" }, or { "path" } alone for a whole
      * block) is turned into its anchor against the note as it reads now.
-     * Body: { "note", "pass": { "label", "ask", "source" }, "suggestions": [ { "kind",
+     * Body: { "note", "pass": { "label", "ask" }, "suggestions": [ { "kind",
      * "place", "change", "reason" } ], "as": user id or login }.
      */
     register_rest_route( 'wfw-test/v1', '/seed', array(
         'methods'             => 'POST',
         'permission_callback' => $admin,
         'callback'            => function ( WP_REST_Request $request ) {
-            $before = get_current_user_id();
-            if ( isset( $request['as'] ) ) {
-                $user = is_numeric( $request['as'] ) ? get_user_by( 'id', (int) $request['as'] ) : get_user_by( 'login', (string) $request['as'] );
-                wp_set_current_user( $user ? $user->ID : 0 );
-            }
+            $before = wfw_test_as( $request );
             $result = ( function () use ( $request ) {
                 $note = wfw_agent_note( (int) $request['note'] );
                 if ( is_wp_error( $note ) ) {
@@ -208,7 +225,7 @@ add_action( 'rest_api_init', function () {
                     unset( $suggestion['place'] );
                     if ( $place ) {
                         $anchor = isset( $place['quote'] )
-                            ? wfw_suggestion_anchor( $read['blocks'], (array) $place['path'], (string) $place['quote'], isset( $place['occurrence'] ) ? (int) $place['occurrence'] : 0 )
+                            ? wfw_test_anchor( $read['blocks'], (array) $place['path'], (string) $place['quote'], isset( $place['occurrence'] ) ? (int) $place['occurrence'] : 0 )
                             : wfw_block_anchor( $read['blocks'], (array) $place['path'] );
                         if ( is_wp_error( $anchor ) ) {
                             return $anchor;

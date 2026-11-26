@@ -62,20 +62,10 @@ function wfw_agent_error( $code, $message ) {
         'too_many'     => 409,
         'failed'       => 500,
     );
-    return new WP_Error( $code, $code . ': ' . $message, array( 'status' => isset( $statuses[ $code ] ) ? $statuses[ $code ] : 400 ) );
+    return new WP_Error( $code, $code . ': ' . $message, array( 'status' => $statuses[ $code ] ) );
 }
 
 // ---- The site ------------------------------------------------------------------
-
-/**
- * The label of the way in this request came through: `cli` under WP-CLI,
- * otherwise `abilities`.
- *
- * @return string
- */
-function wfw_agent_source() {
-    return defined( 'WP_CLI' ) && WP_CLI ? 'cli' : 'abilities';
-}
 
 /**
  * When a way in was last used on this site.
@@ -108,12 +98,11 @@ function wfw_agent_touch() {
  * tells which ids exist.
  *
  * @param int $note_id The post id.
- * @param int $user_id The user; the current user when 0.
  * @return WP_Post|WP_Error The note, or `not_found`: "Note {id} was not found."
  */
-function wfw_agent_note( $note_id, $user_id = 0 ) {
+function wfw_agent_note( $note_id ) {
     $note_id = (int) $note_id;
-    $user_id = $user_id ? (int) $user_id : get_current_user_id();
+    $user_id = get_current_user_id();
     $note    = $note_id > 0 ? get_post( $note_id ) : null;
     if (
         ! $user_id
@@ -123,10 +112,20 @@ function wfw_agent_note( $note_id, $user_id = 0 ) {
         || 'trash' === $note->post_status
         || ! user_can( $user_id, 'edit_post', $note->ID )
     ) {
-        /* translators: %d: the id of a note. */
-        return wfw_agent_error( 'not_found', sprintf( __( 'Note %d was not found.', 'wordpress-for-writers' ), $note_id ) );
+        return wfw_note_not_found( $note_id );
     }
     return $note;
+}
+
+/**
+ * The error for a note that is not the user's to work on, whatever the reason.
+ *
+ * @param int $note_id The id asked for.
+ * @return WP_Error `not_found`: "Note {id} was not found."
+ */
+function wfw_note_not_found( $note_id ) {
+    /* translators: %d: the id of a note. */
+    return wfw_agent_error( 'not_found', sprintf( __( 'Note %d was not found.', 'wordpress-for-writers' ), (int) $note_id ) );
 }
 
 // ---- The style sheet -------------------------------------------------------------
@@ -149,11 +148,10 @@ function wfw_sanitize_style_sheet( $value ) {
  * Stored in the user meta `wfw_style_sheet`, which the app saves through the
  * REST API as it saves the appearance.
  *
- * @param int $user_id The user; the current user when 0.
- * @return string The style sheet, or the empty string.
+ * @return string The current user's style sheet, or the empty string.
  */
-function wfw_get_style_sheet( $user_id = 0 ) {
-    $user_id = $user_id ? (int) $user_id : get_current_user_id();
+function wfw_get_style_sheet() {
+    $user_id = get_current_user_id();
     return $user_id ? wfw_sanitize_style_sheet( get_user_meta( $user_id, 'wfw_style_sheet', true ) ) : '';
 }
 
@@ -201,10 +199,7 @@ add_action( 'init', function () {
  * @return string
  */
 function wfw_rich_text_html( $html ) {
-    $html = (string) $html;
-    if ( function_exists( 'wp_strip_inline_note_markers' ) ) {
-        $html = wp_strip_inline_note_markers( $html );
-    }
+    $html = wp_strip_inline_note_markers( (string) $html );
     $runs = array();
     foreach ( preg_split( '~<(?!/?(?:' . WFW_INLINE_TAGS . ')\b)[^>]*>~i', $html ) as $run ) {
         $run = trim( $run, "\r\n\t" );
@@ -281,16 +276,28 @@ function wfw_note_blocks( $content ) {
 }
 
 /**
- * A note as an agent reads it: the post, or the user's autosave of it when
- * that is newer. It checks nothing about who asks; call wfw_agent_note() first.
+ * When a note, or an autosave of it, was last changed: GMT, as
+ * "2026-11-26T18:37:00". From the local time: a draft never saved again has no
+ * post_modified_gmt.
  *
- * @param WP_Post $note    The note.
- * @param int     $user_id Whose autosave to look for; the current user's when 0.
+ * @param WP_Post $post The post or the autosave.
+ * @return string
+ */
+function wfw_note_modified( $post ) {
+    return (string) mysql_to_rfc3339( get_gmt_from_date( $post->post_modified ) );
+}
+
+/**
+ * A note as an agent reads it: the post, or the current user's autosave of it
+ * when that is newer. It checks nothing about who asks; call wfw_agent_note()
+ * first.
+ *
+ * @param WP_Post $note The note.
  * @return array array( 'from' => 'note'|'autosave', 'title' => string, 'excerpt' => string, 'content' => string,
  *               'modified' => string (GMT, as "2026-11-26T18:37:00"), 'blocks' => array[] as wfw_note_blocks() ).
  */
-function wfw_note_read( $note, $user_id = 0 ) {
-    $user_id  = $user_id ? (int) $user_id : get_current_user_id();
+function wfw_note_read( $note ) {
+    $user_id  = get_current_user_id();
     $source   = $note;
     $from     = 'note';
     $autosave = $user_id ? wp_get_post_autosave( $note->ID, $user_id ) : false;
@@ -303,7 +310,7 @@ function wfw_note_read( $note, $user_id = 0 ) {
         'title'    => $source->post_title,
         'excerpt'  => $source->post_excerpt,
         'content'  => $source->post_content,
-        'modified' => (string) mysql_to_rfc3339( get_gmt_from_date( $source->post_modified ) ),
+        'modified' => wfw_note_modified( $source ),
         'blocks'   => wfw_note_blocks( $source->post_content ),
     );
 }
@@ -326,7 +333,7 @@ function wfw_path_label( $path ) {
  */
 function wfw_block_at( $blocks, $path ) {
     $path = array_map( 'intval', array_values( (array) $path ) );
-    foreach ( (array) $blocks as $block ) {
+    foreach ( $blocks as $block ) {
         if ( $block['path'] === $path ) {
             return $block;
         }
@@ -387,7 +394,10 @@ function wfw_suggestion_locate( $blocks, $path, $quote, $occurrence = 0 ) {
 }
 
 /**
- * The anchor of a passage at a known place in a block's text.
+ * The anchor of a passage at a known place in a block's text, as `_wfw_anchor`
+ * stores it (surface.md, Placing): the block's path and name, the quote, and
+ * the 32 characters of the block's text before and after it, fewer at the
+ * block's edges.
  *
  * @param array $block  A block, as wfw_note_blocks() returns it.
  * @param int   $start  Where the passage starts, in characters.
@@ -403,22 +413,6 @@ function wfw_anchor_at( $block, $start, $length ) {
         'prefix' => mb_substr( $block['text'], $start - $before, $before ),
         'suffix' => mb_substr( $block['text'], $start + $length, 32 ),
     );
-}
-
-/**
- * The anchor of a quoted passage, as `_wfw_anchor` stores it (surface.md,
- * Placing): the block's path and name, the quote, and the 32 characters of the
- * block's text before and after it, fewer at the block's edges.
- *
- * @param array[] $blocks     The note's blocks, as wfw_note_blocks() returns them.
- * @param int[]   $path       The block.
- * @param string  $quote      The passage.
- * @param int     $occurrence Which one, when the quote occurs more than once; 0 when not given.
- * @return array|WP_Error array( 'path', 'name', 'quote', 'prefix', 'suffix' ), or the error wfw_suggestion_locate() gave.
- */
-function wfw_suggestion_anchor( $blocks, $path, $quote, $occurrence = 0 ) {
-    $place = wfw_suggestion_locate( $blocks, $path, $quote, $occurrence );
-    return is_wp_error( $place ) ? $place : wfw_anchor_at( $place['block'], $place['start'], $place['length'] );
 }
 
 /**
@@ -462,7 +456,8 @@ function wfw_block_note_ids( $attrs ) {
  * so a resolved one reads as its whole block.)
  *
  * @param string $content Block markup, markers included.
- * @return array<int, array> Anchors, as wfw_suggestion_anchor() returns them, by core note id.
+ * @return array<int, array> By core note id, each array( 'anchor' => array, as wfw_anchor_at() returns it,
+ *                           'start' => int, where the passage starts in the block's text, in characters ).
  */
 function wfw_note_marked_passages( $content ) {
     $passages = array();
@@ -512,14 +507,17 @@ function wfw_note_marked_passages( $content ) {
             if ( '' === $inside ) {
                 continue;
             }
-            $passages[ $id ] = wfw_anchor_at(
-                array(
-                    'path' => $block['path'],
-                    'name' => $block['name'],
-                    'text' => str_replace( $ends, '', $text ),
+            $passages[ $id ] = array(
+                'anchor' => wfw_anchor_at(
+                    array(
+                        'path' => $block['path'],
+                        'name' => $block['name'],
+                        'text' => str_replace( $ends, '', $text ),
+                    ),
+                    mb_strlen( $before ),
+                    mb_strlen( $inside )
                 ),
-                mb_strlen( $before ),
-                mb_strlen( $inside )
+                'start'  => mb_strlen( $before ),
             );
         }
     }
@@ -530,14 +528,17 @@ function wfw_note_marked_passages( $content ) {
                 continue;
             }
             $text            = wfw_rich_text_plain( wfw_rich_text_html( $block['raw'] ) );
-            $passages[ $id ] = wfw_anchor_at(
-                array(
-                    'path' => $block['path'],
-                    'name' => $block['name'],
-                    'text' => $text,
+            $passages[ $id ] = array(
+                'anchor' => wfw_anchor_at(
+                    array(
+                        'path' => $block['path'],
+                        'name' => $block['name'],
+                        'text' => $text,
+                    ),
+                    0,
+                    mb_strlen( $text )
                 ),
-                0,
-                mb_strlen( $text )
+                'start'  => 0,
             );
         }
     }
@@ -547,16 +548,16 @@ function wfw_note_marked_passages( $content ) {
 // ---- Asks ------------------------------------------------------------------------
 
 /**
- * The query for a note's asks: core notes with no parent that no agent made.
- * An open one is on hold; core approves a core note to resolve it. Core notes
+ * The query for a note's open asks: core notes with no parent that no agent
+ * made. An open one is on hold; core approves a core note to resolve it. Core notes
  * are only listed by type and with a status: by type alone, only the resolved
  * come back.
  */
-function wfw_asks_query( $note_id, $open_only ) {
+function wfw_asks_query( $note_id ) {
     return array(
         'post_id'    => (int) $note_id,
         'type'       => 'note',
-        'status'     => $open_only ? 'hold' : 'all',
+        'status'     => 'hold',
         'parent'     => 0,
         'orderby'    => 'comment_ID',
         'order'      => 'ASC',
@@ -574,26 +575,25 @@ function wfw_asks_query( $note_id, $open_only ) {
  * The asks of a note that are not resolved, each with its passage in the note
  * as the user reads it (wfw_note_read()).
  *
- * @param WP_Post $note    The note.
- * @param int     $user_id Whose autosave to read; the current user's when 0.
+ * @param WP_Post $note The note.
  * @return array[] Each array( 'id' => int, 'text' => string, 'path' => int[]|null, 'quote' => string, 'replies' => int ).
  *                 `path` is null and `quote` empty for an ask the note no longer names. `replies` leaves out the
  *                 empty children core adds to record a resolve or a reopen (they carry `_wp_note_status`).
  */
-function wfw_note_asks( $note, $user_id = 0 ) {
-    $asks = get_comments( wfw_asks_query( $note->ID, true ) );
+function wfw_note_asks( $note ) {
+    $asks = get_comments( wfw_asks_query( $note->ID ) );
     if ( ! $asks ) {
         return array();
     }
-    $read     = wfw_note_read( $note, $user_id );
+    $read     = wfw_note_read( $note );
     $passages = wfw_note_marked_passages( $read['content'] );
     return array_map( function ( $ask ) use ( $passages ) {
         $id = (int) $ask->comment_ID;
         return array(
             'id'      => $id,
             'text'    => wfw_rich_text_plain( $ask->comment_content ),
-            'path'    => isset( $passages[ $id ] ) ? $passages[ $id ]['path'] : null,
-            'quote'   => isset( $passages[ $id ] ) ? $passages[ $id ]['quote'] : '',
+            'path'    => isset( $passages[ $id ] ) ? $passages[ $id ]['anchor']['path'] : null,
+            'quote'   => isset( $passages[ $id ] ) ? $passages[ $id ]['anchor']['quote'] : '',
             'replies' => (int) get_comments( array(
                 'post_id'    => (int) $ask->comment_post_ID,
                 'type'       => 'note',
@@ -619,7 +619,7 @@ function wfw_note_asks( $note, $user_id = 0 ) {
  * @return int
  */
 function wfw_asks_count_open( $note_id ) {
-    return (int) get_comments( wfw_asks_query( $note_id, true ) + array( 'count' => true ) );
+    return (int) get_comments( wfw_asks_query( $note_id ) + array( 'count' => true ) );
 }
 
 /**
@@ -650,19 +650,19 @@ function wfw_ask_get( $note_id, $ask_id ) {
  * The passage an ask is about, for a suggestion that answers it and quotes
  * nothing (surface.md, Placing).
  *
- * @param WP_Post $note    The note.
- * @param int     $ask_id  The ask.
- * @param int     $user_id Whose autosave to read; the current user's when 0.
- * @return array|WP_Error The anchor, as wfw_suggestion_anchor() returns it; `not_found` when the ask does not
+ * @param WP_Post $note   The note.
+ * @param int     $ask_id The ask.
+ * @return array|WP_Error array( 'anchor' => array, as wfw_anchor_at() returns it, 'start' => int, where the
+ *                        passage starts in its block's text, in characters ); `not_found` when the ask does not
  *                        exist ("Ask {id} was not found.") or its marker is no longer in the note
  *                        ("The passage of ask {id} was not found. Read the note again.").
  */
-function wfw_ask_anchor( $note, $ask_id, $user_id = 0 ) {
+function wfw_ask_passage( $note, $ask_id ) {
     $ask = wfw_ask_get( $note->ID, $ask_id );
     if ( is_wp_error( $ask ) ) {
         return $ask;
     }
-    $read     = wfw_note_read( $note, $user_id );
+    $read     = wfw_note_read( $note );
     $passages = wfw_note_marked_passages( $read['content'] );
     if ( ! isset( $passages[ (int) $ask_id ] ) ) {
         /* translators: %d: the id of an ask. */
@@ -807,7 +807,7 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
 /**
  * An anchor as stored: its five fields and nothing else.
  *
- * @param mixed $anchor What was computed (wfw_suggestion_anchor() and friends).
+ * @param mixed $anchor What was computed (wfw_anchor_at() and friends).
  * @return array|null Null for anything that is not an anchor.
  */
 function wfw_sanitize_anchor( $anchor ) {
@@ -880,14 +880,13 @@ function wfw_suggestion_content( $kind, $change, $reason ) {
  * REST route.
  *
  * The caller has already checked each suggestion against the note and worked
- * out its anchor (wfw_suggestion_anchor(), wfw_block_anchor(), wfw_ask_anchor()).
+ * out its anchor (wfw_anchor_at(), wfw_block_anchor(), wfw_ask_passage()).
  * This checks who is asking, the ask, the label and the limit, and sanitises
  * every value on the way in.
  *
  * @param int   $note_id     The note.
  * @param array $pass        array( 'label' => string, 1 to 40 characters; 'ask' => int, the ask the pass answers, 0 or
- *                           left out for none; 'user' => int, who makes it, the current user when left out;
- *                           'source' => string, `cli` or `abilities`, wfw_agent_source() when left out ).
+ *                           left out for none ). The current user makes it.
  * @param array $suggestions 1 or more of array( 'kind' => 'edit'|'blocks'|'details'|'comment';
  *                           'anchor' => array|null, required for `edit` and `comment`, null for `details` and for a
  *                           block inserted at the start of the note; 'change' => array, as
@@ -899,8 +898,8 @@ function wfw_suggestion_content( $kind, $change, $reason ) {
  */
 function wfw_suggestions_create( $note_id, $pass, $suggestions ) {
     $pass    = is_array( $pass ) ? $pass : array();
-    $user_id = ! empty( $pass['user'] ) ? (int) $pass['user'] : get_current_user_id();
-    $note    = wfw_agent_note( $note_id, $user_id );
+    $user_id = get_current_user_id();
+    $note    = wfw_agent_note( $note_id );
     if ( is_wp_error( $note ) ) {
         return $note;
     }
@@ -909,7 +908,8 @@ function wfw_suggestions_create( $note_id, $pass, $suggestions ) {
     if ( '' === $label || mb_strlen( $label ) > 40 ) {
         return wfw_agent_error( 'invalid_args', __( 'pass must be 1 to 40 characters.', 'wordpress-for-writers' ) );
     }
-    $source = ! empty( $pass['source'] ) ? sanitize_key( $pass['source'] ) : wfw_agent_source();
+    // The way in this request came through.
+    $source = defined( 'WP_CLI' ) && WP_CLI ? 'cli' : 'abilities';
     $ask_id = ! empty( $pass['ask'] ) ? (int) $pass['ask'] : 0;
     if ( $ask_id ) {
         $ask = wfw_ask_get( $note->ID, $ask_id );
@@ -1001,35 +1001,43 @@ function wfw_suggestions_create( $note_id, $pass, $suggestions ) {
  *
  * @param WP_Comment $comment A comment that has `_wfw_kind`.
  * @return array array( 'id' => int, 'note' => int, 'kind' => string, 'status' => string, 'pass' => string (the UUID),
- *               'label' => string (the pass's label), 'source' => string, 'anchor' => array|null,
+ *               'label' => string (the pass's label), 'anchor' => array|null,
  *               'change' => array (empty for a `comment`), 'reason' => string (for a `comment`, the remark),
  *               'author' => array( 'id' => int, 'name' => string ), 'date' => string (GMT, as "2026-11-26T18:37:00"),
- *               'ask' => int (the ask it answers, or 0), 'settled' => int (when it last left `open`, a Unix
- *               timestamp, or 0) ).
+ *               'ask' => int (the ask it answers, or 0) ).
  */
 function wfw_suggestion_from_comment( $comment ) {
     $id     = (int) $comment->comment_ID;
     $anchor = json_decode( (string) get_comment_meta( $id, '_wfw_anchor', true ), true );
     $change = json_decode( (string) get_comment_meta( $id, '_wfw_change', true ), true );
     return array(
-        'id'      => $id,
-        'note'    => (int) $comment->comment_post_ID,
-        'kind'    => (string) get_comment_meta( $id, '_wfw_kind', true ),
-        'status'  => (string) get_comment_meta( $id, '_wfw_status', true ),
-        'pass'    => (string) get_comment_meta( $id, '_wfw_pass', true ),
-        'label'   => (string) get_comment_meta( $id, '_wfw_pass_label', true ),
-        'source'  => (string) get_comment_meta( $id, '_wfw_source', true ),
-        'anchor'  => is_array( $anchor ) ? $anchor : null,
-        'change'  => is_array( $change ) ? $change : array(),
-        'reason'  => (string) get_comment_meta( $id, '_wfw_reason', true ),
-        'author'  => array(
+        'id'     => $id,
+        'note'   => (int) $comment->comment_post_ID,
+        'kind'   => (string) get_comment_meta( $id, '_wfw_kind', true ),
+        'status' => (string) get_comment_meta( $id, '_wfw_status', true ),
+        'pass'   => (string) get_comment_meta( $id, '_wfw_pass', true ),
+        'label'  => (string) get_comment_meta( $id, '_wfw_pass_label', true ),
+        'anchor' => is_array( $anchor ) ? $anchor : null,
+        'change' => is_array( $change ) ? $change : array(),
+        'reason' => (string) get_comment_meta( $id, '_wfw_reason', true ),
+        'author' => array(
             'id'   => (int) $comment->user_id,
             'name' => (string) $comment->comment_author,
         ),
-        'date'    => (string) mysql_to_rfc3339( $comment->comment_date_gmt ),
-        'ask'     => (int) $comment->comment_parent,
-        'settled' => (int) get_comment_meta( $id, '_wfw_settled', true ),
+        'date'   => (string) mysql_to_rfc3339( $comment->comment_date_gmt ),
+        'ask'    => (int) $comment->comment_parent,
     );
+}
+
+/**
+ * The error for an id that is not a suggestion's, or not one the user may see.
+ *
+ * @param int $id The id asked for.
+ * @return WP_Error `not_found`: "Suggestion {id} was not found."
+ */
+function wfw_suggestion_not_found( $id ) {
+    /* translators: %d: the id of a suggestion. */
+    return wfw_agent_error( 'not_found', sprintf( __( 'Suggestion %d was not found.', 'wordpress-for-writers' ), (int) $id ) );
 }
 
 /**
@@ -1134,18 +1142,13 @@ function wfw_suggestions_count_open( $note_id ) {
  * core note: approved (resolved) once settled, on hold while open.
  *
  * @param int    $id     The suggestion.
- * @param string $status `open`, `accepted`, `dismissed` or `withdrawn`.
- * @return array|WP_Error The suggestion as it is now; `not_found` ("Suggestion {id} was not found.") or
- *                        `invalid_args` for a status that is none of the four.
+ * @param string $status `open`, `accepted`, `dismissed` or `withdrawn`; the caller has checked it is one of them.
+ * @return array|WP_Error The suggestion as it is now, or `not_found` ("Suggestion {id} was not found.").
  */
 function wfw_suggestion_set_status( $id, $status ) {
     $id = (int) $id;
     if ( ! wfw_suggestion_get( $id ) ) {
-        /* translators: %d: the id of a suggestion. */
-        return wfw_agent_error( 'not_found', sprintf( __( 'Suggestion %d was not found.', 'wordpress-for-writers' ), $id ) );
-    }
-    if ( ! in_array( $status, array( 'open', 'accepted', 'dismissed', 'withdrawn' ), true ) ) {
-        return wfw_agent_error( 'invalid_args', __( 'status must be open, accepted, dismissed or withdrawn.', 'wordpress-for-writers' ) );
+        return wfw_suggestion_not_found( $id );
     }
     // The meta first: the transition_comment_status hook below then finds nothing to do.
     update_comment_meta( $id, '_wfw_status', $status );
@@ -1161,18 +1164,17 @@ function wfw_suggestion_set_status( $id, $status ) {
 /**
  * Withdraws suggestions their maker no longer stands by: each named one that
  * is `open` becomes `withdrawn`. Nothing is withdrawn unless every one named is
- * a suggestion of this note that the user made.
+ * a suggestion of this note that the current user made.
  *
  * @param int   $note_id The note.
  * @param int[] $ids     The suggestions.
- * @param int   $user_id Who withdraws; the current user when 0.
  * @return array|WP_Error array( 'withdrawn' => int[] ), the ones that were open. `not_found` for the note or for
  *                        an id that is not a suggestion of it ("Suggestion {id} was not found."); `not_yours`
  *                        ("Suggestion {id} was made by someone else.").
  */
-function wfw_suggestions_withdraw( $note_id, $ids, $user_id = 0 ) {
-    $user_id = $user_id ? (int) $user_id : get_current_user_id();
-    $note    = wfw_agent_note( $note_id, $user_id );
+function wfw_suggestions_withdraw( $note_id, $ids ) {
+    $user_id = get_current_user_id();
+    $note    = wfw_agent_note( $note_id );
     if ( is_wp_error( $note ) ) {
         return $note;
     }
@@ -1180,8 +1182,7 @@ function wfw_suggestions_withdraw( $note_id, $ids, $user_id = 0 ) {
     foreach ( array_unique( array_map( 'intval', (array) $ids ) ) as $id ) {
         $suggestion = wfw_suggestion_get( $id );
         if ( ! $suggestion || $suggestion['note'] !== $note->ID ) {
-            /* translators: %d: the id of a suggestion. */
-            return wfw_agent_error( 'not_found', sprintf( __( 'Suggestion %d was not found.', 'wordpress-for-writers' ), $id ) );
+            return wfw_suggestion_not_found( $id );
         }
         if ( $suggestion['author']['id'] !== $user_id ) {
             /* translators: %d: the id of a suggestion. */
@@ -1219,11 +1220,10 @@ add_action( 'transition_comment_status', function ( $new_status, $old_status, $c
 // ---- Routes for the editor -------------------------------------------------------
 
 /**
- * A suggestion as the routes send it: wfw_suggestion_from_comment() without
- * `source` and `settled`, and with `change` always an object.
+ * A suggestion as the routes send it: wfw_suggestion_from_comment() with
+ * `change` always an object.
  */
 function wfw_suggestion_for_rest( $suggestion ) {
-    unset( $suggestion['source'], $suggestion['settled'] );
     $suggestion['change'] = (object) $suggestion['change'];
     return $suggestion;
 }
@@ -1264,8 +1264,7 @@ add_action( 'rest_api_init', function () {
         'permission_callback' => function ( WP_REST_Request $request ) {
             $suggestion = wfw_suggestion_get( (int) $request['id'] );
             if ( ! $suggestion || is_wp_error( wfw_agent_note( $suggestion['note'] ) ) ) {
-                /* translators: %d: the id of a suggestion. */
-                return wfw_agent_error( 'not_found', sprintf( __( 'Suggestion %d was not found.', 'wordpress-for-writers' ), (int) $request['id'] ) );
+                return wfw_suggestion_not_found( $request['id'] );
             }
             return true;
         },
@@ -1278,10 +1277,10 @@ add_action( 'rest_api_init', function () {
         ),
         'callback'            => function ( WP_REST_Request $request ) {
             $suggestion = wfw_suggestion_get( (int) $request['id'] );
-            if ( 'withdrawn' === $suggestion['status'] ) {
+            if ( $suggestion && 'withdrawn' === $suggestion['status'] ) {
                 return new WP_Error( 'withdrawn', __( 'This suggestion was withdrawn.', 'wordpress-for-writers' ), array( 'status' => 409 ) );
             }
-            $suggestion = wfw_suggestion_set_status( $suggestion['id'], $request['status'] );
+            $suggestion = wfw_suggestion_set_status( (int) $request['id'], $request['status'] );
             return is_wp_error( $suggestion ) ? $suggestion : wfw_suggestion_for_rest( $suggestion );
         },
     ) );

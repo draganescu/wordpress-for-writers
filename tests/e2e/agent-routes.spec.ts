@@ -97,15 +97,15 @@ test.describe( 'Routes for the editor', () => {
         // Settled in the last day: still listed, so it can be taken back. Core reads it as resolved.
         let list = await author( 'GET', `/wfw/v1/notes/${ note }/suggestions` );
         expect( list.body.suggestions.map( ( s: any ) => [ s.id, s.status ] ) ).toEqual( [ [ suggestion, 'accepted' ] ] );
-        let stored = await call( requestUtils, 'wfw_suggestion_get', [ suggestion ] );
-        expect( stored.result.settled ).toBeGreaterThan( 0 );
+        let stored = await call( requestUtils, 'wfw_test_meta', [ suggestion ] );
+        expect( Number( stored.result._wfw_settled ) ).toBeGreaterThan( 0 );
         expect( ( await author( 'GET', `/wp/v2/comments/${ suggestion }?context=edit` ) ).body.status ).toBe( 'approved' );
         expect( ( await call( requestUtils, 'wfw_suggestions_count_open', [ note ] ) ).result ).toBe( 0 );
 
         answer = await author( 'POST', `/wfw/v1/suggestions/${ suggestion }`, { status: 'open' } );
         expect( answer.body.status ).toBe( 'open' );
-        stored = await call( requestUtils, 'wfw_suggestion_get', [ suggestion ] );
-        expect( stored.result.settled ).toBe( 0 );
+        stored = await call( requestUtils, 'wfw_test_meta', [ suggestion ] );
+        expect( stored.result._wfw_settled ).toBeUndefined();
         expect( ( await author( 'GET', `/wp/v2/comments/${ suggestion }?context=edit` ) ).body.status ).toBe( 'hold' );
         expect( ( await call( requestUtils, 'wfw_suggestions_count_open', [ note ] ) ).result ).toBe( 1 );
 
@@ -199,7 +199,6 @@ test.describe( 'Routes for the editor', () => {
         const list = await admin( 'GET', `/wp/v2/comments?post=${ note }&type=note&status=all&context=edit` );
         expect( list.status ).toBe( 200 );
         const listed = list.body.find( ( comment: any ) => comment.id === suggestion );
-        expect( listed ).toBeTruthy();
         expect( listed.type ).toBe( 'note' );
         expect( listed.status ).toBe( 'hold' );
         expect( listed.content.raw ).toBe( 'Suggests: “rereading a word”\nReads better.' );
@@ -240,15 +239,15 @@ test.describe( 'Routes for the editor', () => {
         const admin = await restAs( 'admin' );
         // What core's editor sends to resolve a core note, and to reopen it.
         await admin( 'POST', `/wp/v2/comments/${ suggestion }`, { status: 'approved' } );
-        let stored = ( await call( requestUtils, 'wfw_suggestion_get', [ suggestion ] ) ).result;
-        expect( stored.status ).toBe( 'dismissed' );
-        expect( stored.settled ).toBeGreaterThan( 0 );
+        let stored = ( await call( requestUtils, 'wfw_test_meta', [ suggestion ] ) ).result;
+        expect( stored._wfw_status ).toBe( 'dismissed' );
+        expect( Number( stored._wfw_settled ) ).toBeGreaterThan( 0 );
         expect( ( await call( requestUtils, 'wfw_suggestions_count_open', [ note ] ) ).result ).toBe( 0 );
 
         await admin( 'POST', `/wp/v2/comments/${ suggestion }`, { status: 'hold' } );
-        stored = ( await call( requestUtils, 'wfw_suggestion_get', [ suggestion ] ) ).result;
-        expect( stored.status ).toBe( 'open' );
-        expect( stored.settled ).toBe( 0 );
+        stored = ( await call( requestUtils, 'wfw_test_meta', [ suggestion ] ) ).result;
+        expect( stored._wfw_status ).toBe( 'open' );
+        expect( stored._wfw_settled ).toBeUndefined();
         await admin.dispose();
     } );
 

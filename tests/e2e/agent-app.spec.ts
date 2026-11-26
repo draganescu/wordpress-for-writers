@@ -344,7 +344,7 @@ test.describe( 'The app on a phone, on a site an agent has used', () => {
         await postFromEditor( frame, { type: 'peek-pass', label: 'Proofread', title: 'A note', content: paragraph( 'An opening paragraph.' ) } );
         await page.waitForTimeout( 500 );
         // The editor in the app loaded nothing of the surface, and asked for nothing.
-        expect( await frame.evaluate( () => [ typeof ( window as any ).wfwAgent, document.querySelectorAll( '#wfw-suggest-js, #wfw-suggest-css' ).length ] ) ).toEqual( [ 'undefined', 0 ] );
+        expect( await frame.evaluate( () => [ typeof ( window as any ).wfwAgent, document.querySelectorAll( 'script[src*="assets/suggest.js"], link[href*="assets/suggest.css"]' ).length ] ) ).toEqual( [ 'undefined', 0 ] );
         expect( asked.filter( ( url ) => /suggest\.(js|css)|wfw\/v1/.test( url ) ) ).toEqual( [] );
         await expect( page.locator( '.wfw-peek' ) ).toBeHidden();
         await page.locator( '[data-action="back"]' ).click();

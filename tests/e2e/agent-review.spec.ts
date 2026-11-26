@@ -7,24 +7,24 @@ import { test, expect } from '@wordpress/e2e-test-utils-playwright';
 import type { Page } from '@playwright/test';
 import type { RequestUtils } from '@wordpress/e2e-test-utils-playwright';
 import {
+    FIRST,
     call,
+    content,
     createNote,
     openEditor,
     paragraph,
+    readNote,
     resetSite,
     seedEdit,
     seedSuggestions,
+    select,
     setAgentSeen,
 } from './agent-utils';
 
-const FIRST = 'I stopped rereading anything until I reached the end.';
 const SECOND = 'A second paragraph, with a <strong>bold claim</strong> in it.';
 const THIRD = 'The third and last one.';
 
 const card = ( page: Page, id: number ) => page.locator( `[data-wfw-suggestion="${ id }"]` );
-
-const content = ( page: Page ) =>
-    page.evaluate( () => ( window as any ).wp.data.select( 'core/editor' ).getEditedPostContent() as string );
 
 const statusOf = async ( requestUtils: RequestUtils, id: number ) =>
     ( await call( requestUtils, 'wfw_suggestion_get', [ id ] ) ).result.status;
@@ -38,40 +38,10 @@ const highlighted = ( page: Page, name: string ) =>
 
 const marks = ( page: Page ) => page.frameLocator( 'iframe[name="editor-canvas"]' ).locator( 'html' );
 
-// Puts the caret (or a selection) in the nth paragraph of the canvas, by offsets in its text.
-const select = ( page: Page, index: number, start: number, end = start ) =>
-    page.frame( { name: 'editor-canvas' } )!.evaluate(
-        ( [ nth, from, to ] ) => {
-            const block = document.querySelectorAll( 'p[data-block]' )[ nth ] as HTMLElement;
-            block.focus();
-            const walker = document.createTreeWalker( block, NodeFilter.SHOW_TEXT );
-            const range = document.createRange();
-            let position = 0;
-            let node: Node | null;
-            let started = false;
-            while ( ( node = walker.nextNode() ) ) {
-                const length = ( node as Text ).data.length;
-                if ( ! started && from <= position + length ) {
-                    range.setStart( node, from - position );
-                    started = true;
-                }
-                if ( started && to <= position + length ) {
-                    range.setEnd( node, to - position );
-                    break;
-                }
-                position += length;
-            }
-            const selection = document.getSelection()!;
-            selection.removeAllRanges();
-            selection.addRange( range );
-        },
-        [ index, start, end ]
-    );
-
 test.describe( 'Review', () => {
     let note: number;
 
-    test.beforeEach( async ( { page, requestUtils } ) => {
+    test.beforeEach( async ( { requestUtils } ) => {
         await resetSite( requestUtils );
         await setAgentSeen( requestUtils, true );
         note = await createNote( requestUtils, { paragraphs: [ FIRST, SECOND, THIRD ] } );
@@ -87,7 +57,7 @@ test.describe( 'Review', () => {
         const tighten = await seedSuggestions( requestUtils, note, [
             { kind: 'edit', place: { path: [ 1 ], quote: 'bold claim' }, change: { replacement: 'claim' } },
         ], { label: 'Tighten' } );
-        const before = ( await call( requestUtils, 'wfw_test_read', [ note ] ) ).result.content;
+        const before = ( await readNote( requestUtils, note ) ).content;
 
         await openEditor( page, note );
 

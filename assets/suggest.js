@@ -23,7 +23,6 @@
     const editorStore = wp.editor.store;
     const blockEditorStore = wp.blockEditor.store;
     const noticesStore = 'core/notices';
-    const domain = agent.config.domain;
 
     const NOTE = 'core/note';
     const SNACKBAR = 'wfw-agent';
@@ -148,9 +147,9 @@
      * place. Null is out of date. A suggestion about a whole block is looked
      * for among the top-level blocks, by the start of their text.
      *
-     * @param {Array}  list       The note's blocks, as listBlocks() gives them.
-     * @param {Object} suggestion The suggestion; it has an anchor.
-     * @return {?Object} { block, path, order } and, for a passage, { key, record, start, end, offset }.
+     * `list` is the note's blocks as listBlocks() gives them. What comes back
+     * is { block, path, order } and, for a passage, { key, record, start, end,
+     * offset } too.
      */
     function place( list, suggestion ) {
         const { anchor } = suggestion;
@@ -220,11 +219,8 @@
     /*
      * The note's blocks with one suggestion accepted (editor.md, Accepting), or
      * null when it is out of date. Nothing is changed in place: the editor
-     * takes the result as an edit, and Peek serializes it.
-     *
-     * @param {Array}  blocks     The note's top-level blocks.
-     * @param {Object} suggestion An `edit` or a `blocks` suggestion.
-     * @return {?Array} The blocks after it.
+     * takes the result as an edit, and Peek serializes it. `blocks` is the
+     * note's top-level blocks, and the suggestion an `edit` or a `blocks` one.
      */
     function applied( blocks, suggestion ) {
         const { anchor, change } = suggestion;
@@ -314,7 +310,7 @@
     function AskButton( { clientId } ) {
         const phone = useMedia( PHONE );
         return ! phone && el( wp.blockEditor.BlockControls, { group: 'other' },
-            el( ToolbarButton, { className: 'wfw-ask-button', onClick: () => startAsk( clientId ) }, __( 'Ask', domain ) ) );
+            el( ToolbarButton, { className: 'wfw-ask-button', onClick: () => startAsk( clientId ) }, __( 'Ask', 'wordpress-for-writers' ) ) );
     }
 
     wp.hooks.addFilter( 'editor.BlockEdit', 'wfw/ask', wp.compose.createHigherOrderComponent( ( BlockEdit ) => ( props ) => el( Fragment, null,
@@ -382,15 +378,15 @@
     // ---- Cards -----------------------------------------------------------------
 
     const KINDS = {
-        edit: () => __( 'Edit', domain ),
-        comment: () => __( 'Comment', domain ),
-        insert: () => __( 'New block', domain ),
-        remove: () => __( 'Remove block', domain ),
-        move: () => __( 'Move block', domain ),
-        titles: () => __( 'Title', domain ),
-        excerpt: () => __( 'Excerpt', domain ),
-        tags: () => __( 'Tags', domain ),
-        categories: () => __( 'Categories', domain ),
+        edit: () => __( 'Edit', 'wordpress-for-writers' ),
+        comment: () => __( 'Comment', 'wordpress-for-writers' ),
+        insert: () => __( 'New block', 'wordpress-for-writers' ),
+        remove: () => __( 'Remove block', 'wordpress-for-writers' ),
+        move: () => __( 'Move block', 'wordpress-for-writers' ),
+        titles: () => __( 'Title', 'wordpress-for-writers' ),
+        excerpt: () => __( 'Excerpt', 'wordpress-for-writers' ),
+        tags: () => __( 'Tags', 'wordpress-for-writers' ),
+        categories: () => __( 'Categories', 'wordpress-for-writers' ),
     };
 
     function kindOf( { kind, change } ) {
@@ -417,7 +413,7 @@
         }, [] );
         return missing.length > 0 && el( 'p', { className: 'wfw-card__note' },
             /* translators: %s: a list of tag or category names. */
-            sprintf( __( 'Not on this site, so left out: %s.', domain ), missing.join( ', ' ) ) );
+            sprintf( __( 'Not on this site, so left out: %s.', 'wordpress-for-writers' ), missing.join( ', ' ) ) );
     }
 
     // What a suggestion proposes, as text: nothing an agent wrote is ever set as HTML.
@@ -441,8 +437,8 @@
                     el( 'p', { className: 'wfw-card__quote' }, anchor.quote ),
                     el( 'p', { className: 'wfw-card__note' }, after
                         /* translators: %s: the first words of a block. */
-                        ? sprintf( __( 'To after “%s”', domain ), firstPoints( blockText( after ), 64 ) )
-                        : __( 'To the start of the note.', domain ) ) );
+                        ? sprintf( __( 'To after “%s”', 'wordpress-for-writers' ), firstPoints( blockText( after ), 64 ) )
+                        : __( 'To the start of the note.', 'wordpress-for-writers' ) ) );
             }
             case 'titles':
                 return el( 'ul', { className: 'wfw-card__options' }, change.value.map( ( title, index ) => el( 'li', { key: index },
@@ -490,13 +486,13 @@
         },
         el( 'span', { className: 'wfw-card__kind' }, KINDS[ kind ]() ),
         stale
-            ? el( 'p', { className: 'wfw-card__note' }, __( 'The text has changed since this was suggested.', domain ) )
+            ? el( 'p', { className: 'wfw-card__note' }, __( 'The text has changed since this was suggested.', 'wordpress-for-writers' ) )
             : el( Proposal, { suggestion, blocks, isActive, locked, onAccept } ),
         suggestion.reason && el( 'p', { className: 'wfw-card__reason' }, suggestion.reason ),
         isActive && el( 'div', { className: 'wfw-card__actions' },
-            canAccept && el( Button, { variant: 'primary', size: 'compact', disabled: locked, onClick: () => onAccept() }, __( 'Accept', domain ) ),
+            canAccept && el( Button, { variant: 'primary', size: 'compact', disabled: locked, onClick: () => onAccept() }, __( 'Accept', 'wordpress-for-writers' ) ),
             el( Button, { variant: 'tertiary', size: 'compact', disabled: locked, onClick: onDismiss },
-                kind === 'comment' && ! stale ? __( 'Resolve', domain ) : kind === 'titles' && ! stale ? __( 'Keep mine', domain ) : __( 'Dismiss', domain ) )
+                kind === 'comment' && ! stale ? __( 'Resolve', 'wordpress-for-writers' ) : kind === 'titles' && ! stale ? __( 'Keep mine', 'wordpress-for-writers' ) : __( 'Dismiss', 'wordpress-for-writers' ) )
         ) );
     }
 
@@ -504,12 +500,12 @@
     function Pass( { pass, locked, onAcceptAll, onPeek, children } ) {
         return el( 'section', { className: 'wfw-pass' },
             el( 'header', { className: 'wfw-pass__header' },
-                el( 'strong', { className: 'wfw-pass__label' }, pass.label ),
+                el( 'strong', null, pass.label ),
                 el( 'span', { className: 'wfw-pass__meta' },
-                    __( 'Agent', domain ), ' · ', el( 'time', { dateTime: pass.date + 'Z' }, wp.date.humanTimeDiff( pass.date + 'Z' ) ) ),
+                    __( 'Agent', 'wordpress-for-writers' ), ' · ', el( 'time', { dateTime: pass.date + 'Z' }, wp.date.humanTimeDiff( pass.date + 'Z' ) ) ),
                 el( 'span', { className: 'wfw-pass__actions' },
-                    el( Button, { variant: 'link', disabled: locked || ! pass.cards.some( ( card ) => ! card.stale && hasAccept( card.suggestion ) ), onClick: onAcceptAll }, __( 'Accept all', domain ) ),
-                    el( Button, { variant: 'link', onClick: onPeek }, __( 'Peek', domain ) ) )
+                    el( Button, { variant: 'link', disabled: locked || ! pass.cards.some( ( card ) => ! card.stale && hasAccept( card.suggestion ) ), onClick: onAcceptAll }, __( 'Accept all', 'wordpress-for-writers' ) ),
+                    el( Button, { variant: 'link', onClick: onPeek }, __( 'Peek', 'wordpress-for-writers' ) ) )
             ),
             children );
     }
@@ -531,16 +527,16 @@
             },
         },
         el( 'span', { className: 'wfw-card__kind' }, mine
-            ? __( 'You asked', domain )
+            ? __( 'You asked', 'wordpress-for-writers' )
             /* translators: %s: a user's name. */
-            : sprintf( __( '%s asked', domain ), ask.author_name ) ),
+            : sprintf( __( '%s asked', 'wordpress-for-writers' ), ask.author_name ) ),
         el( 'p', { className: 'wfw-ask__text' }, ask.content.raw ),
         replies.map( ( reply ) => el( 'div', { key: reply.id, className: 'wfw-ask__reply' },
             el( 'strong', null, reply.author_name ),
             el( 'p', { className: 'wfw-ask__text' }, reply.content.raw ) ) ),
         children,
         el( 'div', { className: 'wfw-card__actions' },
-            el( Button, { variant: 'tertiary', size: 'compact', disabled: locked, onClick: onResolve }, __( 'Resolve', domain ) ) ) );
+            el( Button, { variant: 'tertiary', size: 'compact', disabled: locked, onClick: onResolve }, __( 'Resolve', 'wordpress-for-writers' ) ) ) );
     }
 
     // The field Ask opens at the selection: Enter sends, Escape or a press anywhere else closes.
@@ -572,8 +568,8 @@
             rows: 3,
             maxLength: 600,
             value: text,
-            'aria-label': __( 'Your question', domain ),
-            placeholder: target.key ? __( 'Ask about this passage', domain ) : __( 'Ask about this block', domain ),
+            'aria-label': __( 'Your question', 'wordpress-for-writers' ),
+            placeholder: target.key ? __( 'Ask about this passage', 'wordpress-for-writers' ) : __( 'Ask about this block', 'wordpress-for-writers' ),
             onChange: ( event ) => setText( event.target.value ),
             onKeyDown: ( event ) => {
                 if ( event.key === 'Escape' ) {
@@ -584,20 +580,23 @@
                 }
             },
         } ),
-        el( Button, { variant: 'primary', size: 'compact', type: 'submit', disabled: ! text.trim() || sending }, __( 'Leave for an agent', domain ) ) );
+        el( Button, { variant: 'primary', size: 'compact', type: 'submit', disabled: ! text.trim() || sending }, __( 'Leave for an agent', 'wordpress-for-writers' ) ) );
     }
 
     // ---- Review ------------------------------------------------------------------
 
+    // The store's errors start with their code, for agents ("not_found: …"); the writer is shown the rest.
     function fail( error ) {
-        dispatch( noticesStore ).createErrorNotice( error.message, { type: 'snackbar', id: SNACKBAR } );
+        const message = String( error.message || '' );
+        const code = error.code ? error.code + ': ' : '';
+        dispatch( noticesStore ).createErrorNotice( code && message.startsWith( code ) ? message.slice( code.length ) : message, { type: 'snackbar', id: SNACKBAR } );
     }
 
     function say( text, onUndo ) {
         dispatch( noticesStore ).createSuccessNotice( text, {
             type: 'snackbar',
             id: SNACKBAR,
-            actions: [ { label: __( 'Undo', domain ), onClick: onUndo } ],
+            actions: [ { label: __( 'Undo', 'wordpress-for-writers' ), onClick: onUndo } ],
         } );
     }
 
@@ -946,11 +945,8 @@
         /*
          * Accepts suggestions as one edit of the note, so one step of undo
          * (editor.md, Accepting). Those gone out of date on the way (two edits
-         * of one passage) are left open.
-         *
-         * @param {Array}   list  The suggestions.
-         * @param {?string} title For a suggestion of titles, the one chosen.
-         * @return {number} How many were accepted.
+         * of one passage) are left open. `title` is the one chosen, for a
+         * suggestion of titles. Resolves to how many were accepted.
          */
         async function accept( list, title ) {
             const terms = new Map();
@@ -997,13 +993,13 @@
 
         function acceptOne( suggestion, title ) {
             refocus.current = document.activeElement.matches( '.wfw-card' );
-            accept( [ suggestion ], title ).then( ( count ) => count && say( __( 'Accepted.', domain ), () => dispatch( editorStore ).undo() ) ).catch( fail );
+            accept( [ suggestion ], title ).then( ( count ) => count && say( __( 'Accepted.', 'wordpress-for-writers' ), () => dispatch( editorStore ).undo() ) ).catch( fail );
         }
 
         function acceptAll( pass ) {
             accept( pass.cards.filter( ( card ) => ! card.stale && hasAccept( card.suggestion ) ).map( ( card ) => card.suggestion ) ).then( ( count ) => count && say(
                 /* translators: %d: number of suggestions. */
-                sprintf( _n( 'Accepted %d suggestion.', 'Accepted %d suggestions.', count, domain ), count ),
+                sprintf( _n( 'Accepted %d suggestion.', 'Accepted %d suggestions.', count, 'wordpress-for-writers' ), count ),
                 () => dispatch( editorStore ).undo()
             ) ).catch( fail );
         }
@@ -1011,7 +1007,7 @@
         function dismiss( { id } ) {
             refocus.current = document.activeElement.matches( '.wfw-card' );
             setStatus( id, 'dismissed' );
-            say( __( 'Dismissed.', domain ), () => setStatus( id, 'open' ) );
+            say( __( 'Dismissed.', 'wordpress-for-writers' ), () => setStatus( id, 'open' ) );
         }
 
         /*
@@ -1131,18 +1127,18 @@
                 },
             },
             /* translators: %d: number of suggestions. */
-            sprintf( _n( '%d suggestion', '%d suggestions', open.length, domain ), open.length ) ) ),
-            shown && sections.length > 0 && el( 'aside', { className: 'wfw-review wfw-review--' + ( wide ? 'rail' : 'sheet' ), 'aria-label': __( 'Suggestions', domain ) },
+            sprintf( _n( '%d suggestion', '%d suggestions', open.length, 'wordpress-for-writers' ), open.length ) ) ),
+            shown && sections.length > 0 && el( 'aside', { className: 'wfw-review wfw-review--' + ( wide ? 'rail' : 'sheet' ), 'aria-label': __( 'Suggestions', 'wordpress-for-writers' ) },
                 el( 'header', { className: 'wfw-review__header' },
                     wide
-                        ? el( 'h2', null, __( 'Suggestions', domain ) )
+                        ? el( 'h2', null, __( 'Suggestions', 'wordpress-for-writers' ) )
                         : el( Fragment, null,
-                            el( Button, { icon: 'arrow-left-alt2', size: 'compact', label: __( 'Previous', domain ), disabled: at < 1, onClick: () => setActive( keys[ at - 1 ] ) } ),
+                            el( Button, { icon: 'arrow-left-alt2', size: 'compact', label: __( 'Previous', 'wordpress-for-writers' ), disabled: at < 1, onClick: () => setActive( keys[ at - 1 ] ) } ),
                             el( 'span', { className: 'wfw-review__count' },
                                 /* translators: 1: the card's place, 2: how many cards. */
-                                sprintf( __( '%1$d of %2$d', domain ), at + 1, keys.length ) ),
-                            el( Button, { icon: 'arrow-right-alt2', size: 'compact', label: __( 'Next', domain ), disabled: at === keys.length - 1, onClick: () => setActive( keys[ at + 1 ] ) } ) ),
-                    el( Button, { className: 'wfw-review__close', icon: 'no-alt', size: 'compact', label: __( 'Close suggestions', domain ), onClick: () => setShown( false ) } )
+                                sprintf( __( '%1$d of %2$d', 'wordpress-for-writers' ), at + 1, keys.length ) ),
+                            el( Button, { icon: 'arrow-right-alt2', size: 'compact', label: __( 'Next', 'wordpress-for-writers' ), disabled: at === keys.length - 1, onClick: () => setActive( keys[ at + 1 ] ) } ) ),
+                    el( Button, { className: 'wfw-review__close', icon: 'no-alt', size: 'compact', label: __( 'Close suggestions', 'wordpress-for-writers' ), onClick: () => setShown( false ) } )
                 ),
                 el( 'div', { className: 'wfw-review__list' }, sections.map( ( section ) => ( section.pass
                     ? renderPass( section.pass )

@@ -67,8 +67,9 @@ class WFW_Ability extends WP_Ability {
     }
 
     /**
-     * A call by someone who may not use Writer is `not_found`, in the words a
-     * missing note has, so an ability does not tell which ids exist.
+     * A call by someone who may not use Writer is `not_found`: for an ability
+     * that names a note, in the words a missing note has, so it does not tell
+     * which ids exist.
      *
      * @param mixed $input The input.
      * @return mixed|WP_Error
@@ -80,8 +81,7 @@ class WFW_Ability extends WP_Ability {
             return $result;
         }
         if ( isset( $input['note'] ) ) {
-            /* translators: %d: the id of a note. */
-            return wfw_agent_error( 'not_found', sprintf( __( 'Note %d was not found.', 'wordpress-for-writers' ), (int) $input['note'] ) );
+            return wfw_note_not_found( $input['note'] );
         }
         return wfw_agent_error( 'not_found', __( 'A user who may use Writer was not found.', 'wordpress-for-writers' ) );
     }
@@ -148,16 +148,14 @@ function wfw_ability_passage( $note, $blocks, $place, $ask_id ) {
     if ( ! $ask_id ) {
         return wfw_agent_error( 'invalid_args', __( 'quote is required unless ask is given.', 'wordpress-for-writers' ) );
     }
-    $anchor = wfw_ask_anchor( $note, $ask_id );
-    if ( is_wp_error( $anchor ) ) {
-        return $anchor;
+    $passage = wfw_ask_passage( $note, $ask_id );
+    if ( is_wp_error( $passage ) ) {
+        return $passage;
     }
-    $block = wfw_block_at( $blocks, $anchor['path'] );
-    $start = (int) mb_strpos( $block['text'], $anchor['prefix'] . $anchor['quote'] . $anchor['suffix'] ) + mb_strlen( $anchor['prefix'] );
     return array(
-        'anchor' => $anchor,
-        'start'  => $start,
-        'end'    => $start + mb_strlen( $anchor['quote'] ),
+        'anchor' => $passage['anchor'],
+        'start'  => $passage['start'],
+        'end'    => $passage['start'] + mb_strlen( $passage['anchor']['quote'] ),
     );
 }
 
@@ -240,8 +238,7 @@ function wfw_ability_notes_list( $input ) {
                 'id'          => $note->ID,
                 'title'       => $note->post_title,
                 'status'      => $note->post_status,
-                // From the local time: a draft never saved again has no post_modified_gmt.
-                'modified'    => (string) mysql_to_rfc3339( get_gmt_from_date( $note->post_modified ) ),
+                'modified'    => wfw_note_modified( $note ),
                 'words'       => wfw_ability_words( wfw_note_blocks( $note->post_content ) ),
                 'suggestions' => wfw_suggestions_count_open( $note->ID ),
                 'asks'        => wfw_asks_count_open( $note->ID ),
@@ -474,6 +471,7 @@ function wfw_ability_suggest_details( $input ) {
         return wfw_agent_error( 'invalid_args', __( 'One of titles, excerpt, tags or categories is required.', 'wordpress-for-writers' ) );
     }
     return wfw_suggestions_create( $note->ID, array(
+        // Stored in English, as agents read it back: the pass's label in abilities.md.
         'label' => 'Details',
         'ask'   => isset( $input['ask'] ) ? (int) $input['ask'] : 0,
     ), $suggestions );
@@ -499,6 +497,7 @@ function wfw_ability_comment( $input ) {
         return $place;
     }
     return wfw_suggestions_create( $note->ID, array(
+        // Stored in English, as agents read it back: the pass's label in abilities.md.
         'label' => 'Comment',
         'ask'   => $ask_id,
     ), array(

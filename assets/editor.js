@@ -138,7 +138,7 @@
      * - config: wfwEditor.agent (see wfw_agent_editor_data() in
      *   includes/suggestions.php): seen, notes, now, script, style, domain,
      *   translations.
-     * - postId: the note's id, a number. inApp: whether the editor is in the app's frame.
+     * - postId: the note's id, a number.
      * - phone: the MediaQueryList of the phone layout. Review shows nothing while it matches.
      * - canvas: { doc, win, frame }, the canvas iframe's document, window and
      *   element as they are now (null until the canvas mounts; BlockCanvas can
@@ -168,8 +168,9 @@
      * until its first one the editor counts as on a phone.
      */
     const agentPhone = inApp ? Object.assign( new EventTarget(), { matches: true } ) : window.matchMedia( '(max-width: 700px)' );
-    const agentListeners = new Set();
     let agentReview = null;
+    // Set while AgentReview is mounted: tells it that suggest.js has handed Review over.
+    let onAgentReview = null;
 
     function onAppMessage( listener ) {
         const handler = ( event ) => {
@@ -185,7 +186,6 @@
         window.wfwAgent = {
             config: agentConfig,
             postId: Number( config.postId ),
-            inApp,
             phone: agentPhone,
             canvas,
             onCanvas( listener ) {
@@ -199,7 +199,9 @@
             onMessage: onAppMessage,
             start( Review ) {
                 agentReview = Review;
-                agentListeners.forEach( ( listener ) => listener() );
+                if ( onAgentReview ) {
+                    onAgentReview();
+                }
             },
         };
 
@@ -213,7 +215,6 @@
         style.href = agentConfig.style;
         document.head.appendChild( style );
         const script = document.createElement( 'script' );
-        script.id = 'wfw-suggest-js';
         script.src = agentConfig.script;
         document.head.appendChild( script );
     }
@@ -241,10 +242,11 @@
     function AgentReview() {
         const [ Review, setReview ] = useState( () => agentReview );
         useEffect( () => {
-            const listener = () => setReview( () => agentReview );
-            agentListeners.add( listener );
-            listener();
-            return () => agentListeners.delete( listener );
+            onAgentReview = () => setReview( () => agentReview );
+            onAgentReview();
+            return () => {
+                onAgentReview = null;
+            };
         }, [] );
         return Review ? el( Review, { agent: window.wfwAgent } ) : null;
     }
