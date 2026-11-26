@@ -19,7 +19,7 @@ The three PHP files and the two assets can be deleted together, with the stub, a
 Core, as read in WordPress 7.1.5:
 
 - The Abilities API (since 6.9): `wp_register_ability_category()` on `wp_abilities_api_categories_init`, `wp_register_ability()` on `wp_abilities_api_init`. `permission_callback` is required. `required_capabilities` is not in 7.1 and is not used.
-- Core notes: comments of the type `note`, left out of comment queries unless asked for by type. A core note on a text selection (since 7.1) is anchored in raw content by `<mark class="wp-note" data-id="N">`, which `wp_strip_inline_note_markers()` removes from rendered output. A core note on a whole block is named in the block's `metadata.noteId`. Replies are child comments; trashing or deleting a top-level core note takes its replies with it. The resolved state is the comment meta `_wp_note_status`.
+- Core notes: comments of the type `note`, left out of comment queries unless asked for by type. Its editor lists a core note that no block or marker names as "Original block deleted." A core note on a text selection (since 7.1) is anchored in raw content by `<mark class="wp-note" data-id="N">`, which `wp_strip_inline_note_markers()` removes from rendered output. A core note on a whole block is named in the block's `metadata.noteId`. Replies are child comments; trashing or deleting a top-level core note takes its replies with it. The resolved state is the comment meta `_wp_note_status`.
 
 ## Who may call
 
@@ -36,7 +36,7 @@ One comment per suggestion.
 | Field | Value |
 |---|---|
 | `comment_post_ID` | The note |
-| `comment_type` | `note` when the suggestion answers an ask (A6), with `comment_parent` the ask. Otherwise `wfw_suggestion` (A7), with no parent |
+| `comment_type` | `note`: every suggestion is a core note (A6, A7). One that answers an ask has the ask as `comment_parent`. One that answers none has no parent, and no marker in the content |
 | `user_id`, `comment_author` | The user the call ran as |
 | `comment_approved` | `1` |
 | `comment_content` | Plain text a person can read with no editor of ours: for a text edit, `Suggests: “{replacement}”` and the reason on the next line; for the other kinds, the reason or the comment itself |
@@ -56,7 +56,7 @@ Comment meta, none of it shown in core's REST routes:
 
 A comment is an agent's when it has `_wfw_kind`. Nothing else decides it.
 
-`wfw_suggestion` comments are kept out of every comment query that does not ask for the type by name, as core keeps `note` out, and out of comment counts (spike S3). They are deleted with their note, as comments are.
+Core keeps `note` comments out of comment queries, counts and the public page; the surface adds nothing for that. A suggestion with no parent has no marker, so wp-admin's editor lists it as "Original block deleted." (A7, spike S3). A suggestion resolved there (`_wp_note_status` is `resolved`) is treated as `dismissed`.
 
 Limits: a note holds at most 200 open suggestions. A call that would pass it fails with `too_many` and stores nothing.
 
@@ -70,7 +70,7 @@ An ask is a core note with no parent and no `_wfw_kind`, made by the editor thro
 |---|---|
 | `wfw_agent_seen` | The time a way in was last used on this site, as a Unix timestamp. Set by every ability call and every `wp writer` subcommand. Not autoloaded. Removed on uninstall |
 
-Uninstall also deletes every `wfw_suggestion` comment and the `_wfw_*` meta of every other comment. Core notes stay: they are the site's.
+Uninstall also deletes every comment that has `_wfw_kind`, with its meta. Asks and other core notes stay: they are the site's.
 
 ## Reading a note
 
