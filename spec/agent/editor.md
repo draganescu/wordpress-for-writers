@@ -23,7 +23,7 @@ The marks do not depend on the way in (A11). Nothing shows which agent product m
 
 ## Active suggestion
 
-One suggestion is active at a time. Its passage has an outline in `--wfw-accent` and its card shows its actions.
+One suggestion is active at a time. Its passage is underlined in `--wfw-accent` over a stronger tint (`--wfw-accent` mixed into `--wfw-mark`), and its card shows its actions. The CSS Custom Highlight API paints a background and text decorations only: no browser draws an outline, a border or a shadow in `::highlight()` (spike S2).
 
 - A click on a marked passage or on a card makes it active and scrolls the other into view.
 - Putting the caret in a marked passage makes it active.
