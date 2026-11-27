@@ -649,7 +649,9 @@ test.describe( 'Review', () => {
         await card( page, third ).click();
         await card( page, third ).getByRole( 'button', { name: 'Accept' } ).click();
         await expect( card( page, third ) ).toHaveCount( 0 );
-        await expect( card( page, second ) ).toHaveAttribute( 'data-wfw-state', 'open' );
+        // Open or active (it may take the accepted card's place), but not out of date.
+        await expect( card( page, second ) ).not.toHaveAttribute( 'data-wfw-state', 'stale' );
+        await expect( card( page, second ).getByText( 'The text has changed since this was suggested.' ) ).toHaveCount( 0 );
         await page.evaluate( () => ( window as any ).wp.data.dispatch( 'core/editor' ).undo() );
         await expect( card( page, third ) ).toBeVisible();
 
