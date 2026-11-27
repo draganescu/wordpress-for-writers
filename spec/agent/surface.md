@@ -159,7 +159,6 @@ Registered with `WP_CLI::add_command( 'writer', … )` only under WP-CLI. Three 
 ## What a site pays (A10)
 
 - Where `wfw_agent_seen` does not exist and the note has no core note, the editor page loads nothing of the surface and sends no request for it. It learns both from its config when it loads (`wfwEditor.agent`: `seen`, `notes`, `now`, and only when Review is to be loaded `script`, `style`, `domain`, `translations`, `inlineTags`, the inline tags of Reading a note). If a way in is first used while the app is open, the app learns of it from the first `suggestions` message that counts a suggestion. The app learns of the site from `wfwSettings.agent` (`seen`, `styleSheet`, `styleSheetMax`) and adds no control while `seen` is 0.
-- On a phone (A12) the editor page loads nothing of the surface either, and the app asks for no `wfw_suggestions` and adds no control.
 - Otherwise the stub loads Review. While the editor is in view and `wfw_agent_seen` is less than 10 minutes old, Review asks for the note's suggestions every 5 seconds. Outside that it learns of new ones from the Heartbeat the editor already runs.
 - Registering the abilities costs what `wp_register_ability()` costs, on requests where the Abilities API fires its hooks.
 

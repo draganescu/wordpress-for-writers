@@ -314,42 +314,27 @@ test.describe( 'The app, on a site no agent has used', () => {
 test.describe( 'The app on a phone, on a site an agent has used', () => {
     test.use( { viewport: { width: 390, height: 844 } } );
 
-    test( 'shows nothing of the surface', async ( { page, requestUtils } ) => {
+    test( 'shows the count, the style sheet and a pass to read, as anywhere', async ( { page, requestUtils } ) => {
         await resetSite( requestUtils );
         await setAgentSeen( requestUtils, true );
         const note = await createNote( requestUtils, { paragraphs: [ 'A first paragraph.' ] } );
         await seedEdit( requestUtils, note, 'first', 'opening' );
 
-        const asked: string[] = [];
-        page.on( 'request', ( request ) => asked.push( decodeURIComponent( request.url() ) ) );
         await openApp( page );
-        await expect( row( page, note ) ).toBeVisible();
-        await page.waitForTimeout( 1000 );
+        await expect( row( page, note ).locator( '.wfw-note__suggestions' ) ).toHaveText( '1' );
 
-        // No count in the list, and the list does not ask for one.
-        await expect( page.locator( '.wfw-note__suggestions' ) ).toHaveCount( 0 );
-        expect( asked.filter( ( url ) => /wfw_suggestions/.test( url ) ) ).toEqual( [] );
-
-        // No style sheet under the account menu, which is in the drawer here.
+        // The style sheet is under the account menu, which is in the drawer here.
         await page.locator( '[data-action="toggle-sidebar"]' ).first().click();
         await openAccountMenu( page );
-        await expect( page.locator( '#wfw-user-menu' ).getByRole( 'menuitem', { name: 'Edit profile' } ) ).toBeVisible();
-        await expect( styleSheetItem( page ) ).toHaveCount( 0 );
+        await expect( styleSheetItem( page ) ).toBeVisible();
         await page.keyboard.press( 'Escape' );
         await page.locator( '[data-action="close-drawer"]' ).click( { position: { x: 380, y: 400 } } );
 
-        // Neither message from the editor shows anything.
+        // The editor in the app has Review, and a pass can be read in a peek.
         const frame = await openInApp( page, note );
-        await postFromEditor( frame, { type: 'suggestions', count: 3 } );
+        await expect( page.frameLocator( '.wfw-editor iframe' ).locator( '[data-wfw-suggestions]' ) ).toHaveText( '1 suggestion' );
         await postFromEditor( frame, { type: 'peek-pass', label: 'Proofread', title: 'A note', content: paragraph( 'An opening paragraph.' ) } );
-        await page.waitForTimeout( 500 );
-        // The editor in the app loaded nothing of the surface, and asked for nothing.
-        expect( await frame.evaluate( () => [ typeof ( window as any ).wfwAgent, document.querySelectorAll( 'script[src*="assets/suggest.js"], link[href*="assets/suggest.css"]' ).length ] ) ).toEqual( [ 'undefined', 0 ] );
-        expect( asked.filter( ( url ) => /suggest\.(js|css)|wfw\/v1/.test( url ) ) ).toEqual( [] );
-        await expect( page.locator( '.wfw-peek' ) ).toBeHidden();
-        await page.locator( '[data-action="back"]' ).click();
-        await expect( row( page, note ) ).toBeVisible();
-        await expect( page.locator( '.wfw-note__suggestions' ) ).toHaveCount( 0 );
+        await expect( page.locator( '.wfw-peek .wfw-peek__body' ) ).toContainText( 'An opening paragraph.' );
     } );
 } );
 

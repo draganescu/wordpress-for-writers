@@ -17,7 +17,7 @@ Everything here is drawn by Review (`assets/suggest.js`, `assets/suggest.css`), 
 
 A core note marker (`mark.wp-note`) is content, and is drawn by the `core/note` format the editor already registers. W1 is not content.
 
-The rail is 280px wide beside the note when the editor pane is at least 900px wide. Below that the cards are a sheet at the foot of the editor, showing the active card, with previous and next. The rail and the sheet each have a Close control, and the chip opens them again. With asks and no open suggestions there is no chip, and Close is the only way to hide the rail. On a phone nothing of Review shows (A12): the stub does not load it there, and Review shows nothing while a window it was loaded in is as narrow as a phone.
+The rail is 280px wide beside the note when the editor pane is at least 900px wide. Below that the cards are a sheet at the foot of the editor, showing the active card, with previous and next. The rail and the sheet each have a Close control, and the chip opens them again. With asks and no open suggestions there is no chip, and Close is the only way to hide the rail. On a phone the sheet is the only form (A12).
 
 The marks do not depend on the way in (A11). Nothing shows which agent product made a suggestion: the surface does not know it.
 

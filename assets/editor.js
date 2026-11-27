@@ -129,9 +129,8 @@
      * Ask. A site no agent has used pays nothing for it: unless a way in was
      * used on the site (`seen`) or the note has a core note (`notes`), both
      * read from the page's config, nothing below runs, nothing is loaded and
-     * nothing is asked of the server. A phone pays nothing either: no agent
-     * runs on one, so the surface is not for it. This stub decides that and
-     * hands Review the editor; everything else of the surface is Review's.
+     * nothing is asked of the server. This stub decides that and hands
+     * Review the editor; everything else of the surface is Review's.
      *
      * What suggest.js finds, in window.wfwAgent:
      *
@@ -139,7 +138,6 @@
      *   includes/suggestions.php): seen, notes, now, script, style, domain,
      *   translations, inlineTags.
      * - postId: the note's id, a number.
-     * - phone: the MediaQueryList of the phone layout. Review shows nothing while it matches.
      * - hidden(): whether the app has this editor out of view, behind another tab or a panel.
      * - canvas: { doc, win, frame }, the canvas iframe's document, window and
      *   element as they are now (null until the canvas mounts; BlockCanvas can
@@ -159,23 +157,14 @@
     const agentConfig = config.agent || {};
     // The page's config holds Review's script only where Review is to be loaded.
     const agentWanted = !! agentConfig.script;
-    /*
-     * The app's phone layout (phoneLayout in app.js), in the shape of a
-     * MediaQueryList. In the app the frame is narrower than the window and
-     * cannot read it (Chromium isolates the editor, see the keyboard's
-     * viewport below), so the app says it with each `visibility` message;
-     * until its first one the editor counts as on a phone.
-     */
-    const agentPhone = inApp ? Object.assign( new EventTarget(), { matches: true } ) : window.matchMedia( '(max-width: 700px)' );
     let agentReview = null;
     // Set while AgentReview is mounted: tells it that suggest.js has handed Review over.
     let onAgentReview = null;
 
-    function loadAgent() {
+    if ( agentWanted ) {
         window.wfwAgent = {
             config: agentConfig,
             postId: Number( config.postId ),
-            phone: agentPhone,
             hidden: () => outOfSight,
             canvas,
             onCanvas( listener ) {
@@ -206,17 +195,6 @@
         const script = document.createElement( 'script' );
         script.src = agentConfig.script;
         document.head.appendChild( script );
-    }
-
-    if ( agentWanted ) {
-        // Review is loaded the first time the editor is not on a phone, and from then on hides itself on one.
-        const load = () => {
-            if ( ! agentPhone.matches && ! window.wfwAgent ) {
-                loadAgent();
-            }
-        };
-        agentPhone.addEventListener( 'change', load );
-        load();
     }
 
     // Review, once suggest.js has handed it over.
@@ -1298,11 +1276,6 @@
             outOfSight = !! event.data.hidden;
             if ( outOfSight ) {
                 canvas.doc?.activeElement?.blur();
-            }
-            // The app's phone layout comes with it, for the agent surface (see agentPhone).
-            if ( agentWanted && inApp && agentPhone.matches !== !! event.data.phone ) {
-                agentPhone.matches = !! event.data.phone;
-                agentPhone.dispatchEvent( new Event( 'change' ) );
             }
             return;
         }

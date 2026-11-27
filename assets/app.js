@@ -146,8 +146,8 @@
     // Phones show one pane at a time; a peek sheet only docks under the editor there.
     const phoneLayout = window.matchMedia( '(max-width: 700px)' );
 
-    // What the app shows of an agent (spec/agent): only on a site one has used, and not on phones.
-    const agentShown = () => !! settings.agent.seen && ! phoneLayout.matches;
+    // What the app shows of an agent (spec/agent): only on a site one has used.
+    const agentShown = () => !! settings.agent.seen;
 
     /*
      * The open editors, listed under Editing now: the one in view, and those
@@ -1085,7 +1085,7 @@
     }
 
     function postVisibility( tab ) {
-        tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'visibility', hidden: tab.frame.classList.contains( 'is-hidden' ), phone: phoneLayout.matches }, window.location.origin );
+        tab.frame?.contentWindow?.postMessage( { source: 'wfw', type: 'visibility', hidden: tab.frame.classList.contains( 'is-hidden' ) }, window.location.origin );
     }
 
     // How long an editor stays loaded out of view.
@@ -1480,7 +1480,7 @@
             }
             case 'peek-pass': {
                 // The note as it would read with a pass accepted, worked out by its editor: a sheet beside it, to read.
-                if ( tab === current && ! state.panel && ! phoneLayout.matches ) {
+                if ( tab === current && ! state.panel ) {
                     PEEK.openPass( tab.id, data );
                 }
                 break;
@@ -3575,14 +3575,6 @@
     renderSidebar();
     renderListHeader();
     refresh();
-    // What shows of an agent comes and goes with the phone layout.
-    phoneLayout.addEventListener( 'change', () => {
-        tabs.forEach( postVisibility );
-        if ( settings.agent.seen ) {
-            renderSidebar();
-            loadNotes( { keep: true } );
-        }
-    } );
 
     restoreTabs();
 

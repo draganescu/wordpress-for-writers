@@ -149,7 +149,6 @@ test.describe( 'A site no agent has used pays nothing', () => {
             'config',
             'hidden',
             'onCanvas',
-            'phone',
             'post',
             'postId',
             'start',

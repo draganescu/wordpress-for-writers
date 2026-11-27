@@ -550,35 +550,28 @@ test.describe( 'Review', () => {
         await expect( page.locator( '.wfw-review--rail' ) ).toBeVisible();
     } );
 
-    test( 'shows nothing in the phone layout', async ( { page, requestUtils } ) => {
+    test( 'shows the cards as the sheet on a phone, with marks and Ask', async ( { page, requestUtils } ) => {
         const edit = await seedEdit( requestUtils, note, 'rereading anything', 'rereading' );
         await page.setViewportSize( { width: 390, height: 844 } );
-        const requests: string[] = [];
-        page.on( 'request', ( request ) => {
-            if ( /wfw(%2F|\/)v1/.test( request.url() ) ) {
-                requests.push( request.url() );
-            }
-        } );
         const canvas = await openEditor( page, note );
-        await canvas.locator( 'p[data-block]' ).first().click();
-        await expect( page.locator( '.wfw-pill' ) ).toBeVisible();
-        await page.waitForTimeout( 6000 );
 
-        await expect( page.locator( '[data-wfw-suggestions]' ) ).toHaveCount( 0 );
-        await expect( page.locator( '.wfw-review' ) ).toHaveCount( 0 );
-        await expect( page.locator( '.wfw-ask-button' ) ).toHaveCount( 0 );
-        expect( await marks( page ).getAttribute( 'data-wfw-marks' ) ).toBeNull();
-        expect( await highlighted( page, 'wfw-edit' ) ).toEqual( [] );
-        expect( requests ).toEqual( [] );
-
-        // It comes back when the window grows, and goes again.
-        await page.setViewportSize( { width: 1000, height: 844 } );
-        await expect( card( page, edit ) ).toBeVisible();
+        const chip = page.locator( '.wfw-actions [data-wfw-suggestions]' );
+        await expect( chip ).toHaveText( '1 suggestion' );
         await expect( marks( page ) ).toHaveAttribute( 'data-wfw-marks', '1' );
-        await page.setViewportSize( { width: 390, height: 844 } );
-        await expect( page.locator( '.wfw-review' ) ).toHaveCount( 0 );
-        expect( await marks( page ).getAttribute( 'data-wfw-marks' ) ).toBeNull();
-        expect( await highlighted( page, 'wfw-edit' ) ).toEqual( [] );
+        await chip.click();
+        await expect( page.locator( '.wfw-review--sheet' ) ).toBeVisible();
+        await expect( card( page, edit ) ).toBeVisible();
+        // The sheet is within the screen.
+        const box = ( await page.locator( '.wfw-review--sheet' ).boundingBox() )!;
+        expect( box.x ).toBeGreaterThanOrEqual( 0 );
+        expect( box.x + box.width ).toBeLessThanOrEqual( 390 );
+        expect( box.y + box.height ).toBeLessThanOrEqual( 844 );
+
+        await card( page, edit ).getByRole( 'button', { name: 'Accept' } ).click();
+        expect( await content( page ) ).toContain( 'I stopped rereading until I reached the end.' );
+
+        await canvas.locator( 'p[data-block]' ).first().click();
+        await expect( page.locator( '.wfw-pill .wfw-ask-button' ) ).toBeVisible();
     } );
 
     test( 'tells the app the count, and hands it the note with a pass applied', async ( { page, requestUtils } ) => {

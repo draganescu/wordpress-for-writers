@@ -27,9 +27,7 @@
     const NOTE = 'core/note';
     const SNACKBAR = 'wfw-agent';
     const HIGHLIGHTS = [ 'wfw-passage', 'wfw-edit', 'wfw-active' ];
-    // The app's phone layout, as the stub reads it (agent.phone): nothing of the surface shows there.
-    const PHONE = agent.phone;
-    // A pane this wide has the rail beside the note; a narrower one has the sheet.
+    // A pane this wide has the rail beside the note; a narrower one, a phone's among them, has the sheet.
     const WIDE = window.matchMedia( '(min-width: 900px)' );
     const POLL = 5000;
     const FRESH = 600;
@@ -1305,9 +1303,5 @@
         );
     }
 
-    // Nothing of the surface shows in the app's phone layout, and nothing is asked of the server there.
-    agent.start( function Review() {
-        const phone = useMedia( PHONE );
-        return ! phone && el( Surface );
-    } );
+    agent.start( Surface );
 } )();
