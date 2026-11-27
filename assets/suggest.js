@@ -34,19 +34,23 @@
     const POLL = 5000;
     const FRESH = 600;
     const SUGGESTIONS = '/wfw/v1/notes/' + agent.postId + '/suggestions';
-    const NOTES = '/wp/v2/comments?context=edit&type=note&status=all&per_page=100&post=' + agent.postId;
+    const NOTES = '/wp/v2/comments?context=edit&type=note&status=all&per_page=-1&_fields=id,parent,status,author,author_name,content,meta&post=' + agent.postId;
 
-    // Every core note of the note, page after page: its suggestions are core notes too, and soon outnumber a page.
-    async function coreNotes() {
-        const all = [];
-        for ( let page = 1; ; page++ ) {
-            const some = await apiFetch( { path: NOTES + '&page=' + page } );
-            all.push( ...some );
-            if ( some.length < 100 ) {
-                return all;
-            }
-        }
-    }
+    // Every core note of the note. Its suggestions are core notes too, and soon outnumber a page: apiFetch asks for each page (per_page=-1).
+    const coreNotes = () => apiFetch( { path: NOTES } );
+
+    // What the server said of when a way in was last used, with how far its clock is from this one.
+    const clockOf = ( { seen, now } ) => ( { seen, skew: now - Date.now() / 1000 } );
+
+    const undo = () => dispatch( editorStore ).undo();
+
+    // The keys of what Review lists: a suggestion's card, and an ask's.
+    const cardKey = ( id ) => 's' + id;
+    const askKey = ( id ) => 'a' + id;
+
+    // A rich text attribute's value as a record to work on, and a record as an attribute's value again.
+    const toRecord = ( value ) => create( { html: value.toHTMLString() } );
+    const toData = ( record ) => RichTextData.fromHTMLString( toHTMLString( { value: record } ) );
 
     // Whether a MediaQueryList matches, now and as it changes.
     function useMedia( media ) {
@@ -66,9 +70,10 @@
      * (wfw_rich_text_html() and wfw_rich_text_plain() in suggestions.php) from
      * the block's own saved HTML, without its inner blocks': tags that are not
      * inline formatting split it into runs joined by a newline, a line break
-     * is a newline, the other tags go and entities are decoded.
+     * is a newline, the other tags go and entities are decoded. The inline
+     * tags are the store's own (WFW_INLINE_TAGS), from the page's config.
      */
-    const NOT_INLINE = /<(?!\/?(?:a|abbr|b|bdi|bdo|br|code|del|dfn|em|i|ins|kbd|mark|q|s|samp|small|span|strong|sub|sup|time|u|var)\b)[^>]*>/gi;
+    const NOT_INLINE = new RegExp( '<(?!\\/?(?:' + agent.config.inlineTags.join( '|' ) + ')\\b)[^>]*>', 'gi' );
 
     function plainText( html ) {
         const runs = html.split( NOT_INLINE )
@@ -93,12 +98,26 @@
         return blocks.filter( ( block ) => block.name !== freeform );
     }
 
-    // Every block of the note, depth-first, each with its path (surface.md, Reading a note).
-    function listBlocks( blocks, prefix = [] ) {
-        return named( blocks ).flatMap( ( block, index ) => {
+    // Every block of the note, depth-first, each with its path (surface.md, Reading a note) and its place in the list.
+    function listBlocks( blocks ) {
+        const list = [];
+        const walk = ( some, prefix ) => named( some ).forEach( ( block, index ) => {
             const path = [ ...prefix, index ];
-            return [ { block, path }, ...listBlocks( block.innerBlocks, path ) ];
+            list.push( { block, path, order: list.length } );
+            walk( block.innerBlocks, path );
         } );
+        walk( blocks, [] );
+        return list;
+    }
+
+    // The block at an anchor's path, if it has the anchor's name. A list is indexed once, the first time it is asked.
+    const indexes = new WeakMap();
+
+    function blockAt( list, anchor ) {
+        if ( ! indexes.has( list ) ) {
+            indexes.set( list, new Map( list.map( ( entry ) => [ String( entry.path ) + ' ' + entry.block.name, entry ] ) ) );
+        }
+        return indexes.get( list ).get( String( anchor.path ) + ' ' + anchor.name );
     }
 
     /*
@@ -115,7 +134,7 @@
                 if ( ! ( value instanceof RichTextData ) ) {
                     return [];
                 }
-                const record = create( { html: value.toHTMLString() } );
+                const record = toRecord( value );
                 const at = record.text ? text.indexOf( record.text.replace( /￼/g, '\n' ) ) : -1;
                 return at === -1 ? [] : [ { key, record, at } ];
             } ) );
@@ -125,20 +144,26 @@
 
     // ---- Placing -------------------------------------------------------------
 
-    // A character is a Unicode code point, as in the store.
-    function firstPoints( text, count ) {
-        return Array.from( text ).slice( 0, count ).join( '' );
+    /*
+     * A character is a Unicode code point, as in the store. The first `count`
+     * of a text from a place in it, and the last `count` up to one: read from
+     * twice as many UTF-16 units, which always hold them.
+     */
+    function firstPoints( text, count, from = 0 ) {
+        return Array.from( text.slice( from, from + count * 2 ) ).slice( 0, count ).join( '' );
     }
 
-    function lastPoints( text, count ) {
-        return Array.from( text ).slice( -count ).join( '' );
+    function lastPoints( text, count, to = text.length ) {
+        return Array.from( text.slice( Math.max( 0, to - count * 2 ), to ) ).slice( -count ).join( '' );
     }
 
-    // Where the anchor's quote is in a text, with the same 32 characters around it or alone.
-    function quoteStarts( text, anchor, withContext ) {
+    // Where the anchor's quote is in a text with the same 32 characters before it and after it: on both sides, on one at least, or wherever it is (`sides` is 2, 1 or 0).
+    function quoteStarts( text, anchor, sides ) {
         const starts = [];
         for ( let at = text.indexOf( anchor.quote ); at !== -1; at = text.indexOf( anchor.quote, at + 1 ) ) {
-            if ( ! withContext || ( lastPoints( text.slice( 0, at ), 32 ) === anchor.prefix && firstPoints( text.slice( at + anchor.quote.length ), 32 ) === anchor.suffix ) ) {
+            const before = () => lastPoints( text, 32, at ) === anchor.prefix;
+            const after = () => firstPoints( text, 32, at + anchor.quote.length ) === anchor.suffix;
+            if ( sides === 0 || ( sides === 1 ? before() || after() : before() && after() ) ) {
                 starts.push( at );
             }
         }
@@ -152,10 +177,10 @@
     }
 
     // A whole block's anchor among the top-level blocks, by the start of their text: at its path, or the one place it is.
-    function placeBlock( entries, anchor ) {
+    function placeBlock( list, anchor ) {
         const matches = ( { path, block } ) => path.length === 1 && firstPoints( blockText( block ), 64 ) === anchor.quote;
-        const here = entries.find( ( entry ) => String( entry.path ) === String( anchor.path ) && entry.block.name === anchor.name && matches( entry ) );
-        const found = here ? [ here ] : entries.filter( matches );
+        const here = blockAt( list, anchor );
+        const found = here && matches( here ) ? [ here ] : list.filter( matches );
         return found.length === 1 ? found[ 0 ] : null;
     }
 
@@ -170,31 +195,36 @@
      *
      * `list` is the note's blocks as listBlocks() gives them. What comes back
      * is { block, path, order } and, for a passage, { key, record, start, end,
-     * offset } too.
+     * offset } too; for a move that goes after a block, that block as `after`.
      */
     function place( list, suggestion ) {
         const { anchor } = suggestion;
-        const entries = list.map( ( entry, order ) => ( { ...entry, order } ) );
 
         if ( suggestion.kind === 'blocks' ) {
+            const at = placeBlock( list, anchor );
+            if ( ! at || ! anchor.after ) {
+                return at;
+            }
             // A move is placed when the block it goes after is found too.
-            const at = placeBlock( entries, anchor );
-            return at && anchor.after && ! placeBlock( entries, anchor.after ) ? null : at;
+            const after = placeBlock( list, anchor.after );
+            return after ? { ...at, after: after.block } : null;
         }
 
-        const here = entries.find( ( entry ) => String( entry.path ) === String( anchor.path ) && entry.block.name === anchor.name );
-        const text = here ? blockText( here.block ) : '';
-        const starts = here ? quoteStarts( text, anchor, true ) : [];
-        if ( starts.length ) {
-            return passage( here, starts[ 0 ], anchor.quote.length );
+        const here = blockAt( list, anchor );
+        if ( here ) {
+            const text = blockText( here.block );
+            const starts = quoteStarts( text, anchor, 2 );
+            if ( starts.length ) {
+                return passage( here, starts[ 0 ], anchor.quote.length );
+            }
+            // An edit accepted beside it changed the text on one side: the other side still tells which it is.
+            const beside = quoteStarts( text, anchor, 1 );
+            if ( beside.length === 1 ) {
+                return passage( here, beside[ 0 ], anchor.quote.length );
+            }
         }
-        // An edit accepted beside it changed the text on one side: the other side still tells which it is.
-        const beside = here ? quoteStarts( text, anchor, false ).filter( ( at ) => lastPoints( text.slice( 0, at ), 32 ) === anchor.prefix || firstPoints( text.slice( at + anchor.quote.length ), 32 ) === anchor.suffix ) : [];
-        if ( beside.length === 1 ) {
-            return passage( here, beside[ 0 ], anchor.quote.length );
-        }
-        for ( const withContext of [ true, false ] ) {
-            const found = entries.flatMap( ( entry ) => quoteStarts( blockText( entry.block ), anchor, withContext ).map( ( start ) => [ entry, start ] ) );
+        for ( const sides of [ 2, 0 ] ) {
+            const found = list.flatMap( ( entry ) => quoteStarts( blockText( entry.block ), anchor, sides ).map( ( start ) => [ entry, start ] ) );
             if ( found.length === 1 ) {
                 return passage( found[ 0 ][ 0 ], found[ 0 ][ 1 ], anchor.quote.length );
             }
@@ -256,15 +286,19 @@
 
     /*
      * What accepting a suggestion does to the note's blocks (editor.md,
-     * Accepting), placed in the note as it is: null when it is out of date, or
-     * is an insert with no block the editor takes. `list` is what listBlocks()
-     * gives for the note's blocks, and the suggestion an `edit` or a `blocks`
-     * one. Blocks are named by themselves,
+     * Accepting), placed in the note as it is: null when it is out of date,
+     * and { suggestion, refused: true } for an insert with no block the editor
+     * takes. `list` is what listBlocks() gives for the note's blocks, and the
+     * suggestion an `edit` or a `blocks` one. Blocks are named by themselves,
      * not by where they are, so several plans made of one note can be carried
      * out together.
      */
     function planned( list, suggestion ) {
         const { anchor, change } = suggestion;
+        const made = change.op === 'insert' ? insertable( change.markup ) : null;
+        if ( made && ! made.length ) {
+            return { suggestion, refused: true };
+        }
         const at = anchor && place( list, suggestion );
         if ( anchor && ! at ) {
             return null;
@@ -272,9 +306,8 @@
         if ( suggestion.kind === 'edit' ) {
             return { suggestion, edit: at };
         }
-        if ( change.op === 'insert' ) {
-            const made = insertable( change.markup );
-            return made.length ? { suggestion, insert: made, after: at ? at.block : null } : null;
+        if ( made ) {
+            return { suggestion, insert: made, after: at ? at.block : null };
         }
         if ( change.op === 'remove' ) {
             return { suggestion, remove: at.block };
@@ -282,9 +315,8 @@
         if ( change.after < 0 ) {
             return { suggestion, move: at.block, after: null };
         }
-        // Where a move goes is a block too, found as the one it moves is.
-        const after = placeBlock( list.map( ( entry, order ) => ( { ...entry, order } ) ), anchor.after );
-        return after ? { suggestion, move: at.block, after: after.block } : null;
+        // Where a move goes is a block too, found with the one it moves.
+        return at.after ? { suggestion, move: at.block, after: at.after } : null;
     }
 
     /*
@@ -293,12 +325,13 @@
      * result as an edit, and Peek serializes it. The blocks are inserted,
      * removed and moved first; then each rich text takes its edits from the
      * last to the first, so none moves another. A plan whose block another
-     * removed, or whose passage another edit took, is left out.
+     * removed, or whose passage another edit took, is left out, and so is
+     * one that was refused.
      */
     function carriedOut( blocks, plans ) {
         let next = blocks;
         const done = [];
-        plans.filter( Boolean ).forEach( ( plan ) => {
+        plans.filter( ( plan ) => plan && ! plan.refused ).forEach( ( plan ) => {
             const block = plan.remove || plan.move;
             if ( plan.edit || ( block && ! next.includes( block ) ) || ( plan.after && ! next.includes( plan.after ) ) ) {
                 return;
@@ -332,7 +365,7 @@
                 } );
                 done.push( ...taken.map( ( plan ) => plan.suggestion ) );
                 const value = taken.reduceRight( ( record, plan ) => replaced( record, plan.edit.start, plan.edit.end, plan.suggestion.change.replacement ), taken[ 0 ].edit.record );
-                return [ key, RichTextData.fromHTMLString( toHTMLString( { value } ) ) ];
+                return [ key, toData( value ) ];
             } ) );
         } );
         return { blocks: next, done };
@@ -362,14 +395,14 @@
 
     // A rich text with core's marker of a core note around a passage, outside the other formats there.
     function withMarker( value, id, start, end ) {
-        const record = create( { html: value.toHTMLString() } );
+        const record = toRecord( value );
         const format = { type: NOTE, attributes: { 'data-id': String( id ) } };
         const formats = record.formats.slice();
         for ( let i = start; i < end; i++ ) {
             const stack = formats[ i ] || [];
             formats[ i ] = [ ...stack.filter( ( other ) => other.type === NOTE ), format, ...stack.filter( ( other ) => other.type !== NOTE ) ];
         }
-        return RichTextData.fromHTMLString( toHTMLString( { value: { ...record, formats } } ) );
+        return toData( { ...record, formats } );
     }
 
     // A block's attributes that lose a core note's marker (every core note's, with no id), or null when it has none.
@@ -379,34 +412,28 @@
             if ( ! ( value instanceof RichTextData ) || value.toHTMLString().indexOf( 'wp-note' ) === -1 ) {
                 return;
             }
-            const record = create( { html: value.toHTMLString() } );
+            const record = toRecord( value );
             const marks = ( format ) => format.type === NOTE && ( id === undefined || format.attributes[ 'data-id' ] === String( id ) );
             if ( ! record.formats.some( ( stack ) => stack && stack.some( marks ) ) ) {
                 return;
             }
             const formats = record.formats.map( ( stack ) => stack && stack.filter( ( format ) => ! marks( format ) ) );
-            changed = { ...changed, [ key ]: RichTextData.fromHTMLString( toHTMLString( { value: { ...record, formats } } ) ) };
+            changed = { ...changed, [ key ]: toData( { ...record, formats } ) };
         } );
         return changed;
     }
 
     /*
      * Ask, in the formatting pill, for the selected block. The pill is the
-     * block's toolbar, so the button is a fill of its controls. What it opens
-     * is Review's (see startAsk below).
+     * block's toolbar, so the button is a fill of its controls. Review adds
+     * it while it shows, and what it opens is Review's: `onAsk` takes the
+     * block's clientId.
      */
-    let startAsk = null;
-
-    function AskButton( { clientId } ) {
-        const phone = useMedia( PHONE );
-        return ! phone && el( wp.blockEditor.BlockControls, { group: 'other' },
-            el( ToolbarButton, { className: 'wfw-ask-button', onClick: () => startAsk( clientId ) }, __( 'Ask', 'wordpress-for-writers' ) ) );
-    }
-
-    wp.hooks.addFilter( 'editor.BlockEdit', 'wfw/ask', wp.compose.createHigherOrderComponent( ( BlockEdit ) => ( props ) => el( Fragment, null,
+    const withAsk = ( onAsk ) => wp.compose.createHigherOrderComponent( ( BlockEdit ) => ( props ) => el( Fragment, null,
         el( BlockEdit, props ),
-        props.isSelected && el( AskButton, { clientId: props.clientId } )
-    ), 'withAsk' ) );
+        props.isSelected && el( wp.blockEditor.BlockControls, { group: 'other' },
+            el( ToolbarButton, { className: 'wfw-ask-button', onClick: () => onAsk( props.clientId ) }, __( 'Ask', 'wordpress-for-writers' ) ) )
+    ), 'withAsk' );
 
     // ---- Marks ---------------------------------------------------------------
 
@@ -507,8 +534,10 @@
     }
 
     // What a suggestion proposes, as text: nothing an agent wrote is ever set as HTML.
-    function Proposal( { suggestion, blocks, isActive, locked, onAccept } ) {
+    function Proposal( { suggestion, isActive, locked, onAccept } ) {
         const { anchor, change } = suggestion;
+        // Text that would come into the note (`ins`) or go from it (`del`).
+        const changed = ( tag, text ) => el( 'p', { className: 'wfw-card__change' }, el( tag, null, text ) );
         switch ( kindOf( suggestion ) ) {
             case 'edit':
                 return el( 'p', { className: 'wfw-card__change' },
@@ -518,9 +547,9 @@
             case 'comment':
                 return el( 'p', { className: 'wfw-card__quote' }, anchor.quote );
             case 'insert':
-                return el( 'p', { className: 'wfw-card__change' }, el( 'ins', null, plainText( change.markup.replace( /<!--[\s\S]*?-->/g, '' ) ) ) );
+                return changed( 'ins', plainText( change.markup.replace( /<!--[\s\S]*?-->/g, '' ) ) );
             case 'remove':
-                return el( 'p', { className: 'wfw-card__change' }, el( 'del', null, anchor.quote ) );
+                return changed( 'del', anchor.quote );
             case 'move': {
                 return el( Fragment, null,
                     el( 'p', { className: 'wfw-card__quote' }, anchor.quote ),
@@ -535,17 +564,18 @@
                         ? el( Button, { variant: 'secondary', disabled: locked, onClick: () => onAccept( title ) }, title )
                         : title ) ) );
             case 'excerpt':
-                return el( 'p', { className: 'wfw-card__change' }, el( 'ins', null, change.value ) );
+                return changed( 'ins', change.value );
             default:
                 return el( Fragment, null,
-                    el( 'p', { className: 'wfw-card__change' }, el( 'ins', null, change.value.join( ', ' ) ) ),
+                    changed( 'ins', change.value.join( ', ' ) ),
                     el( LeftOut, { field: change.field, names: change.value } ) );
         }
     }
 
-    function Card( { suggestion, stale, blocks, isActive, locked, onActivate, onFocus, onAccept, onDismiss, onMove } ) {
+    // `card` is one of the cards Surface lists: { suggestion, key, at, stale, canAccept, order }.
+    function Card( { card, isActive, locked, onActivate, onFocus, onAccept, onDismiss, onMove } ) {
+        const { suggestion, stale, canAccept } = card;
         const kind = kindOf( suggestion );
-        const canAccept = ! stale && hasAccept( suggestion );
         return el( 'div', {
             className: 'wfw-card' + ( isActive ? ' is-active' : '' ),
             'data-wfw-suggestion': suggestion.id,
@@ -576,7 +606,7 @@
         el( 'span', { className: 'wfw-card__kind' }, KINDS[ kind ]() ),
         stale
             ? el( 'p', { className: 'wfw-card__note' }, __( 'The text has changed since this was suggested.', 'wordpress-for-writers' ) )
-            : el( Proposal, { suggestion, blocks, isActive, locked, onAccept } ),
+            : el( Proposal, { suggestion, isActive, locked, onAccept } ),
         suggestion.reason && el( 'p', { className: 'wfw-card__reason' }, suggestion.reason ),
         isActive && el( 'div', { className: 'wfw-card__actions' },
             canAccept && el( Button, { variant: 'primary', size: 'compact', disabled: locked, onClick: () => onAccept() }, __( 'Accept', 'wordpress-for-writers' ) ),
@@ -593,7 +623,7 @@
                 el( 'span', { className: 'wfw-pass__meta' },
                     __( 'Agent', 'wordpress-for-writers' ), ' · ', el( 'time', { dateTime: pass.date + 'Z' }, wp.date.humanTimeDiff( pass.date + 'Z' ) ) ),
                 el( 'span', { className: 'wfw-pass__actions' },
-                    el( Button, { variant: 'link', disabled: locked || ! pass.cards.some( ( card ) => ! card.stale && hasAccept( card.suggestion ) ), onClick: onAcceptAll }, __( 'Accept all', 'wordpress-for-writers' ) ),
+                    el( Button, { variant: 'link', disabled: locked || ! pass.cards.some( ( card ) => card.canAccept ), onClick: onAcceptAll }, __( 'Accept all', 'wordpress-for-writers' ) ),
                     el( Button, { variant: 'link', onClick: onPeek }, __( 'Peek', 'wordpress-for-writers' ) ) )
             ),
             children );
@@ -704,43 +734,50 @@
         const wide = useMedia( WIDE );
         const [ suggestions, setSuggestions ] = useState( null );
         const [ notes, setNotes ] = useState( [] );
+        const [ askIds, setAskIds ] = useState( [] );
         const [ active, setActive ] = useState( null );
         const [ shown, setShown ] = useState( wide );
         const [ asking, setAsking ] = useState( null );
 
         // ---- What the server holds ---------------------------------------------
 
-        const clock = useRef( { seen: agent.config.seen, skew: agent.config.now - Date.now() / 1000 } );
+        const clock = useRef( clockOf( agent.config ) );
         const known = useRef( new Set() );
         const asked = useRef( 0 );
         const writes = useRef( 0 );
-        const beat = useRef( { open: 0, latest: null } );
+        const latest = useRef( null );
+
+        // What the server last said, as JSON: most answers say it again, and then nothing is set.
+        const said = useRef( {} );
+
+        function take( name, value, set ) {
+            const json = JSON.stringify( value );
+            if ( said.current[ name ] !== json ) {
+                said.current[ name ] = json;
+                set( value );
+            }
+        }
 
         /*
          * Asks for the note's suggestions, and for its core notes too when
-         * asked to or when a suggestion is new (it may answer an ask). The
-         * core notes are read first: an open one that is no suggestion is an
-         * ask, so the suggestions must be at least as new. An answer that a
-         * later request or a status on its way to the server has overtaken is
-         * dropped.
+         * asked to or when a suggestion is new (it may answer an ask). An
+         * answer that a later request or a status on its way to the server
+         * has overtaken is dropped.
          */
         async function refresh( everything ) {
             const mine = ++asked.current;
-            let answer = everything ? null : await apiFetch( { path: SUGGESTIONS } );
-            let threads = null;
-            if ( ! answer || answer.suggestions.some( ( suggestion ) => ! known.current.has( suggestion.id ) ) ) {
-                threads = await coreNotes();
-                answer = await apiFetch( { path: SUGGESTIONS } );
-            }
+            const answer = await apiFetch( { path: SUGGESTIONS } );
+            const threads = everything || answer.suggestions.some( ( suggestion ) => ! known.current.has( suggestion.id ) ) ? await coreNotes() : null;
             if ( mine !== asked.current || writes.current ) {
                 return;
             }
             known.current = new Set( answer.suggestions.map( ( suggestion ) => suggestion.id ) );
-            clock.current = { seen: answer.seen, skew: answer.now - Date.now() / 1000 };
+            clock.current = clockOf( answer );
             if ( threads ) {
-                setNotes( threads );
+                take( 'notes', threads, setNotes );
             }
-            setSuggestions( answer.suggestions );
+            take( 'asks', answer.asks, setAskIds );
+            take( 'suggestions', answer.suggestions, setSuggestions );
         }
 
         // A suggestion's statuses reach the server in the order they were set: an accept and its undo may be a moment apart.
@@ -748,6 +785,8 @@
 
         function setStatus( id, status ) {
             writes.current++;
+            // Changed here before the server knows: its next answer is taken, whatever it says.
+            delete said.current.suggestions;
             setSuggestions( ( list ) => list.map( ( suggestion ) => ( suggestion.id === id ? { ...suggestion, status } : suggestion ) ) );
             const sent = ( sending.current.get( id ) || Promise.resolve() ).then( () => apiFetch( { path: '/wfw/v1/suggestions/' + id, method: 'POST', data: { status } } ).catch( fail ) );
             sending.current.set( id, sent );
@@ -767,7 +806,16 @@
          */
         useEffect( () => {
             const polling = () => ! agent.hidden() && ! document.hidden && clock.current.seen > 0 && Date.now() / 1000 + clock.current.skew - clock.current.seen < FRESH;
-            const timer = setInterval( () => polling() && refresh().catch( () => {} ), POLL );
+            // One poll at a time: a slow answer is waited for, not asked for again.
+            let waiting = false;
+            const timer = setInterval( () => {
+                if ( ! waiting && polling() ) {
+                    waiting = true;
+                    refresh().catch( () => {} ).finally( () => {
+                        waiting = false;
+                    } );
+                }
+            }, POLL );
             wp.hooks.addAction( 'heartbeat.send', 'wfw/suggestions', ( data ) => {
                 if ( ! polling() ) {
                     data[ 'wfw-suggestions' ] = { note: agent.postId };
@@ -778,11 +826,11 @@
                 if ( ! told ) {
                     return;
                 }
-                clock.current = { seen: told.seen, skew: told.now - Date.now() / 1000 };
-                if ( told.open !== beat.current.open || ( beat.current.latest !== null && told.latest !== beat.current.latest ) ) {
+                clock.current = clockOf( told );
+                if ( told.open !== view.current.cards.length || ( latest.current !== null && told.latest !== latest.current ) ) {
                     refresh( true ).catch( () => {} );
                 }
-                beat.current.latest = told.latest;
+                latest.current = told.latest;
             } );
             refresh( true ).catch( fail );
             return () => {
@@ -795,7 +843,6 @@
         // ---- What is shown ---------------------------------------------------------
 
         const open = useMemo( () => ( suggestions || [] ).filter( ( suggestion ) => suggestion.status === 'open' ), [ suggestions ] );
-        beat.current.open = open.length;
 
         // The app's list shows the count (W5): told once the suggestions are here, then when it changes.
         useEffect( () => {
@@ -808,21 +855,28 @@
          * The cards, in the order of their passages: the passes that answer
          * no ask and the asks, each ask with the passes that answer it.
          * Details and the suggestions out of date come last in their pass.
+         * A card is { suggestion, key, at (its place in the note, or null),
+         * stale, canAccept, order }; `cards` is every card, in the order of
+         * `open`, and `keys` the keys of the cards and the asks as listed.
          */
-        const { sections, keys, places } = useMemo( () => {
+        const { sections, cards, keys } = useMemo( () => {
             const list = listBlocks( blocks );
-            const found = new Map( open.map( ( suggestion ) => [ suggestion.id, suggestion.anchor ? place( list, suggestion ) : null ] ) );
+            const made = new Map();
             const order = ( a, b ) => a.order[ 0 ] - b.order[ 0 ] || a.order[ 1 ] - b.order[ 1 ];
             const passes = ( ofPass ) => {
                 const byPass = new Map();
                 ofPass.forEach( ( suggestion ) => {
-                    const at = found.get( suggestion.id );
+                    const at = suggestion.anchor ? place( list, suggestion ) : null;
                     const stale = !! suggestion.anchor && ! at;
                     const card = {
                         suggestion,
+                        key: cardKey( suggestion.id ),
+                        at,
                         stale,
+                        canAccept: ! stale && hasAccept( suggestion ),
                         order: stale ? [ Infinity, 1 ] : suggestion.kind === 'details' ? [ Infinity, 0 ] : at ? [ at.order, at.offset || 0 ] : [ -1, 0 ],
                     };
+                    made.set( suggestion.id, card );
                     if ( ! byPass.has( suggestion.pass ) ) {
                         byPass.set( suggestion.pass, { id: suggestion.pass, label: suggestion.label, date: suggestion.date, cards: [] } );
                     }
@@ -831,14 +885,15 @@
                 return [ ...byPass.values() ].map( ( pass ) => ( { ...pass, cards: pass.cards.sort( order ), order: pass.cards[ 0 ].order } ) ).sort( order );
             };
 
-            const ids = new Set( ( suggestions || [] ).map( ( suggestion ) => suggestion.id ) );
-            const asks = notes.filter( ( note ) => ! note.parent && note.status === 'hold' && ! ids.has( note.id ) );
+            // The server says which core notes are open asks; one resolved here is no longer on hold.
+            const asks = notes.filter( ( note ) => askIds.includes( note.id ) && note.status === 'hold' );
             const all = [
                 ...passes( open.filter( ( suggestion ) => ! asks.some( ( ask ) => ask.id === suggestion.ask ) ) ).map( ( pass ) => ( { pass, order: pass.order } ) ),
                 ...asks.map( ( ask ) => {
                     const index = list.findIndex( ( { block } ) => noteIds( block.attributes.metadata ).includes( ask.id ) );
                     return {
                         ask,
+                        key: askKey( ask.id ),
                         // A thread is shown without the empty children that record a resolve or a reopen.
                         replies: notes.filter( ( note ) => note.parent === ask.id && ! ( note.meta && note.meta._wp_note_status ) && ! open.some( ( suggestion ) => suggestion.id === note.id ) ).sort( ( a, b ) => a.id - b.id ),
                         passes: passes( open.filter( ( suggestion ) => suggestion.ask === ask.id ) ),
@@ -846,13 +901,13 @@
                     };
                 } ),
             ].sort( order );
-            const cardKeys = ( pass ) => pass.cards.map( ( card ) => 's' + card.suggestion.id );
+            const cardKeys = ( pass ) => pass.cards.map( ( card ) => card.key );
             return {
                 sections: all,
-                keys: all.flatMap( ( section ) => ( section.pass ? cardKeys( section.pass ) : [ 'a' + section.ask.id, ...section.passes.flatMap( cardKeys ) ] ) ),
-                places: found,
+                cards: open.map( ( suggestion ) => made.get( suggestion.id ) ),
+                keys: all.flatMap( ( section ) => ( section.pass ? cardKeys( section.pass ) : [ section.key, ...section.passes.flatMap( cardKeys ) ] ) ),
             };
-        }, [ blocks, suggestions, notes ] );
+        }, [ blocks, suggestions, notes, askIds ] );
 
         /*
          * When the active card goes (accepted, dismissed, resolved), the one
@@ -883,14 +938,28 @@
 
         /*
          * Ranges do not outlive an edit of their block, so none is kept: the
-         * marks are drawn again from the places above after every render and
+         * marks are drawn again from the cards above after every render and
          * every change in the canvas, once a frame. The registry and the
          * rules belong to the canvas's own window and document.
          */
         const view = useRef();
-        view.current = { open, places, active };
+        view.current = { cards, active };
         const ranges = useRef( new Map() );
+        const marks = useRef( null );
         const frame = useRef( 0 );
+
+        // The canvas's three highlights, made and registered once for its window; each frame fills them again.
+        function highlightsOf( win ) {
+            if ( ! marks.current || marks.current.win !== win ) {
+                marks.current = { win };
+                HIGHLIGHTS.forEach( ( name, priority ) => {
+                    marks.current[ name ] = new win.Highlight();
+                    marks.current[ name ].priority = priority;
+                    win.CSS.highlights.set( name, marks.current[ name ] );
+                } );
+            }
+            return marks.current;
+        }
 
         function draw() {
             frame.current = 0;
@@ -898,24 +967,19 @@
             if ( ! doc || ! win.Highlight ) {
                 return;
             }
-            const drawn = Object.fromEntries( HIGHLIGHTS.map( ( name ) => [ name, [] ] ) );
+            const drawn = highlightsOf( win );
+            HIGHLIGHTS.forEach( ( name ) => drawn[ name ].clear() );
             ranges.current = new Map();
-            view.current.open.forEach( ( suggestion ) => {
-                const at = view.current.places.get( suggestion.id );
+            view.current.cards.forEach( ( { suggestion, key, at } ) => {
                 const range = at && kindOf( suggestion ) !== 'insert' && rangeOf( doc, at );
                 if ( ! range ) {
                     return;
                 }
-                ranges.current.set( suggestion.id, range );
-                drawn[ suggestion.kind === 'edit' ? 'wfw-edit' : 'wfw-passage' ].push( range );
-                if ( view.current.active === 's' + suggestion.id ) {
-                    drawn[ 'wfw-active' ].push( range );
+                ranges.current.set( key, range );
+                drawn[ suggestion.kind === 'edit' ? 'wfw-edit' : 'wfw-passage' ].add( range );
+                if ( view.current.active === key ) {
+                    drawn[ 'wfw-active' ].add( range );
                 }
-            } );
-            HIGHLIGHTS.forEach( ( name, priority ) => {
-                const highlight = new win.Highlight( ...drawn[ name ] );
-                highlight.priority = priority;
-                win.CSS.highlights.set( name, highlight );
             } );
             doc.documentElement.dataset.wfwMarks = ranges.current.size;
         }
@@ -960,9 +1024,9 @@
                     const hit = [ ...ranges.current ].find( ( [ , range ] ) => [ ...range.getClientRects() ].some( ( box ) => event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom ) );
                     const marker = ! hit && event.target.closest && event.target.closest( 'mark.wp-note' );
                     if ( hit ) {
-                        activate( 's' + hit[ 0 ] );
+                        activate( hit[ 0 ] );
                     } else if ( marker ) {
-                        activate( 'a' + marker.dataset.id );
+                        activate( askKey( marker.dataset.id ) );
                     }
                 }, { signal: listeners.signal } );
                 // The caret in a marked passage.
@@ -973,7 +1037,7 @@
                     }
                     const hit = [ ...ranges.current ].find( ( [ , range ] ) => range.isPointInRange( selection.focusNode, selection.focusOffset ) );
                     if ( hit ) {
-                        setActive( 's' + hit[ 0 ] );
+                        setActive( hit[ 0 ] );
                     }
                 }, { signal: listeners.signal } );
                 observer = new MutationObserver( schedule );
@@ -985,6 +1049,7 @@
                 leave();
                 cancelAnimationFrame( frame.current );
                 const { doc, win } = agent.canvas;
+                marks.current = null;
                 if ( doc && win.Highlight ) {
                     HIGHLIGHTS.forEach( ( name ) => win.CSS.highlights.delete( name ) );
                     delete doc.documentElement.dataset.wfwMarks;
@@ -993,10 +1058,10 @@
             };
         }, [] );
 
-        // A card was pressed: its passage, or its ask's marker, comes into view.
-        function reveal( key ) {
+        // A card was pressed: its passage comes into view, or for an ask's card (`askId`) the ask's marker.
+        function reveal( key, askId ) {
             const { doc, win } = agent.canvas;
-            const shownAt = key[ 0 ] === 's' ? ranges.current.get( Number( key.slice( 1 ) ) ) : doc.querySelector( 'mark.wp-note[data-id="' + key.slice( 1 ) + '"]' );
+            const shownAt = askId ? doc.querySelector( 'mark.wp-note[data-id="' + askId + '"]' ) : ranges.current.get( key );
             const box = shownAt && shownAt.getBoundingClientRect();
             if ( box && ( box.top < 0 || box.bottom > win.innerHeight ) ) {
                 win.scrollBy( 0, box.top - win.innerHeight / 3 );
@@ -1048,10 +1113,11 @@
             // Every suggestion is placed in the note as it is, so that accepting one does not put its neighbour out of date.
             const ofBlocks = list.filter( ( suggestion ) => suggestion.kind !== 'details' );
             const places = listBlocks( before );
-            const { blocks: next, done: taken } = carriedOut( before, ofBlocks.map( ( suggestion ) => planned( places, suggestion ) ) );
+            const plans = ofBlocks.map( ( suggestion ) => planned( places, suggestion ) );
+            const { blocks: next, done: taken } = carriedOut( before, plans );
             const done = taken.map( ( suggestion ) => suggestion.id );
             // An insert none of whose blocks the editor takes: it stays open, and the writer is told.
-            const refused = ofBlocks.some( ( suggestion ) => suggestion.change.op === 'insert' && ! insertable( suggestion.change.markup ).length );
+            const refused = plans.some( ( plan ) => plan && plan.refused );
             list.filter( ( suggestion ) => suggestion.kind === 'details' ).forEach( ( suggestion ) => {
                 const { field, value } = suggestion.change;
                 if ( field === 'titles' ) {
@@ -1082,14 +1148,14 @@
 
         function acceptOne( suggestion, title ) {
             refocus.current = document.activeElement.matches( '.wfw-card' );
-            accept( [ suggestion ], title ).then( ( count ) => count && say( __( 'Accepted.', 'wordpress-for-writers' ), () => dispatch( editorStore ).undo() ) ).catch( fail );
+            accept( [ suggestion ], title ).then( ( count ) => count && say( __( 'Accepted.', 'wordpress-for-writers' ), undo ) ).catch( fail );
         }
 
         function acceptAll( pass ) {
-            accept( pass.cards.filter( ( card ) => ! card.stale && hasAccept( card.suggestion ) ).map( ( card ) => card.suggestion ) ).then( ( count ) => count && say(
+            accept( pass.cards.filter( ( card ) => card.canAccept ).map( ( card ) => card.suggestion ) ).then( ( count ) => count && say(
                 /* translators: %d: number of suggestions. */
                 sprintf( _n( 'Accepted %d suggestion.', 'Accepted %d suggestions.', count, 'wordpress-for-writers' ), count ),
-                () => dispatch( editorStore ).undo()
+                undo
             ) ).catch( fail );
         }
 
@@ -1121,9 +1187,10 @@
         /*
          * Ask is about the selected text of one rich text, or, with only a
          * caret, about the whole block. The field opens at what is asked about.
+         * The button is in the blocks' toolbars while Review shows.
          */
         useEffect( () => {
-            startAsk = ( clientId ) => {
+            const startAsk = ( clientId ) => {
                 const store = select( blockEditorStore );
                 const from = store.getSelectionStart();
                 const to = store.getSelectionEnd();
@@ -1140,6 +1207,8 @@
                     left: origin.left + box.left,
                 } );
             };
+            wp.hooks.addFilter( 'editor.BlockEdit', 'wfw/ask', withAsk( startAsk ) );
+            return () => wp.hooks.removeFilter( 'editor.BlockEdit', 'wfw/ask' );
         }, [] );
 
         /*
@@ -1161,7 +1230,7 @@
             dispatch( blockEditorStore ).updateBlockAttributes( asking.clientId, next );
             setAsking( null );
             await refresh( true );
-            activate( 'a' + note.id );
+            activate( askKey( note.id ) );
         }
 
         /*
@@ -1180,23 +1249,22 @@
                 }
             } );
             passes.forEach( ( pass ) => pass.cards.forEach( ( card ) => setStatus( card.suggestion.id, 'dismissed' ) ) );
+            delete said.current.notes;
             setNotes( ( list ) => list.map( ( note ) => ( note.id === ask.id ? { ...note, status: 'approved' } : note ) ) );
         }
 
         // ---- The chip, the rail or the sheet, and the field --------------------------
 
         const renderPass = ( pass ) => el( Pass, { key: pass.id, pass, locked, onAcceptAll: () => acceptAll( pass ), onPeek: () => peek( pass ) },
-            pass.cards.map( ( { suggestion, stale } ) => el( Card, {
-                key: suggestion.id,
-                suggestion,
-                stale,
-                blocks,
+            pass.cards.map( ( card ) => el( Card, {
+                key: card.key,
+                card,
                 locked,
-                isActive: active === 's' + suggestion.id,
-                onActivate: () => reveal( 's' + suggestion.id ),
-                onFocus: () => setActive( 's' + suggestion.id ),
-                onAccept: ( title ) => acceptOne( suggestion, title ),
-                onDismiss: () => dismiss( suggestion ),
+                isActive: active === card.key,
+                onActivate: () => reveal( card.key ),
+                onFocus: () => setActive( card.key ),
+                onAccept: ( title ) => acceptOne( card.suggestion, title ),
+                onDismiss: () => dismiss( card.suggestion ),
                 onMove: move,
             } ) ) );
         const at = keys.indexOf( active );
@@ -1215,7 +1283,7 @@
             /* translators: %d: number of suggestions. */
             sprintf( _n( '%d suggestion', '%d suggestions', open.length, 'wordpress-for-writers' ), open.length ) ) ),
             shown && sections.length > 0 && el( 'aside', { className: 'wfw-review wfw-review--' + ( wide ? 'rail' : 'sheet' ), 'aria-label': __( 'Suggestions', 'wordpress-for-writers' ) },
-                el( 'header', { className: 'wfw-review__header' },
+                el( 'header', { className: 'wfw-sheet__header wfw-review__header' },
                     wide
                         ? el( 'h2', null, __( 'Suggestions', 'wordpress-for-writers' ) )
                         : el( Fragment, null,
@@ -1229,14 +1297,14 @@
                 el( 'div', { className: 'wfw-review__list' }, sections.map( ( section ) => ( section.pass
                     ? renderPass( section.pass )
                     : el( AskCard, {
-                        key: 'a' + section.ask.id,
+                        key: section.key,
                         ask: section.ask,
                         replies: section.replies,
                         mine: !! user && user.id === section.ask.author,
                         locked,
-                        isActive: active === 'a' + section.ask.id,
-                        onActivate: () => reveal( 'a' + section.ask.id ),
-                        onFocus: () => setActive( 'a' + section.ask.id ),
+                        isActive: active === section.key,
+                        onActivate: () => reveal( section.key, section.ask.id ),
+                        onFocus: () => setActive( section.key ),
                         onResolve: () => resolve( section ).catch( fail ),
                         onMove: move,
                     }, section.passes.map( renderPass ) ) ) ) )

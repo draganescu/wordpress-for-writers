@@ -106,26 +106,22 @@
     bottom: auto;
 }
 
+/*
+ * The header is the settings sheet's (.wfw-sheet__header in editor.css), and
+ * only what differs is here: it does not scroll with a list, its close button
+ * is pushed to the end, and the sheet's rounded corners show through it.
+ */
 .wfw-review__header {
-    display: flex;
+    position: static;
     flex: none;
-    align-items: center;
+    justify-content: flex-start;
     gap: 4px;
-    height: 60px;
-    padding: 0 8px 0 16px;
-    border-bottom: 1px solid var( --wfw-border );
+    background: none;
 }
 
 .wfw-review--sheet .wfw-review__header {
     height: 44px;
     padding-left: 8px;
-}
-
-.wfw-review__header h2 {
-    margin: 0;
-    color: inherit;
-    font-size: 13px;
-    font-weight: 600;
 }
 
 .wfw-review__header .components-button {

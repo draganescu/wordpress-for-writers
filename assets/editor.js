@@ -137,7 +137,7 @@
      *
      * - config: wfwEditor.agent (see wfw_agent_editor_data() in
      *   includes/suggestions.php): seen, notes, now, script, style, domain,
-     *   translations.
+     *   translations, inlineTags.
      * - postId: the note's id, a number.
      * - phone: the MediaQueryList of the phone layout. Review shows nothing while it matches.
      * - hidden(): whether the app has this editor out of view, behind another tab or a panel.
@@ -148,8 +148,8 @@
      *   returns a function that stops listening.
      * - post( message ): sends { source: 'wfw-frame', ...message } to the app.
      * - start( Review ): suggest.js calls it once, with a component. The editor
-     *   renders el( Review, { agent: window.wfwAgent } ) as the last child of
-     *   .wfw-ed, inside its providers (SlotFillProvider, ShortcutProvider,
+     *   renders el( Review ), with no props, as the last child of .wfw-ed,
+     *   inside its providers (SlotFillProvider, ShortcutProvider,
      *   EditorProvider, ThemeProvider), so Review reads the same stores, takes
      *   part in the same undo and can fill the editor's slots: core's, and
      *   'wfw-agent-actions', a Slot before the saved state in .wfw-actions (for
@@ -157,7 +157,8 @@
      *   wp.i18n has them under config.domain.
      */
     const agentConfig = config.agent || {};
-    const agentWanted = !! ( ( agentConfig.seen || agentConfig.notes ) && agentConfig.script );
+    // The page's config holds Review's script only where Review is to be loaded.
+    const agentWanted = !! agentConfig.script;
     /*
      * The app's phone layout (phoneLayout in app.js), in the shape of a
      * MediaQueryList. In the app the frame is narrower than the window and
@@ -169,16 +170,6 @@
     let agentReview = null;
     // Set while AgentReview is mounted: tells it that suggest.js has handed Review over.
     let onAgentReview = null;
-
-    function onAppMessage( listener ) {
-        const handler = ( event ) => {
-            if ( event.origin === window.location.origin && event.source === window.parent && event.data && event.data.source === 'wfw' ) {
-                listener( event.data );
-            }
-        };
-        window.addEventListener( 'message', handler );
-        return () => window.removeEventListener( 'message', handler );
-    }
 
     function loadAgent() {
         window.wfwAgent = {
@@ -226,14 +217,6 @@
         };
         agentPhone.addEventListener( 'change', load );
         load();
-        if ( inApp ) {
-            onAppMessage( ( data ) => {
-                if ( data.type === 'visibility' && agentPhone.matches !== !! data.phone ) {
-                    agentPhone.matches = !! data.phone;
-                    agentPhone.dispatchEvent( new Event( 'change' ) );
-                }
-            } );
-        }
     }
 
     // Review, once suggest.js has handed it over.
@@ -246,7 +229,7 @@
                 onAgentReview = null;
             };
         }, [] );
-        return Review ? el( Review, { agent: window.wfwAgent } ) : null;
+        return Review ? el( Review ) : null;
     }
 
     // ---- The links above the title -----------------------------------------
@@ -1315,6 +1298,11 @@
             outOfSight = !! event.data.hidden;
             if ( outOfSight ) {
                 canvas.doc?.activeElement?.blur();
+            }
+            // The app's phone layout comes with it, for the agent surface (see agentPhone).
+            if ( agentWanted && inApp && agentPhone.matches !== !! event.data.phone ) {
+                agentPhone.matches = !! event.data.phone;
+                agentPhone.dispatchEvent( new Event( 'change' ) );
             }
             return;
         }
