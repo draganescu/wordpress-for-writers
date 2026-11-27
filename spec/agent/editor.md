@@ -59,7 +59,7 @@ Two open edits whose passages overlap: accepting one makes the other out of date
 
 ## Asks
 
-- With text selected, the formatting pill offers **Ask**. It opens a field at the selection: the question, at most 600 characters, and "Leave for an agent". Enter sends, Esc closes.
+- With text selected, the formatting pill offers **Ask**. It opens a field at the selection: the question, at most 600 characters, and "Leave for an agent". Enter sends; Esc closes it, and so does the focus leaving it. The field is in the editor's own popover.
 - Sending makes a core note on the selection, as core's editor does (spike S1): the comment through core's REST route with the status `hold` (an open core note), core's marker in the block (`<mark data-id="N" class="wp-note">`) and the id added to the block's `metadata.noteId`, an array. The marker and the attribute are an edit of the note, saved with it like any other.
 - With no selection and the caret in a block, Ask is about the whole block: the id goes in `metadata.noteId` alone.
 - An agent's answer shows under the ask as a reply. A reply that is a suggestion has W1 on its passage and Accept and Dismiss on its card, as any suggestion.

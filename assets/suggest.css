@@ -319,11 +319,8 @@
     border-top: 1px solid var( --wfw-border );
 }
 
+/* In core's popover, which the editor themes (editor.css): only the field's own layout is here. */
 .wfw-ask-field {
-    position: absolute;
-    top: clamp( 12px, var( --wfw-ask-top ), calc( 100% - 170px ) );
-    left: clamp( 12px, var( --wfw-ask-left ), calc( 100% - 332px ) );
-    z-index: 46;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -331,10 +328,6 @@
     box-sizing: border-box;
     width: 320px;
     padding: 10px;
-    background: var( --wfw-editor-bg );
-    border: 1px solid var( --wfw-border );
-    border-radius: 12px;
-    box-shadow: var( --wfw-pill-shadow );
 }
 
 .wfw-ask-field textarea {

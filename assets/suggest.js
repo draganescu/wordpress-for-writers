@@ -17,7 +17,7 @@
     const { select, dispatch, subscribe, useSelect } = wp.data;
     const { __, _n, sprintf } = wp.i18n;
     const { create, insert, toHTMLString, RichTextData } = wp.richText;
-    const { Button, Fill, ToolbarButton } = wp.components;
+    const { Button, Fill, Popover, ToolbarButton } = wp.components;
     const { decodeEntities } = wp.htmlEntities;
     const apiFetch = wp.apiFetch;
     const editorStore = wp.editor.store;
@@ -576,10 +576,17 @@
         }
     }
 
-    // `card` is one of the cards Surface lists: { suggestion, key, at, stale, canAccept, order }.
-    function Card( { card, isActive, locked, onActivate, onFocus, onAccept, onDismiss, onMove } ) {
+    /*
+     * `card` is one of the cards Surface lists: { suggestion, key, at, stale,
+     * canAccept, order }. Surface lists them again with every change of the
+     * note, so a card is drawn again only when what it shows has changed;
+     * `actions` is a ref to what Surface does for a card, the same ref each time.
+     */
+    const Card = wp.element.memo( function Card( { card, isActive, locked, actions } ) {
         const { suggestion, stale, canAccept } = card;
         const kind = kindOf( suggestion );
+        const onAccept = ( title ) => actions.current.accept( suggestion, title );
+        const onDismiss = () => actions.current.dismiss( suggestion );
         return el( 'div', {
             className: 'wfw-card' + ( isActive ? ' is-active' : '' ),
             'data-wfw-suggestion': suggestion.id,
@@ -587,14 +594,14 @@
             role: 'group',
             'aria-label': KINDS[ kind ](),
             tabIndex: 0,
-            onClick: onActivate,
-            onFocus: ( event ) => event.target === event.currentTarget && onFocus(),
+            onClick: () => actions.current.reveal( card.key ),
+            onFocus: ( event ) => event.target === event.currentTarget && actions.current.focus( card.key ),
             onKeyDown: ( event ) => {
                 if ( event.target !== event.currentTarget ) {
                     return;
                 }
                 if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
-                    onMove( event.key === 'ArrowDown' ? 1 : -1 );
+                    actions.current.move( event.key === 'ArrowDown' ? 1 : -1 );
                 } else if ( locked ) {
                     return;
                 } else if ( event.key === 'Enter' && canAccept ) {
@@ -617,7 +624,7 @@
             el( Button, { variant: 'tertiary', size: 'compact', disabled: locked, onClick: onDismiss },
                 kind === 'comment' && ! stale ? __( 'Resolve', 'wordpress-for-writers' ) : kind === 'titles' && ! stale ? __( 'Keep mine', 'wordpress-for-writers' ) : __( 'Dismiss', 'wordpress-for-writers' ) )
         ) );
-    }
+    }, ( was, now ) => was.card.suggestion === now.card.suggestion && was.card.stale === now.card.stale && was.card.canAccept === now.card.canAccept && was.isActive === now.isActive && was.locked === now.locked && was.actions === now.actions );
 
     // The cards of a pass under its header: the label, who (an agent, never which), when, and what to do with all of them.
     function Pass( { pass, locked, onAcceptAll, onPeek, children } ) {
@@ -662,17 +669,14 @@
             el( Button, { variant: 'tertiary', size: 'compact', disabled: locked, onClick: onResolve }, __( 'Resolve', 'wordpress-for-writers' ) ) ) );
     }
 
-    // The field Ask opens at the selection: Enter sends, Escape or a press anywhere else closes.
+    /*
+     * The field Ask opens at what is asked about, in core's popover: it is
+     * placed and kept in the window, takes the focus and gives it back, and
+     * closes on Escape or when the focus leaves it. Enter sends.
+     */
     function AskField( { target, onSend, onClose } ) {
         const [ text, setText ] = useState( '' );
         const [ sending, setSending ] = useState( false );
-        const form = useRef();
-        useEffect( () => {
-            const away = ( event ) => form.current.contains( event.target ) || onClose();
-            const docs = [ document, agent.canvas.doc ];
-            docs.forEach( ( doc ) => doc.addEventListener( 'pointerdown', away ) );
-            return () => docs.forEach( ( doc ) => doc.removeEventListener( 'pointerdown', away ) );
-        }, [] );
         const send = ( event ) => {
             event.preventDefault();
             if ( text.trim() && ! sending ) {
@@ -680,30 +684,22 @@
                 onSend( text.trim() ).catch( () => setSending( false ) );
             }
         };
-        return el( 'form', {
-            ref: form,
-            className: 'wfw-ask-field',
-            style: { '--wfw-ask-top': target.top + 'px', '--wfw-ask-left': target.left + 'px' },
-            onSubmit: send,
-        },
-        el( 'textarea', {
-            autoFocus: true,
-            rows: 3,
-            maxLength: 600,
-            value: text,
-            'aria-label': __( 'Your question', 'wordpress-for-writers' ),
-            placeholder: target.key ? __( 'Ask about this passage', 'wordpress-for-writers' ) : __( 'Ask about this block', 'wordpress-for-writers' ),
-            onChange: ( event ) => setText( event.target.value ),
-            onKeyDown: ( event ) => {
-                if ( event.key === 'Escape' ) {
-                    event.preventDefault();
-                    onClose();
-                } else if ( event.key === 'Enter' && ! event.shiftKey && ! event.nativeEvent.isComposing ) {
-                    send( event );
-                }
-            },
-        } ),
-        el( Button, { variant: 'primary', size: 'compact', type: 'submit', disabled: ! text.trim() || sending }, __( 'Leave for an agent', 'wordpress-for-writers' ) ) );
+        return el( Popover, { className: 'wfw-ask-popover', anchor: target.anchor, placement: 'bottom-start', offset: 8, focusOnMount: 'firstElement', onClose },
+            el( 'form', { className: 'wfw-ask-field', onSubmit: send },
+                el( 'textarea', {
+                    rows: 3,
+                    maxLength: 600,
+                    value: text,
+                    'aria-label': __( 'Your question', 'wordpress-for-writers' ),
+                    placeholder: target.key ? __( 'Ask about this passage', 'wordpress-for-writers' ) : __( 'Ask about this block', 'wordpress-for-writers' ),
+                    onChange: ( event ) => setText( event.target.value ),
+                    onKeyDown: ( event ) => {
+                        if ( event.key === 'Enter' && ! event.shiftKey && ! event.nativeEvent.isComposing ) {
+                            send( event );
+                        }
+                    },
+                } ),
+                el( Button, { variant: 'primary', size: 'compact', type: 'submit', disabled: ! text.trim() || sending }, __( 'Leave for an agent', 'wordpress-for-writers' ) ) ) );
     }
 
     // ---- Review ------------------------------------------------------------------
@@ -1199,16 +1195,14 @@
                 const from = store.getSelectionStart();
                 const to = store.getSelectionEnd();
                 const inline = from.clientId === clientId && to.clientId === clientId && !! from.attributeKey && from.offset !== undefined && to.offset !== undefined && from.offset !== to.offset;
-                const { doc, win, frame: canvasFrame } = agent.canvas;
-                const box = ( inline ? win.getSelection().getRangeAt( 0 ) : doc.querySelector( '[data-block="' + clientId + '"]' ) ).getBoundingClientRect();
-                const origin = canvasFrame.getBoundingClientRect();
+                const { doc, win } = agent.canvas;
                 setAsking( {
                     clientId,
                     key: inline ? from.attributeKey : null,
                     start: Math.min( from.offset, to.offset ),
                     end: Math.max( from.offset, to.offset ),
-                    top: origin.top + Math.min( box.bottom, win.innerHeight ) + 8,
-                    left: origin.left + box.left,
+                    // The selected text as it is now, or the block: the popover finds either in the canvas.
+                    anchor: inline ? win.getSelection().getRangeAt( 0 ).cloneRange() : doc.querySelector( '[data-block="' + clientId + '"]' ),
                 } );
             };
             wp.hooks.addFilter( 'editor.BlockEdit', 'wfw/ask', withAsk( startAsk ) );
@@ -1259,18 +1253,12 @@
 
         // ---- The chip, the rail or the sheet, and the field --------------------------
 
+        // What a card asks of Surface, as it is in this render.
+        const actions = useRef();
+        actions.current = { reveal, focus: setActive, accept: acceptOne, dismiss, move };
+
         const renderPass = ( pass ) => el( Pass, { key: pass.id, pass, locked, onAcceptAll: () => acceptAll( pass ), onPeek: () => peek( pass ) },
-            pass.cards.map( ( card ) => el( Card, {
-                key: card.key,
-                card,
-                locked,
-                isActive: active === card.key,
-                onActivate: () => reveal( card.key ),
-                onFocus: () => setActive( card.key ),
-                onAccept: ( title ) => acceptOne( card.suggestion, title ),
-                onDismiss: () => dismiss( card.suggestion ),
-                onMove: move,
-            } ) ) );
+            pass.cards.map( ( card ) => el( Card, { key: card.key, card, locked, isActive: active === card.key, actions } ) ) );
         const at = keys.indexOf( active );
 
         return el( Fragment, null,
