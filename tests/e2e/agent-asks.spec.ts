@@ -196,4 +196,17 @@ test.describe( 'Asks', () => {
         await expect( page.locator( '.wfw-pill .wfw-ask-button' ) ).toBeVisible();
         await expect( page.locator( '[data-wfw-ask]' ) ).toContainText( 'Made in wp-admin.' );
     } );
+
+    test( 'shows an ask however many suggestions the note has had since', async ( { page, requestUtils } ) => {
+        const ask = await createAsk( requestUtils, note, 'Asked before a long pass.' );
+        // More core notes than one page of core's comments route holds, all newer than the ask.
+        const many = Array.from( { length: 101 }, ( unused, index ) => ( {
+            kind: 'edit' as const,
+            anchor: { path: [ 0 ], name: 'core/paragraph', quote: 'not in the note ' + index, prefix: '', suffix: '' },
+            change: { replacement: 'x' },
+        } ) );
+        await seedSuggestions( requestUtils, note, many );
+        await openEditor( page, note );
+        await expect( page.locator( `[data-wfw-ask="${ ask }"]` ) ).toContainText( 'Asked before a long pass.' );
+    } );
 } );

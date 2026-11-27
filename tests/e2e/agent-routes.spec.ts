@@ -330,4 +330,14 @@ test.describe( 'Routes for the editor', () => {
         await admin.dispose();
         await visitor.dispose();
     } );
+
+    test( 'a suggestion that was accepted is not reopened from wp-admin', async ( { requestUtils } ) => {
+        await call( requestUtils, 'wfw_suggestion_set_status', [ suggestion, 'accepted' ] );
+        const admin = await restAs( 'admin' );
+        await admin( 'POST', `/wp/v2/comments/${ suggestion }`, { status: 'hold' } );
+        expect( ( await call( requestUtils, 'wfw_test_meta', [ suggestion ] ) ).result._wfw_status ).toBe( 'accepted' );
+        // Its comment is resolved again, so no editor reads it as an open core note.
+        expect( ( await admin( 'GET', `/wp/v2/comments/${ suggestion }?context=edit` ) ).body.status ).toBe( 'approved' );
+        await admin.dispose();
+    } );
 } );

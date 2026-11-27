@@ -140,15 +140,13 @@
      *   translations.
      * - postId: the note's id, a number.
      * - phone: the MediaQueryList of the phone layout. Review shows nothing while it matches.
+     * - hidden(): whether the app has this editor out of view, behind another tab or a panel.
      * - canvas: { doc, win, frame }, the canvas iframe's document, window and
      *   element as they are now (null until the canvas mounts; BlockCanvas can
      *   replace its iframe). onCanvas( listener ) calls listener( doc ) now, if
      *   there is a canvas, and each time it changes (null when it goes); it
      *   returns a function that stops listening.
      * - post( message ): sends { source: 'wfw-frame', ...message } to the app.
-     *   onMessage( listener ) calls listener( data ) for each of the app's
-     *   messages ({ source: 'wfw', type, ... }) and returns a function that
-     *   stops listening.
      * - start( Review ): suggest.js calls it once, with a component. The editor
      *   renders el( Review, { agent: window.wfwAgent } ) as the last child of
      *   .wfw-ed, inside its providers (SlotFillProvider, ShortcutProvider,
@@ -187,6 +185,7 @@
             config: agentConfig,
             postId: Number( config.postId ),
             phone: agentPhone,
+            hidden: () => outOfSight,
             canvas,
             onCanvas( listener ) {
                 canvasListeners.add( listener );
@@ -196,7 +195,6 @@
                 return () => canvasListeners.delete( listener );
             },
             post,
-            onMessage: onAppMessage,
             start( Review ) {
                 agentReview = Review;
                 if ( onAgentReview ) {

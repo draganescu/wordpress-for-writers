@@ -36,6 +36,18 @@
     const SUGGESTIONS = '/wfw/v1/notes/' + agent.postId + '/suggestions';
     const NOTES = '/wp/v2/comments?context=edit&type=note&status=all&per_page=100&post=' + agent.postId;
 
+    // Every core note of the note, page after page: its suggestions are core notes too, and soon outnumber a page.
+    async function coreNotes() {
+        const all = [];
+        for ( let page = 1; ; page++ ) {
+            const some = await apiFetch( { path: NOTES + '&page=' + page } );
+            all.push( ...some );
+            if ( some.length < 100 ) {
+                return all;
+            }
+        }
+    }
+
     // Whether a MediaQueryList matches, now and as it changes.
     function useMedia( media ) {
         const [ matches, setMatches ] = useState( media.matches );
@@ -139,9 +151,18 @@
         return field ? { ...entry, key: field.key, record: field.record, start: start - field.at, end: start - field.at + length, offset: start } : null;
     }
 
+    // A whole block's anchor among the top-level blocks, by the start of their text: at its path, or the one place it is.
+    function placeBlock( entries, anchor ) {
+        const matches = ( { path, block } ) => path.length === 1 && firstPoints( blockText( block ), 64 ) === anchor.quote;
+        const here = entries.find( ( entry ) => String( entry.path ) === String( anchor.path ) && entry.block.name === anchor.name && matches( entry ) );
+        const found = here ? [ here ] : entries.filter( matches );
+        return found.length === 1 ? found[ 0 ] : null;
+    }
+
     /*
      * Where a suggestion's anchor is in the note as it is now (surface.md,
-     * Placing): in the block at its path, if that has its name; otherwise
+     * Placing): in the block at its path, if that has its name, with the same
+     * text around it, or on one side of it if that is one place; otherwise
      * wherever in the note the quote stands with the same text around it, if
      * that is one place; otherwise wherever the quote stands, if that is one
      * place. Null is out of date. A suggestion about a whole block is looked
@@ -154,19 +175,23 @@
     function place( list, suggestion ) {
         const { anchor } = suggestion;
         const entries = list.map( ( entry, order ) => ( { ...entry, order } ) );
-        const same = ( entry ) => String( entry.path ) === String( anchor.path ) && entry.block.name === anchor.name;
 
         if ( suggestion.kind === 'blocks' ) {
-            const matches = ( { path, block } ) => path.length === 1 && firstPoints( blockText( block ), 64 ) === anchor.quote;
-            const here = entries.find( ( entry ) => same( entry ) && matches( entry ) );
-            const found = here ? [ here ] : entries.filter( matches );
-            return found.length === 1 ? found[ 0 ] : null;
+            // A move is placed when the block it goes after is found too.
+            const at = placeBlock( entries, anchor );
+            return at && anchor.after && ! placeBlock( entries, anchor.after ) ? null : at;
         }
 
-        const here = entries.find( same );
-        const starts = here ? quoteStarts( blockText( here.block ), anchor, true ) : [];
+        const here = entries.find( ( entry ) => String( entry.path ) === String( anchor.path ) && entry.block.name === anchor.name );
+        const text = here ? blockText( here.block ) : '';
+        const starts = here ? quoteStarts( text, anchor, true ) : [];
         if ( starts.length ) {
             return passage( here, starts[ 0 ], anchor.quote.length );
+        }
+        // An edit accepted beside it changed the text on one side: the other side still tells which it is.
+        const beside = here ? quoteStarts( text, anchor, false ).filter( ( at ) => lastPoints( text.slice( 0, at ), 32 ) === anchor.prefix || firstPoints( text.slice( at + anchor.quote.length ), 32 ) === anchor.suffix ) : [];
+        if ( beside.length === 1 ) {
+            return passage( here, beside[ 0 ], anchor.quote.length );
         }
         for ( const withContext of [ true, false ] ) {
             const found = entries.flatMap( ( entry ) => quoteStarts( blockText( entry.block ), anchor, withContext ).map( ( start ) => [ entry, start ] ) );
@@ -180,11 +205,11 @@
     // ---- Changing the note ---------------------------------------------------
 
     /*
-     * A rich text with a passage replaced. The replacement carries its own
+     * A rich text's value with a passage replaced. The replacement carries its own
      * inline formatting; formatting that covered the whole passage and that the
      * replacement does not carry goes around it (an ask's marker among them).
      */
-    function replaced( { record, start, end }, replacement ) {
+    function replaced( record, start, end, replacement ) {
         const next = create( { html: replacement } );
         const carried = new Set( next.formats.flat().filter( Boolean ).map( ( format ) => format.type ) );
         const covers = ( format ) => {
@@ -201,7 +226,7 @@
                 next.formats[ i ] = [ ...around, ...( next.formats[ i ] || [] ) ];
             }
         }
-        return RichTextData.fromHTMLString( toHTMLString( { value: insert( record, next, start, end ) } ) );
+        return insert( record, next, start, end );
     }
 
     // The tree with each block's attributes passed through change(), which answers null to leave a block as it is.
@@ -230,36 +255,87 @@
     }
 
     /*
-     * The note's blocks with one suggestion accepted (editor.md, Accepting), or
-     * null when it is out of date or is an insert with no block to insert. Nothing is changed in place: the editor
-     * takes the result as an edit, and Peek serializes it. `blocks` is the
-     * note's top-level blocks, and the suggestion an `edit` or a `blocks` one.
+     * What accepting a suggestion does to the note's blocks (editor.md,
+     * Accepting), placed in the note as it is: null when it is out of date, or
+     * is an insert with no block the editor takes. `list` is what listBlocks()
+     * gives for the note's blocks, and the suggestion an `edit` or a `blocks`
+     * one. Blocks are named by themselves,
+     * not by where they are, so several plans made of one note can be carried
+     * out together.
      */
-    function applied( blocks, suggestion ) {
+    function planned( list, suggestion ) {
         const { anchor, change } = suggestion;
-        const at = anchor && place( listBlocks( blocks ), suggestion );
+        const at = anchor && place( list, suggestion );
         if ( anchor && ! at ) {
             return null;
         }
         if ( suggestion.kind === 'edit' ) {
-            return mapBlocks( blocks, ( block ) => ( block === at.block ? { [ at.key ]: replaced( at, change.replacement ) } : null ) );
+            return { suggestion, edit: at };
         }
         if ( change.op === 'insert' ) {
-            const index = at ? blocks.indexOf( at.block ) + 1 : 0;
             const made = insertable( change.markup );
-            return made.length ? [ ...blocks.slice( 0, index ), ...made, ...blocks.slice( index ) ] : null;
+            return made.length ? { suggestion, insert: made, after: at ? at.block : null } : null;
         }
-        const rest = blocks.filter( ( block ) => block !== at.block );
         if ( change.op === 'remove' ) {
-            return rest;
+            return { suggestion, remove: at.block };
         }
-        // A move names where it goes by the top-level block it follows, as the note is now.
-        const after = named( blocks )[ change.after ];
-        if ( after === at.block ) {
-            return blocks;
+        if ( change.after < 0 ) {
+            return { suggestion, move: at.block, after: null };
         }
-        const index = change.after < 0 ? 0 : rest.indexOf( after ) + 1 || rest.length;
-        return [ ...rest.slice( 0, index ), at.block, ...rest.slice( index ) ];
+        // Where a move goes is a block too, found as the one it moves is.
+        const after = placeBlock( list.map( ( entry, order ) => ( { ...entry, order } ) ), anchor.after );
+        return after ? { suggestion, move: at.block, after: after.block } : null;
+    }
+
+    /*
+     * The note's blocks with plans carried out as one change, and the
+     * suggestions it took. Nothing is changed in place: the editor takes the
+     * result as an edit, and Peek serializes it. The blocks are inserted,
+     * removed and moved first; then each rich text takes its edits from the
+     * last to the first, so none moves another. A plan whose block another
+     * removed, or whose passage another edit took, is left out.
+     */
+    function carriedOut( blocks, plans ) {
+        let next = blocks;
+        const done = [];
+        plans.filter( Boolean ).forEach( ( plan ) => {
+            const block = plan.remove || plan.move;
+            if ( plan.edit || ( block && ! next.includes( block ) ) || ( plan.after && ! next.includes( plan.after ) ) ) {
+                return;
+            }
+            const rest = block ? next.filter( ( other ) => other !== block ) : next;
+            if ( plan.remove ) {
+                next = rest;
+            } else if ( plan.after !== block ) {
+                const index = plan.after ? rest.indexOf( plan.after ) + 1 : 0;
+                next = [ ...rest.slice( 0, index ), ...( plan.insert || [ block ] ), ...rest.slice( index ) ];
+            }
+            done.push( plan.suggestion );
+        } );
+
+        const edits = new Map();
+        plans.filter( ( plan ) => plan && plan.edit ).forEach( ( plan ) => {
+            const fields = edits.get( plan.edit.block ) || edits.set( plan.edit.block, {} ).get( plan.edit.block );
+            fields[ plan.edit.key ] = [ ...( fields[ plan.edit.key ] || [] ), plan ];
+        } );
+        next = mapBlocks( next, ( block ) => {
+            const fields = edits.get( block );
+            if ( ! fields ) {
+                return null;
+            }
+            return Object.fromEntries( Object.entries( fields ).map( ( [ key, ofField ] ) => {
+                const taken = [];
+                ofField.sort( ( a, b ) => a.edit.start - b.edit.start ).forEach( ( plan ) => {
+                    if ( ! taken.length || taken[ taken.length - 1 ].edit.end <= plan.edit.start ) {
+                        taken.push( plan );
+                    }
+                } );
+                done.push( ...taken.map( ( plan ) => plan.suggestion ) );
+                const value = taken.reduceRight( ( record, plan ) => replaced( record, plan.edit.start, plan.edit.end, plan.suggestion.change.replacement ), taken[ 0 ].edit.record );
+                return [ key, RichTextData.fromHTMLString( toHTMLString( { value } ) ) ];
+            } ) );
+        } );
+        return { blocks: next, done };
     }
 
     // A term's id by its name, or 0. A tag that does not exist is made when asked to; categories never are.
@@ -446,12 +522,11 @@
             case 'remove':
                 return el( 'p', { className: 'wfw-card__change' }, el( 'del', null, anchor.quote ) );
             case 'move': {
-                const after = change.after >= 0 && named( blocks )[ change.after ];
                 return el( Fragment, null,
                     el( 'p', { className: 'wfw-card__quote' }, anchor.quote ),
-                    el( 'p', { className: 'wfw-card__note' }, after
+                    el( 'p', { className: 'wfw-card__note' }, change.after >= 0
                         /* translators: %s: the first words of a block. */
-                        ? sprintf( __( 'To after “%s”', 'wordpress-for-writers' ), firstPoints( blockText( after ), 64 ) )
+                        ? sprintf( __( 'To after “%s”', 'wordpress-for-writers' ), anchor.after.quote )
                         : __( 'To the start of the note.', 'wordpress-for-writers' ) ) );
             }
             case 'titles':
@@ -654,7 +729,7 @@
             let answer = everything ? null : await apiFetch( { path: SUGGESTIONS } );
             let threads = null;
             if ( ! answer || answer.suggestions.some( ( suggestion ) => ! known.current.has( suggestion.id ) ) ) {
-                threads = await apiFetch( { path: NOTES } );
+                threads = await coreNotes();
                 answer = await apiFetch( { path: SUGGESTIONS } );
             }
             if ( mine !== asked.current || writes.current ) {
@@ -668,10 +743,15 @@
             setSuggestions( answer.suggestions );
         }
 
+        // A suggestion's statuses reach the server in the order they were set: an accept and its undo may be a moment apart.
+        const sending = useRef( new Map() );
+
         function setStatus( id, status ) {
             writes.current++;
             setSuggestions( ( list ) => list.map( ( suggestion ) => ( suggestion.id === id ? { ...suggestion, status } : suggestion ) ) );
-            apiFetch( { path: '/wfw/v1/suggestions/' + id, method: 'POST', data: { status } } ).catch( fail ).then( () => {
+            const sent = ( sending.current.get( id ) || Promise.resolve() ).then( () => apiFetch( { path: '/wfw/v1/suggestions/' + id, method: 'POST', data: { status } } ).catch( fail ) );
+            sending.current.set( id, sent );
+            sent.then( () => {
                 if ( ! --writes.current ) {
                     refresh().catch( () => {} );
                 }
@@ -686,13 +766,7 @@
          * when either has changed.
          */
         useEffect( () => {
-            let hidden = false;
-            const stopListening = agent.onMessage( ( message ) => {
-                if ( message.type === 'visibility' ) {
-                    hidden = !! message.hidden;
-                }
-            } );
-            const polling = () => ! hidden && ! document.hidden && clock.current.seen > 0 && Date.now() / 1000 + clock.current.skew - clock.current.seen < FRESH;
+            const polling = () => ! agent.hidden() && ! document.hidden && clock.current.seen > 0 && Date.now() / 1000 + clock.current.skew - clock.current.seen < FRESH;
             const timer = setInterval( () => polling() && refresh().catch( () => {} ), POLL );
             wp.hooks.addAction( 'heartbeat.send', 'wfw/suggestions', ( data ) => {
                 if ( ! polling() ) {
@@ -712,7 +786,6 @@
             } );
             refresh( true ).catch( fail );
             return () => {
-                stopListening();
                 clearInterval( timer );
                 wp.hooks.removeAction( 'heartbeat.send', 'wfw/suggestions' );
                 wp.hooks.removeAction( 'heartbeat.tick', 'wfw/suggestions' );
@@ -972,20 +1045,16 @@
             const edited = ( key ) => select( editorStore ).getEditedPostAttribute( key );
             const before = select( blockEditorStore ).getBlocks();
             const after = {};
-            const done = [];
-            let next = before;
+            // Every suggestion is placed in the note as it is, so that accepting one does not put its neighbour out of date.
+            const ofBlocks = list.filter( ( suggestion ) => suggestion.kind !== 'details' );
+            const places = listBlocks( before );
+            const { blocks: next, done: taken } = carriedOut( before, ofBlocks.map( ( suggestion ) => planned( places, suggestion ) ) );
+            const done = taken.map( ( suggestion ) => suggestion.id );
             // An insert none of whose blocks the editor takes: it stays open, and the writer is told.
-            let refused = false;
-            list.forEach( ( suggestion ) => {
+            const refused = ofBlocks.some( ( suggestion ) => suggestion.change.op === 'insert' && ! insertable( suggestion.change.markup ).length );
+            list.filter( ( suggestion ) => suggestion.kind === 'details' ).forEach( ( suggestion ) => {
                 const { field, value } = suggestion.change;
-                if ( suggestion.kind !== 'details' ) {
-                    const result = applied( next, suggestion );
-                    if ( ! result ) {
-                        refused = refused || ( suggestion.change.op === 'insert' && ! insertable( suggestion.change.markup ).length );
-                        return;
-                    }
-                    next = result;
-                } else if ( field === 'titles' ) {
+                if ( field === 'titles' ) {
                     after.title = title;
                 } else if ( field === 'excerpt' ) {
                     after.excerpt = value;
@@ -1036,12 +1105,9 @@
          * as any peek. Core's markers of asks are not part of how it reads.
          */
         function peek( pass ) {
-            let next = select( blockEditorStore ).getBlocks();
-            pass.cards.forEach( ( { suggestion } ) => {
-                if ( [ 'edit', 'blocks' ].includes( suggestion.kind ) ) {
-                    next = applied( next, suggestion ) || next;
-                }
-            } );
+            const blocks = select( blockEditorStore ).getBlocks();
+            const places = listBlocks( blocks );
+            const { blocks: next } = carriedOut( blocks, pass.cards.filter( ( { suggestion } ) => [ 'edit', 'blocks' ].includes( suggestion.kind ) ).map( ( { suggestion } ) => planned( places, suggestion ) ) );
             agent.post( {
                 type: 'peek-pass',
                 title: select( editorStore ).getEditedPostAttribute( 'title' ) || '',

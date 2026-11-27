@@ -36,7 +36,7 @@ Accepting changes the note in the editor and nowhere else (A3).
 | Kind | Accepting does |
 |---|---|
 | `edit` | Replaces the passage in its block's rich text with the replacement |
-| `blocks` | Inserts the parsed blocks, removes the block, or moves it. Of the parsed blocks only those that are valid and of a type the editor allows are inserted (its `allowedBlockTypes` setting), inner blocks included. When none is left nothing is inserted, a snackbar says so and the suggestion stays open |
+| `blocks` | Inserts the parsed blocks, removes the block, or moves it to after the block the suggestion named, wherever that block is now. Of the parsed blocks only those that are valid and of a type the editor allows are inserted (its `allowedBlockTypes` setting), inner blocks included. When none is left nothing is inserted, a snackbar says so and the suggestion stays open |
 | `details`, titles | The card lists the options. Choosing one sets the title. "Keep mine" dismisses |
 | `details`, excerpt | Sets the excerpt |
 | `details`, tags and categories | Adds the terms to the note, as the categories and tags form does. A tag that does not exist is created if the user may; otherwise it is left out and the card says so |
@@ -44,7 +44,7 @@ Accepting changes the note in the editor and nowhere else (A3).
 
 - Each accept is one step of undo in the editor.
 - After the edit the suggestion's status is set to `accepted` (`surface.md`, Routes for the editor) and a snackbar says "Accepted." with Undo. Undo takes the edit back and sets the status to `open`. The editor's own Undo (Cmd/Ctrl+Z) does the same.
-- "Accept all" accepts every suggestion of the pass that has an Accept and is not out of date, as one step of undo, with one snackbar: "Accepted {n} suggestions."
+- "Accept all" accepts every suggestion of the pass that has an Accept and is not out of date, as one step of undo, with one snackbar: "Accepted {n} suggestions." Each is placed in the note as it was before any of them: blocks are inserted, removed and moved first, then each passage is replaced, so accepting one does not put another out of date. Of two that overlap, the first is accepted.
 - Dismiss sets the status to `dismissed`, with a snackbar and Undo.
 - A draft autosaves the accepted change as it does typing. A published note keeps it as unsaved changes until Update.
 - A suggestion is accepted only into the note the editor shows. If the note is locked by another user, the cards show and their actions are disabled.

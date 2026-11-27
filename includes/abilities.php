@@ -420,11 +420,13 @@ function wfw_ability_suggest_blocks( $input ) {
         if ( is_wp_error( $anchor ) ) {
             return $anchor;
         }
+        // Where a move goes is a block too, and is found again as the one it moves is.
         if ( 'move' === $clean['op'] && $clean['after'] >= 0 ) {
-            $after = wfw_block_at( $read['blocks'], array( $clean['after'] ) );
+            $after = wfw_block_anchor( $read['blocks'], array( $clean['after'] ) );
             if ( is_wp_error( $after ) ) {
                 return $after;
             }
+            $anchor['after'] = $after;
         }
         $suggestions[] = array(
             'kind'   => 'blocks',

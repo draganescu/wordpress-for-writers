@@ -44,7 +44,7 @@ One comment per suggestion.
 | `comment_type` | `note`: every suggestion is a core note (A6, A7). One that answers an ask has the ask as `comment_parent`. One that answers none has no parent, and no marker in the content |
 | `user_id`, `comment_author` | The user the call ran as |
 | `comment_approved` | `0` while the suggestion is `open`, as core reads an open core note; `1` once it is `accepted`, `dismissed` or `withdrawn`, so wp-admin's editor lists it as resolved. The store keeps the two in step |
-| `comment_content` | Plain text a person can read with no editor of ours: for a text edit, `Suggests: “{replacement}”` and the reason on the next line; for the other kinds, the reason or the comment itself, and with no reason a line that says what is proposed ("Suggests removing a block.") |
+| `comment_content` | Plain text a person can read with no editor of ours: for a text edit, `Suggests: “{replacement}”` and the reason on the next line; for the other kinds, the reason or the comment itself, and with no reason a line that says what is proposed ("Suggests removing a block."). It is HTML where core shows it, so what an agent wrote is escaped in it |
 | `comment_agent` | `wfw-agent/{source}` when stored. Core overwrites it with the browser's user agent on any REST update of the comment, so it holds only until wp-admin's editor touches the row (spike S3): `_wfw_source` is the record |
 
 Comment meta, none of it shown in core's REST routes:
@@ -63,7 +63,7 @@ Comment meta, none of it shown in core's REST routes:
 
 A comment is an agent's when it has `_wfw_kind`. Nothing else decides it.
 
-Core keeps `note` comments out of comment queries, counts and the public page; the surface adds nothing for that. A suggestion with no parent has no marker, so wp-admin's editor lists it as "Original block deleted." (A7, spike S3). A suggestion resolved there (core sets its `comment_approved` to 1) becomes `dismissed`, and one reopened there (back to 0) becomes `open` again: the store follows `transition_comment_status`.
+Core keeps `note` comments out of comment queries, counts and the public page; the surface adds nothing for that. A suggestion with no parent has no marker, so wp-admin's editor lists it as "Original block deleted." (A7, spike S3). A suggestion resolved there (core sets its `comment_approved` to 1) becomes `dismissed`, and one reopened there (back to 0) becomes `open` again: the store follows `transition_comment_status`. One that was accepted or withdrawn is not reopened from there: its comment is put back as resolved.
 
 Nobody is emailed when the surface stores a suggestion or settles one. It is inserted with `wp_insert_comment()`, not through core's REST route, and the store keeps core from notifying the post's author while it sets the comment's status (`notify_post_author`). Core emails the post's author only when someone else resolves, reopens or replies to a suggestion in wp-admin's editor (the option `wp_notes_notify`), with the suggestion's text as a new note (spike S3).
 
@@ -122,13 +122,13 @@ When a suggestion is stored, the ability checks it against the note as read abov
 
 - `quote` is at most 2000 characters, not empty, and must occur in the text of the block at `path`. If it occurs more than once, the input's `occurrence` (1 for the first) is required; without it, or with one past the last, the call fails with `invalid_args`. Occurrences may overlap: each is looked for from one character after the start of the one before.
 - `prefix` and `suffix` are the 32 characters of the block's text before and after the passage, fewer at the block's edges. The ability works them out; an agent does not send them.
-- A suggestion about a whole block (`blocks`) has the block's `path` and `name`, as `quote` the first 64 characters of its text, and empty `prefix` and `suffix`. A block inserted at the start of the note (`after` is -1) has no anchor.
+- A suggestion about a whole block (`blocks`) has the block's `path` and `name`, as `quote` the first 64 characters of its text, and empty `prefix` and `suffix`. A block inserted at the start of the note (`after` is -1) has no anchor. A move's anchor also holds, as `after`, the anchor of the block it goes after, and is out of date when either block is not found.
 - A suggestion about a detail (`details`) has no anchor.
 - A suggestion that answers an ask and gives no `quote` takes the ask's passage: the text inside its marker, or, for an id that no marker carries, the whole text of the block whose `metadata.noteId` holds it. An ask the note no longer names has no passage, and such a suggestion fails with `not_found`.
 
 When the editor shows a suggestion it looks for the passage in the note as it is now, unsaved edits included:
 
-1. In the block at `path`, if it has that `name`: the `quote` with the same `prefix` and `suffix`.
+1. In the block at `path`, if it has that `name`: the `quote` with the same `prefix` and `suffix`. Failing that, the `quote` with the same `prefix` or the same `suffix`, if exactly one place in the block matches: an edit accepted beside a passage changes the text on one side of it.
 2. Otherwise in every block of the note: the `quote` with the same `prefix` and `suffix`, if exactly one place matches.
 3. Otherwise in every block: the `quote` alone, if exactly one place matches.
 

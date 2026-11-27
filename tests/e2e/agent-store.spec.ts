@@ -406,4 +406,29 @@ test.describe( 'The store', () => {
         expect( ( await admin( 'GET', `/wp/v2/posts/${ note }?context=edit` ) ).status ).toBe( 200 );
         await admin.dispose();
     } );
+
+    test( 'plain text keeps its "<", and what wp-admin shows of a suggestion is escaped', async ( { requestUtils } ) => {
+        const note = await createNote( requestUtils, { paragraphs: [ 'One sentence. Another sentence.' ] } );
+        const { result } = await seedSuggestions( requestUtils, note, [
+            { kind: 'edit', place: { path: [ 0 ], quote: 'One' }, change: { replacement: '&lt;img src=x onerror=alert(1)&gt;' }, reason: 'Is 3 < 5 here?' },
+            { kind: 'details', change: { field: 'titles', value: [ 'Less < more' ] } },
+        ] );
+        const [ edit, titles ] = result!.suggestions;
+        expect( ( await call( requestUtils, 'wfw_suggestion_get', [ edit ] ) ).result.reason ).toBe( 'Is 3 < 5 here?' );
+        expect( ( await call( requestUtils, 'wfw_suggestion_get', [ titles ] ) ).result.change.value ).toEqual( [ 'Less < more' ] );
+
+        // A core note's content is HTML in wp-admin's editor: nothing an agent wrote is a tag there.
+        for ( const id of [ edit, titles ] ) {
+            const comment = await requestUtils.rest( { path: `/wp/v2/comments/${ id }`, params: { context: 'edit' } } );
+            expect( comment.content.raw ).not.toMatch( /<(?!\/?p\b|br\b)/ );
+        }
+        const shown = await requestUtils.rest( { path: `/wp/v2/comments/${ edit }`, params: { context: 'edit' } } );
+        expect( shown.content.raw ).toContain( '&lt;img src=x onerror=alert(1)&gt;' );
+        expect( shown.content.raw ).toContain( 'Is 3 &lt; 5 here?' );
+
+        const me = await restAs( 'admin' );
+        await me( 'POST', '/wp/v2/users/me', { meta: { wfw_style_sheet: 'Keep sentences < 25 words.' } } );
+        expect( ( await me( 'GET', '/wp/v2/users/me?context=edit' ) ).body.meta.wfw_style_sheet ).toBe( 'Keep sentences < 25 words.' );
+        await me.dispose();
+    } );
 } );

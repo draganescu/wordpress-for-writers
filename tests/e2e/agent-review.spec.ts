@@ -634,4 +634,47 @@ test.describe( 'Review', () => {
         await frame.locator( `[data-wfw-suggestion="${ edit }"]` ).getByRole( 'button', { name: 'Dismiss' } ).click();
         await expect.poll( async () => ( await heard( 'suggestions' ) ).map( ( m: any ) => m.count ) ).toEqual( [ 3, 2 ] );
     } );
+
+    test( 'accepts edits that stand side by side, together and one by one', async ( { page, requestUtils } ) => {
+        const near = await createNote( requestUtils, { paragraphs: [ 'You can not revise a page, and you can not find it untill you try.' ] } );
+        const seed = () => seedSuggestions( requestUtils, near, [
+            { kind: 'edit', place: { path: [ 0 ], quote: 'can not', occurrence: 1 }, change: { replacement: 'cannot' } },
+            { kind: 'edit', place: { path: [ 0 ], quote: 'can not', occurrence: 2 }, change: { replacement: 'cannot' } },
+            { kind: 'edit', place: { path: [ 0 ], quote: 'untill' }, change: { replacement: 'until' } },
+        ] );
+        const [ first, second, third ] = ( await seed() ).result!.suggestions;
+        await openEditor( page, near );
+
+        // One by one: the text beside the second changes, and it is still found.
+        await card( page, third ).click();
+        await card( page, third ).getByRole( 'button', { name: 'Accept' } ).click();
+        await expect( card( page, third ) ).toHaveCount( 0 );
+        await expect( card( page, second ) ).toHaveAttribute( 'data-wfw-state', 'open' );
+        await page.evaluate( () => ( window as any ).wp.data.dispatch( 'core/editor' ).undo() );
+        await expect( card( page, third ) ).toBeVisible();
+
+        // Together: each is placed in the note as it was.
+        await page.locator( '.wfw-pass' ).filter( { has: card( page, first ) } ).getByRole( 'button', { name: 'Accept all' } ).click();
+        await expect( page.locator( '.wfw-toast' ) ).toContainText( 'Accepted 3 suggestions.' );
+        expect( await content( page ) ).toContain( '<p>You cannot revise a page, and you cannot find it until you try.</p>' );
+        for ( const id of [ first, second, third ] ) {
+            await expect.poll( () => statusOf( requestUtils, id ) ).toBe( 'accepted' );
+        }
+    } );
+
+    test( 'moves a block to after the block it named, whatever else the pass changes', async ( { page, requestUtils } ) => {
+        const four = await createNote( requestUtils, { paragraphs: [ 'Alpha.', 'Beta.', 'Gamma.', 'Delta.' ] } );
+        const { result } = await call( requestUtils, 'wfw_ability_suggest_blocks', [ {
+            note: four,
+            pass: 'Restructure',
+            changes: [ { op: 'remove', block: 0 }, { op: 'move', block: 3, after: 1 } ],
+        } ] );
+        const [ remove, move ] = result.suggestions;
+        await openEditor( page, four );
+        await expect( card( page, move ) ).toContainText( 'To after “Beta.”' );
+
+        await page.locator( '.wfw-pass' ).filter( { has: card( page, remove ) } ).getByRole( 'button', { name: 'Accept all' } ).click();
+        await expect( page.locator( '.wfw-toast' ) ).toContainText( 'Accepted 2 suggestions.' );
+        expect( await page.evaluate( () => ( window as any ).wp.data.select( 'core/block-editor' ).getBlocks().map( ( b: any ) => String( b.attributes.content ) ) ) ).toEqual( [ 'Beta.', 'Delta.', 'Gamma.' ] );
+    } );
 } );

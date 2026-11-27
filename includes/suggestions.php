@@ -138,7 +138,7 @@ function wfw_note_not_found( $note_id ) {
  * @return string
  */
 function wfw_sanitize_style_sheet( $value ) {
-    $value = is_string( $value ) ? sanitize_textarea_field( $value ) : '';
+    $value = is_string( $value ) ? wfw_plain_text( sanitize_textarea_field( $value ) ) : '';
     return mb_substr( $value, 0, WFW_STYLE_SHEET_MAX );
 }
 
@@ -692,6 +692,19 @@ function wfw_note_has_core_note( $note_id ) {
 // ---- Sanitising ------------------------------------------------------------------
 
 /**
+ * Plain text as it was typed, once core has sanitised it. Core's text
+ * sanitisers write a `<` that opens no tag as `&lt;`, for text on its way into
+ * HTML. A reason, a title or a style sheet is never set as HTML: it is shown
+ * as text, where the entity would show as it is.
+ *
+ * @param string $text What sanitize_text_field() or sanitize_textarea_field() returned.
+ * @return string
+ */
+function wfw_plain_text( $text ) {
+    return str_replace( '&lt;', '<', $text );
+}
+
+/**
  * The replacement of a text edit: the inline formatting abilities.md allows
  * (`strong`, `em`, `a` with `href`, `code`, `s`, `sub`, `sup`) and nothing else.
  *
@@ -800,13 +813,13 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
             }
             return array(
                 'field' => $field,
-                'value' => sanitize_textarea_field( $value ),
+                'value' => wfw_plain_text( sanitize_textarea_field( $value ) ),
             );
         }
         if ( ! in_array( $field, array( 'titles', 'tags', 'categories' ), true ) ) {
             return wfw_agent_error( 'invalid_args', __( 'field must be titles, excerpt, tags or categories.', 'wordpress-for-writers' ) );
         }
-        $values = array_values( array_filter( array_map( 'sanitize_text_field', array_filter( (array) $value, 'is_string' ) ), 'strlen' ) );
+        $values = array_values( array_filter( array_map( 'wfw_plain_text', array_map( 'sanitize_text_field', array_filter( (array) $value, 'is_string' ) ) ), 'strlen' ) );
         if ( ! $values ) {
             /* translators: %s: the name of a field, such as tags. */
             return wfw_agent_error( 'invalid_args', sprintf( __( '%s must hold at least one string.', 'wordpress-for-writers' ), $field ) );
@@ -827,7 +840,8 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
 }
 
 /**
- * An anchor as stored: its five fields and nothing else.
+ * An anchor as stored: its five fields and nothing else, but for a move the
+ * anchor of the block it goes after, as `after`.
  *
  * @param mixed $anchor What was computed (wfw_anchor_at() and friends).
  * @return array|null Null for anything that is not an anchor.
@@ -836,13 +850,16 @@ function wfw_sanitize_anchor( $anchor ) {
     if ( ! is_array( $anchor ) || ! isset( $anchor['path'], $anchor['name'], $anchor['quote'] ) || ! is_array( $anchor['path'] ) ) {
         return null;
     }
-    return array(
+    $clean = array(
         'path'   => array_map( 'intval', array_values( $anchor['path'] ) ),
         'name'   => (string) $anchor['name'],
         'quote'  => (string) $anchor['quote'],
         'prefix' => isset( $anchor['prefix'] ) ? (string) $anchor['prefix'] : '',
         'suffix' => isset( $anchor['suffix'] ) ? (string) $anchor['suffix'] : '',
     );
+    // A move's anchor also names the block it goes after.
+    $after = isset( $anchor['after'] ) ? wfw_sanitize_anchor( array_diff_key( (array) $anchor['after'], array( 'after' => 1 ) ) ) : null;
+    return $after ? $clean + array( 'after' => $after ) : $clean;
 }
 
 // ---- Suggestions -----------------------------------------------------------------
@@ -858,12 +875,15 @@ function wfw_suggestion_meta_keys() {
 
 /**
  * What a suggestion's comment says to a person reading it with no editor of
- * ours, in wp-admin's list of core notes.
+ * ours, in wp-admin's list of core notes. A comment's content is HTML there,
+ * and nothing filters it on the way in (wp_insert_comment()), so the text an
+ * agent gave is escaped.
  */
 function wfw_suggestion_content( $kind, $change, $reason ) {
+    $reason = esc_html( $reason );
     if ( 'edit' === $kind ) {
         /* translators: %s: the text an agent proposes. */
-        $content = sprintf( __( 'Suggests: “%s”', 'wordpress-for-writers' ), wfw_rich_text_plain( $change['replacement'] ) );
+        $content = sprintf( __( 'Suggests: “%s”', 'wordpress-for-writers' ), esc_html( wfw_rich_text_plain( $change['replacement'] ) ) );
         return '' === $reason ? $content : $content . "\n" . $reason;
     }
     if ( '' !== $reason ) {
@@ -877,7 +897,7 @@ function wfw_suggestion_content( $kind, $change, $reason ) {
         );
         return $lines[ $change['op'] ];
     }
-    $value = implode( ', ', (array) $change['value'] );
+    $value = esc_html( implode( ', ', (array) $change['value'] ) );
     switch ( $change['field'] ) {
         case 'titles':
             /* translators: %s: one or more titles. */
@@ -956,12 +976,12 @@ function wfw_suggestions_create( $note_id, $pass, $suggestions ) {
         }
         $reason = isset( $suggestion['reason'] ) && is_string( $suggestion['reason'] ) ? $suggestion['reason'] : '';
         if ( 'comment' === $kind ) {
-            $reason = sanitize_textarea_field( $reason );
+            $reason = wfw_plain_text( sanitize_textarea_field( $reason ) );
             if ( '' === $reason || mb_strlen( $reason ) > 600 ) {
                 return wfw_agent_error( 'invalid_args', __( 'text must be 1 to 600 characters.', 'wordpress-for-writers' ) );
             }
         } else {
-            $reason = sanitize_text_field( $reason );
+            $reason = wfw_plain_text( sanitize_text_field( $reason ) );
             if ( mb_strlen( $reason ) > 300 ) {
                 return wfw_agent_error( 'invalid_args', __( 'reason must be at most 300 characters.', 'wordpress-for-writers' ) );
             }
@@ -1226,7 +1246,8 @@ function wfw_suggestions_withdraw( $note_id, $ids ) {
 /**
  * A suggestion resolved in wp-admin's editor is dismissed, and one reopened
  * there is open again: core approves a core note to resolve it and puts it on
- * hold to reopen it, and the suggestion's own status follows.
+ * hold to reopen it, and the suggestion's own status follows. One that was
+ * accepted or withdrawn stays so: its comment is put back as it was.
  */
 add_action( 'transition_comment_status', function ( $new_status, $old_status, $comment ) {
     if ( 'note' !== $comment->comment_type || ! metadata_exists( 'comment', $comment->comment_ID, '_wfw_kind' ) ) {
@@ -1239,6 +1260,11 @@ add_action( 'transition_comment_status', function ( $new_status, $old_status, $c
     } elseif ( 'unapproved' === $new_status && 'dismissed' === $status ) {
         update_comment_meta( $comment->comment_ID, '_wfw_status', 'open' );
         delete_comment_meta( $comment->comment_ID, '_wfw_settled' );
+    } elseif ( 'unapproved' === $new_status && in_array( $status, array( 'accepted', 'withdrawn' ), true ) ) {
+        // An accepted edit is in the note, and a withdrawn suggestion is its maker's: neither is reopened from there.
+        add_filter( 'notify_post_author', '__return_false', 999 );
+        wp_set_comment_status( $comment->comment_ID, 'approve' );
+        remove_filter( 'notify_post_author', '__return_false', 999 );
     }
 }, 10, 3 );
 

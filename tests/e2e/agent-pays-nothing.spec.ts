@@ -147,8 +147,8 @@ test.describe( 'A site no agent has used pays nothing', () => {
         expect( hook.keys ).toEqual( [
             'canvas',
             'config',
+            'hidden',
             'onCanvas',
-            'onMessage',
             'phone',
             'post',
             'postId',
