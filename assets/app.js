@@ -832,9 +832,9 @@
         }
     }
 
-    // A dot and the count, on the row of a note that has open suggestions.
+    // A dot and the count, on the row of a note that has open suggestions, where the app shows anything of an agent.
     function suggestionsHtml( count ) {
-        if ( ! count ) {
+        if ( ! count || ! agentShown() ) {
             return '';
         }
         /* translators: %d: how many suggestions wait on a note. */
@@ -870,7 +870,7 @@
                 <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || untitledLabel( note.format ) ) }</div>
                 ${ excerpt ? `<div class="wfw-note__excerpt${ title ? '' : ' is-lead' }"${ leadLines }>${ esc( excerpt ) }</div>` : '' }
                 ${ FEATURED && thumb?.source === 'featured' ? `<button class="wfw-note__thumb-btn" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Change featured image', 'wordpress-for-writers' ) ) }">${ thumbImg }</button>` : thumbImg }
-                <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ agentShown() ? suggestionsHtml( note.wfw_suggestions ) : '' }${ statusIcon }</div>
+                <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ suggestionsHtml( note.wfw_suggestions ) }${ statusIcon }</div>
                 <div class="wfw-note__actions">${ actions }</div>
             </div>`;
     }
@@ -1462,9 +1462,6 @@
             }
             case 'suggestions': {
                 // The open note's count comes from its editor, which knows of a change first.
-                if ( phoneLayout.matches ) {
-                    break;
-                }
                 if ( data.count && ! settings.agent.seen ) {
                     // An agent has used the site since the app loaded: the list and the account menu catch up.
                     settings.agent.seen = Math.round( Date.now() / 1000 );
@@ -2225,21 +2222,15 @@
             </div>`;
 
         return `
-            <div class="wfw-sheet__card" role="dialog" aria-modal="true" aria-label="${ esc( __( 'Appearance', 'wordpress-for-writers' ) ) }">
-                <div class="wfw-sheet__head">
-                    <span>${ esc( __( 'Appearance', 'wordpress-for-writers' ) ) }</span>
-                    <button class="wfw-icon-btn" data-action="close-sheet" title="${ esc( __( 'Close', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</button>
-                </div>
-                <div class="wfw-sheet__label">${ esc( __( 'Theme', 'wordpress-for-writers' ) ) }</div>
-                <div class="wfw-themes">${ themes }</div>
-                ${ segmented( 'font', __( 'Font', 'wordpress-for-writers' ) ) }
-                ${ segmented( 'size', __( 'Text size', 'wordpress-for-writers' ) ) }
-                ${ segmented( 'width', __( 'Line width', 'wordpress-for-writers' ) ) }
-            </div>`;
+            <div class="wfw-sheet__label">${ esc( __( 'Theme', 'wordpress-for-writers' ) ) }</div>
+            <div class="wfw-themes">${ themes }</div>
+            ${ segmented( 'font', __( 'Font', 'wordpress-for-writers' ) ) }
+            ${ segmented( 'size', __( 'Text size', 'wordpress-for-writers' ) ) }
+            ${ segmented( 'width', __( 'Line width', 'wordpress-for-writers' ) ) }`;
     }
 
-    // One sheet at a time, over the app: Appearance, or the style sheet.
-    function openSheet( html ) {
+    // One sheet at a time, over the app: Appearance, or the style sheet. A card with its title and Close, then `body`.
+    function openSheet( title, body ) {
         let sheet = root.querySelector( '.wfw-sheet' );
         if ( ! sheet ) {
             sheet = document.createElement( 'div' );
@@ -2247,12 +2238,19 @@
             sheet.dataset.action = 'close-sheet';
             root.appendChild( sheet );
         }
-        sheet.innerHTML = html;
+        sheet.innerHTML = `
+            <div class="wfw-sheet__card" role="dialog" aria-modal="true" aria-label="${ esc( title ) }">
+                <div class="wfw-sheet__head">
+                    <span>${ esc( title ) }</span>
+                    <button class="wfw-icon-btn" data-action="close-sheet" title="${ esc( __( 'Close', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</button>
+                </div>
+                ${ body }
+            </div>`;
         return sheet;
     }
 
     function openAppearance() {
-        openSheet( renderAppearanceSheet() );
+        openSheet( __( 'Appearance', 'wordpress-for-writers' ), renderAppearanceSheet() );
     }
 
     function closeSheet() {
@@ -2286,15 +2284,9 @@
         const max = settings.agent.styleSheetMax;
         /* translators: %s: the most characters a style sheet holds, as a number. */
         const help = sprintf( __( 'How you want your notes worked on: your voice, your spelling, what to leave alone. An agent reads it before it suggests anything. Up to %s characters.', 'wordpress-for-writers' ), max.toLocaleString() );
-        const field = openSheet( `
-            <div class="wfw-sheet__card" role="dialog" aria-modal="true" aria-label="${ esc( title ) }">
-                <div class="wfw-sheet__head">
-                    <span>${ esc( title ) }</span>
-                    <button class="wfw-icon-btn" data-action="close-sheet" title="${ esc( __( 'Close', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</button>
-                </div>
-                <textarea class="wfw-style-sheet" rows="10" maxlength="${ max }" aria-label="${ esc( title ) }" aria-describedby="wfw-style-sheet-help"></textarea>
-                <p class="wfw-sheet__help" id="wfw-style-sheet-help">${ esc( help ) }</p>
-            </div>` ).querySelector( 'textarea' );
+        const field = openSheet( title, `
+            <textarea class="wfw-style-sheet" rows="10" maxlength="${ max }" aria-label="${ esc( title ) }" aria-describedby="wfw-style-sheet-help"></textarea>
+            <p class="wfw-sheet__help" id="wfw-style-sheet-help">${ esc( help ) }</p>` ).querySelector( 'textarea' );
         field.value = settings.agent.styleSheet;
         field.addEventListener( 'input', () => {
             settings.agent.styleSheet = field.value;

@@ -453,6 +453,14 @@ window.wfwPeek = function ( app ) {
         }
     }
 
+    // A sheet holds PEEK_MAX items: a new one takes the oldest's place.
+    function addPeekItem( item ) {
+        if ( peek.items.length >= PEEK_MAX ) {
+            peek.items.shift();
+        }
+        peek.items.push( item );
+    }
+
     // Opens a note in the sheet, or brings it forward if it's there already.
     function peekNote( id, { versions = false } = {} ) {
         if ( ! id ) {
@@ -461,10 +469,7 @@ window.wfwPeek = function ( app ) {
         loadBlockStyles();
         let at = peek.items.findIndex( ( item ) => item.id === id && ! item.pass );
         if ( at < 0 ) {
-            if ( peek.items.length >= PEEK_MAX ) {
-                peek.items.shift();
-            }
-            peek.items.push( newPeekItem( id, app.titleOf( id ) ) );
+            addPeekItem( newPeekItem( id, app.titleOf( id ) ) );
             at = peek.items.length - 1;
         }
         peek.at = at;
@@ -495,10 +500,7 @@ window.wfwPeek = function ( app ) {
         if ( at >= 0 ) {
             peek.items[ at ] = item;
         } else {
-            if ( peek.items.length >= PEEK_MAX ) {
-                peek.items.shift();
-            }
-            peek.items.push( item );
+            addPeekItem( item );
         }
         peek.at = peek.items.indexOf( item );
         peek.folded = false;
