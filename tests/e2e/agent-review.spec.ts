@@ -248,13 +248,15 @@ test.describe( 'Review', () => {
     } );
 
     test( 'inserts only the blocks the editor takes, and none of a suggestion that has no other', async ( { page, requestUtils } ) => {
-        // Stored by the store itself, which does not check a block's name: the ability does.
         const group = '<!-- wp:group -->\n<div class="wp-block-group"><!-- wp:paragraph -->\n<p>Grouped.</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->';
         const { result } = await seedSuggestions( requestUtils, note, [
-            { kind: 'blocks', place: { path: [ 0 ] }, change: { op: 'insert', after: 0, markup: group } },
-            { kind: 'blocks', place: { path: [ 1 ] }, change: { op: 'insert', after: 1, markup: group + '\n\n' + paragraph( 'A paragraph beside it.' ) } },
+            { kind: 'blocks', place: { path: [ 0 ] }, change: { op: 'insert', after: 0, markup: paragraph( 'A paragraph.' ) } },
+            { kind: 'blocks', place: { path: [ 1 ] }, change: { op: 'insert', after: 1, markup: paragraph( 'A paragraph beside it.' ) } },
         ], { label: 'Restructure' } );
         const [ none, some ] = result!.suggestions;
+        // The store takes no block the editor does not offer, so one is written past it: the editor decides for itself.
+        await call( requestUtils, 'wfw_test_change', [ none, { op: 'insert', after: 0, markup: group } ] );
+        await call( requestUtils, 'wfw_test_change', [ some, { op: 'insert', after: 1, markup: group + '\n\n' + paragraph( 'A paragraph beside it.' ) } ] );
         await openEditor( page, note );
         const names = () => page.evaluate( () => ( window as any ).wp.data.select( 'core/block-editor' ).getBlocks().map( ( b: any ) => b.name ) );
 
@@ -666,7 +668,7 @@ test.describe( 'Review', () => {
 
     test( 'moves a block to after the block it named, whatever else the pass changes', async ( { page, requestUtils } ) => {
         const four = await createNote( requestUtils, { paragraphs: [ 'Alpha.', 'Beta.', 'Gamma.', 'Delta.' ] } );
-        const { result } = await call( requestUtils, 'wfw_ability_suggest_blocks', [ {
+        const { result } = await call( requestUtils, 'wfw_test_ability', [ 'suggest-blocks', {
             note: four,
             pass: 'Restructure',
             changes: [ { op: 'remove', block: 0 }, { op: 'move', block: 3, after: 1 } ],

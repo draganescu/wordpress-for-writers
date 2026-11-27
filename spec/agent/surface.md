@@ -54,7 +54,7 @@ Comment meta, none of it shown in core's REST routes:
 | `_wfw_kind` | `edit`, `blocks`, `details` or `comment` |
 | `_wfw_status` | `open`, `accepted`, `dismissed` or `withdrawn` |
 | `_wfw_pass` | A UUID shared by the suggestions of one call |
-| `_wfw_pass_label` | The pass's label, at most 40 characters |
+| `_wfw_pass_label` | The pass's label, as plain text, at most 40 characters |
 | `_wfw_source` | The label of the way in: `cli` under WP-CLI, otherwise `abilities` |
 | `_wfw_anchor` | JSON, see Placing |
 | `_wfw_change` | JSON, the proposal itself, in the shape `abilities.md` gives for its kind; `{}` for a `comment` |
@@ -69,7 +69,7 @@ Nobody is emailed when the surface stores a suggestion or settles one. It is ins
 
 Core's comments route does not move a suggestion: an update of one that would change its note, its author (the user, the name, the email or the URL) or its parent is refused, 403 (`rest_preprocess_comment`). Its status and its text stay core's to change.
 
-The store keeps the limits `abilities.md` gives for a change (`markup`, `excerpt`, each title, tag and category), whoever calls it.
+The store keeps the limits `abilities.md` gives for a change (`markup`, `excerpt`, each title, tag and category), and takes no markup with a block the Writer editor does not offer (`not_allowed`), whoever calls it.
 
 Limits: a note holds at most 200 open suggestions. A call that would pass it fails with `too_many` and stores nothing.
 
@@ -158,7 +158,7 @@ Registered with `WP_CLI::add_command( 'writer', … )` only under WP-CLI. Three 
 
 ## What a site pays (A10)
 
-- Where `wfw_agent_seen` does not exist and the note has no core note, the editor page loads nothing of the surface and sends no request for it. It learns both from its config when it loads (`wfwEditor.agent`: `seen`, `notes`, `now`, and only when Review is to be loaded `script`, `style`, `domain`, `translations`). If a way in is first used while the app is open, the app learns of it from the first `suggestions` message that counts a suggestion. The app learns of the site from `wfwSettings.agent` (`seen`, `styleSheet`, `styleSheetMax`) and adds no control while `seen` is 0.
+- Where `wfw_agent_seen` does not exist and the note has no core note, the editor page loads nothing of the surface and sends no request for it. It learns both from its config when it loads (`wfwEditor.agent`: `seen`, `notes`, `now`, and only when Review is to be loaded `script`, `style`, `domain`, `translations`, `inlineTags`, the inline tags of Reading a note). If a way in is first used while the app is open, the app learns of it from the first `suggestions` message that counts a suggestion. The app learns of the site from `wfwSettings.agent` (`seen`, `styleSheet`, `styleSheetMax`) and adds no control while `seen` is 0.
 - On a phone (A12) the editor page loads nothing of the surface either, and the app asks for no `wfw_suggestions` and adds no control.
 - Otherwise the stub loads Review. While the editor is in view and `wfw_agent_seen` is less than 10 minutes old, Review asks for the note's suggestions every 5 seconds. Outside that it learns of new ones from the Heartbeat the editor already runs.
 - Registering the abilities costs what `wp_register_ability()` costs, on requests where the Abilities API fires its hooks.
@@ -169,7 +169,7 @@ Under `wfw/v1`, called with the REST nonce, requiring what Who may call requires
 
 | Route | Does |
 |---|---|
-| `GET /wfw/v1/notes/{id}/suggestions` | `{ "suggestions": [ … ], "seen", "now" }`: the note's suggestions that are `open`, all of them, and of those settled in the last day the newest 100, newest first as one list, each as `{ "id", "note", "kind", "status", "pass" (the UUID), "label" (the pass's), "anchor" (or null), "change", "reason", "author": { "id", "name" }, "date" (GMT), "ask" (its id, or 0) }`; `seen` is `wfw_agent_seen` and `now` the server's clock |
+| `GET /wfw/v1/notes/{id}/suggestions` | `{ "suggestions": [ … ], "asks": [ … ], "seen", "now" }`: the note's suggestions that are `open`, all of them, and of those settled in the last day the newest 100, newest first as one list, each as `{ "id", "note", "kind", "status", "pass" (the UUID), "label" (the pass's), "anchor" (or null), "change", "reason", "author": { "id", "name" }, "date" (GMT), "ask" (its id, or 0) }`; `asks` is the ids of the note's open asks (Records, Asks), which Review reads themselves from core's comments route; `seen` is `wfw_agent_seen` and `now` the server's clock |
 | `POST /wfw/v1/suggestions/{id}` | Sets `_wfw_status` to `accepted`, `dismissed` or back to `open`, with `_wfw_settled` and the comment's status in step (Records), and answers with the suggestion. Body: `{ "status": … }`. It changes nothing of the note: the note is changed by the editor. A `withdrawn` suggestion stays withdrawn: 409, `withdrawn` |
 
 A note or a suggestion that is not the user's, or does not exist, is 404 with the code `not_found` on both, with one message.

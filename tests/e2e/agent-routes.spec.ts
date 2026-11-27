@@ -50,7 +50,8 @@ test.describe( 'Routes for the editor', () => {
         const before = Math.floor( Date.now() / 1000 );
         const { status, body } = await admin( 'GET', `/wfw/v1/notes/${ note }/suggestions` );
         expect( status ).toBe( 200 );
-        expect( Object.keys( body ).sort() ).toEqual( [ 'now', 'seen', 'suggestions' ] );
+        expect( Object.keys( body ).sort() ).toEqual( [ 'asks', 'now', 'seen', 'suggestions' ] );
+        expect( body.asks ).toEqual( [] );
         expect( body.seen ).toBeGreaterThan( before - 120 );
         expect( body.now ).toBeGreaterThan( before - 120 );
         expect( body.suggestions ).toHaveLength( 1 );

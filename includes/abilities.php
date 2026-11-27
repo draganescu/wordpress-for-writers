@@ -124,18 +124,18 @@ function wfw_ability_suggestion( $suggestion ) {
  * ask it answers.
  *
  * @param WP_Post $note   The note.
- * @param array[] $blocks Its blocks, as wfw_note_read() gave them.
+ * @param array   $read   The note as wfw_note_read() gave it.
  * @param array   $place  array( 'path' => int[], 'quote' => string, 'occurrence' => int ), each optional.
  * @param int     $ask_id The ask the call answers, or 0.
  * @return array|WP_Error array( 'anchor' => array, 'start' => int, 'end' => int ), the two in characters of the
  *                        block's text; `invalid_args` or `not_found`.
  */
-function wfw_ability_passage( $note, $blocks, $place, $ask_id ) {
+function wfw_ability_passage( $note, $read, $place, $ask_id ) {
     if ( isset( $place['quote'] ) ) {
         if ( ! isset( $place['path'] ) ) {
             return wfw_agent_error( 'invalid_args', __( 'path is required with quote.', 'wordpress-for-writers' ) );
         }
-        $found = wfw_suggestion_locate( $blocks, $place['path'], $place['quote'], isset( $place['occurrence'] ) ? $place['occurrence'] : 0 );
+        $found = wfw_suggestion_locate( $read['blocks'], $place['path'], $place['quote'], $place['occurrence'] ?? 0 );
         if ( is_wp_error( $found ) ) {
             return $found;
         }
@@ -148,7 +148,7 @@ function wfw_ability_passage( $note, $blocks, $place, $ask_id ) {
     if ( ! $ask_id ) {
         return wfw_agent_error( 'invalid_args', __( 'quote is required unless ask is given.', 'wordpress-for-writers' ) );
     }
-    $passage = wfw_ask_passage( $note, $ask_id );
+    $passage = wfw_ask_passage( $note, $ask_id, $read['content'] );
     if ( is_wp_error( $passage ) ) {
         return $passage;
     }
@@ -158,6 +158,26 @@ function wfw_ability_passage( $note, $blocks, $place, $ask_id ) {
         'end'    => $passage['start'] + mb_strlen( $passage['anchor']['quote'] ),
     );
 }
+
+/**
+ * The pass a suggest ability stores: its label, and the ask the call answers.
+ *
+ * @param string $label The label.
+ * @param array  $input The ability's input: its `ask`, when given.
+ * @return array array( 'label' => string, 'ask' => int ), as wfw_suggestions_create() takes it.
+ */
+function wfw_ability_pass( $label, $input ) {
+    return array(
+        'label' => $label,
+        'ask'   => (int) ( $input['ask'] ?? 0 ),
+    );
+}
+
+/*
+ * An ability that names a note is given it: the registry below reads `note`
+ * (wfw_agent_note()) and answers `not_found` itself, so each of these takes
+ * the note, then its input.
+ */
 
 // ---- Read ------------------------------------------------------------------------
 
@@ -197,7 +217,7 @@ function wfw_ability_notes_list( $input ) {
         'post_type'           => 'post',
         'post_status'         => $statuses,
         'posts_per_page'      => 20,
-        'paged'               => isset( $input['page'] ) ? (int) $input['page'] : 1,
+        'paged'               => (int) ( $input['page'] ?? 1 ),
         'orderby'             => 'modified',
         'order'               => 'DESC',
         'ignore_sticky_posts' => true,
@@ -255,14 +275,10 @@ function wfw_ability_notes_list( $input ) {
 /**
  * `writer/note-get`: one note as text, with its open asks and suggestions.
  *
- * @param array $input array( 'note' => int ).
- * @return array|WP_Error array( 'note' => array, 'blocks' => array[], 'asks' => array[], 'suggestions' => array[] ).
+ * @param WP_Post $note The note.
+ * @return array array( 'note' => array, 'blocks' => array[], 'asks' => array[], 'suggestions' => array[] ).
  */
-function wfw_ability_note_get( $input ) {
-    $note = wfw_agent_note( $input['note'] );
-    if ( is_wp_error( $note ) ) {
-        return $note;
-    }
+function wfw_ability_note_get( $note ) {
     $read = wfw_note_read( $note );
     return array(
         'note'        => array(
@@ -277,7 +293,7 @@ function wfw_ability_note_get( $input ) {
             'from'       => $read['from'],
         ),
         'blocks'      => $read['blocks'],
-        'asks'        => wfw_note_asks( $note ),
+        'asks'        => wfw_note_asks( $note, $read['content'] ),
         'suggestions' => array_map( 'wfw_ability_suggestion', wfw_suggestions_get( $note->ID, array(
             'status' => 'open',
             'number' => 0,
@@ -303,7 +319,7 @@ function wfw_ability_library_get() {
                 'name'   => $term->name,
                 'slug'   => $term->slug,
                 'count'  => $term->count,
-                'parent' => isset( $slugs[ $term->parent ] ) ? $slugs[ $term->parent ] : '',
+                'parent' => $slugs[ $term->parent ] ?? '',
             );
         }, $categories ),
         'tags'       => array_map( function ( $term ) {
@@ -323,15 +339,12 @@ function wfw_ability_library_get() {
  * `writer/suggestions-list`: what became of a note's suggestions, the newest
  * 100.
  *
- * @param array $input array( 'note' => int, 'status' => string, optional ).
- * @return array|WP_Error array( 'suggestions' => array[] ), each as wfw_ability_suggestion() with `date`, and
- *                        `ask` where it answers one.
+ * @param WP_Post $note  The note.
+ * @param array   $input array( 'note' => int, 'status' => string, optional ).
+ * @return array array( 'suggestions' => array[] ), each as wfw_ability_suggestion() with `date`, and `ask` where
+ *               it answers one.
  */
-function wfw_ability_suggestions_list( $input ) {
-    $note = wfw_agent_note( $input['note'] );
-    if ( is_wp_error( $note ) ) {
-        return $note;
-    }
+function wfw_ability_suggestions_list( $note, $input ) {
     return array(
         'suggestions' => array_map( function ( $suggestion ) {
             $listed = wfw_ability_suggestion( $suggestion ) + array( 'date' => $suggestion['date'] );
@@ -339,7 +352,7 @@ function wfw_ability_suggestions_list( $input ) {
                 $listed['ask'] = $suggestion['ask'];
             }
             return $listed;
-        }, wfw_suggestions_get( $note->ID, array( 'status' => isset( $input['status'] ) ? $input['status'] : 'any' ) ) ),
+        }, wfw_suggestions_get( $note->ID, array( 'status' => $input['status'] ?? 'any' ) ) ),
     );
 }
 
@@ -349,20 +362,17 @@ function wfw_ability_suggestions_list( $input ) {
  * `writer/suggest-edits`: one pass of text edits. Each is placed in the note
  * as it reads now, and no two may overlap in a block.
  *
- * @param array $input array( 'note' => int, 'ask' => int, optional, 'pass' => string, 'edits' => array[] ).
+ * @param WP_Post $note  The note.
+ * @param array   $input array( 'note' => int, 'ask' => int, optional, 'pass' => string, 'edits' => array[] ).
  * @return array|WP_Error array( 'pass' => string, 'suggestions' => int[] ).
  */
-function wfw_ability_suggest_edits( $input ) {
-    $note = wfw_agent_note( $input['note'] );
-    if ( is_wp_error( $note ) ) {
-        return $note;
-    }
+function wfw_ability_suggest_edits( $note, $input ) {
     $read        = wfw_note_read( $note );
-    $ask_id      = isset( $input['ask'] ) ? (int) $input['ask'] : 0;
+    $pass        = wfw_ability_pass( $input['pass'], $input );
     $places      = array();
     $suggestions = array();
     foreach ( array_values( $input['edits'] ) as $index => $edit ) {
-        $place = wfw_ability_passage( $note, $read['blocks'], $edit, $ask_id );
+        $place = wfw_ability_passage( $note, $read, $edit, $pass['ask'] );
         if ( is_wp_error( $place ) ) {
             return $place;
         }
@@ -377,52 +387,34 @@ function wfw_ability_suggest_edits( $input ) {
             'kind'   => 'edit',
             'anchor' => $place['anchor'],
             'change' => array( 'replacement' => $edit['replacement'] ),
-            'reason' => isset( $edit['reason'] ) ? $edit['reason'] : '',
+            'reason' => $edit['reason'] ?? '',
         );
     }
-    return wfw_suggestions_create( $note->ID, array(
-        'label' => $input['pass'],
-        'ask'   => $ask_id,
-    ), $suggestions );
+    return wfw_suggestions_create( $note->ID, $pass, $suggestions );
 }
 
 /**
  * `writer/suggest-blocks`: insert, remove or move whole top-level blocks. A
- * block to insert must be one the Writer editor offers.
+ * block to insert must be one the Writer editor offers: the store checks each
+ * change, and this finds the blocks it names in the note.
  *
- * @param array $input array( 'note' => int, 'ask' => int, optional, 'pass' => string, 'changes' => array[] ).
+ * @param WP_Post $note  The note.
+ * @param array   $input array( 'note' => int, 'ask' => int, optional, 'pass' => string, 'changes' => array[] ).
  * @return array|WP_Error array( 'pass' => string, 'suggestions' => int[] ).
  */
-function wfw_ability_suggest_blocks( $input ) {
-    $note = wfw_agent_note( $input['note'] );
-    if ( is_wp_error( $note ) ) {
-        return $note;
-    }
+function wfw_ability_suggest_blocks( $note, $input ) {
     $read        = wfw_note_read( $note );
-    $offered     = wfw_allowed_block_types( true );
     $suggestions = array();
     foreach ( $input['changes'] as $change ) {
-        $clean = wfw_sanitize_suggestion_change( 'blocks', $change );
-        if ( is_wp_error( $clean ) ) {
-            return $clean;
-        }
-        if ( 'insert' === $clean['op'] ) {
-            foreach ( wfw_note_walk( $clean['markup'] ) as $block ) {
-                if ( ! in_array( $block['name'], $offered, true ) ) {
-                    /* translators: %s: the name of a block, such as core/columns. */
-                    return wfw_agent_error( 'not_allowed', sprintf( __( 'The Writer editor does not offer the block %s.', 'wordpress-for-writers' ), $block['name'] ) );
-                }
-            }
-        }
         // The block the change is about: the one named, or for an insert the one it goes after. The start of the note is no block.
-        $about  = 'insert' === $clean['op'] ? $clean['after'] : $clean['block'];
-        $anchor = $about < 0 ? null : wfw_block_anchor( $read['blocks'], array( $about ) );
+        $about  = $change[ 'insert' === $change['op'] ? 'after' : 'block' ] ?? -1;
+        $anchor = $about < 0 ? null : wfw_block_anchor( $read['blocks'], array( (int) $about ) );
         if ( is_wp_error( $anchor ) ) {
             return $anchor;
         }
         // Where a move goes is a block too, and is found again as the one it moves is.
-        if ( 'move' === $clean['op'] && $clean['after'] >= 0 ) {
-            $after = wfw_block_anchor( $read['blocks'], array( $clean['after'] ) );
+        if ( $anchor && 'move' === $change['op'] && ( $change['after'] ?? -1 ) >= 0 ) {
+            $after = wfw_block_anchor( $read['blocks'], array( (int) $change['after'] ) );
             if ( is_wp_error( $after ) ) {
                 return $after;
             }
@@ -431,30 +423,24 @@ function wfw_ability_suggest_blocks( $input ) {
         $suggestions[] = array(
             'kind'   => 'blocks',
             'anchor' => $anchor,
-            'change' => $clean,
-            'reason' => isset( $change['reason'] ) ? $change['reason'] : '',
+            'change' => $change,
+            'reason' => $change['reason'] ?? '',
         );
     }
-    return wfw_suggestions_create( $note->ID, array(
-        'label' => $input['pass'],
-        'ask'   => isset( $input['ask'] ) ? (int) $input['ask'] : 0,
-    ), $suggestions );
+    return wfw_suggestions_create( $note->ID, wfw_ability_pass( $input['pass'], $input ), $suggestions );
 }
 
 /**
  * `writer/suggest-details`: a title, an excerpt, tags or categories, one
  * suggestion for each given, in a pass labelled "Details".
  *
- * @param array $input array( 'note' => int, 'ask' => int, 'titles' => string[], 'excerpt' => string,
- *                     'tags' => string[], 'categories' => string[], 'reason' => string ), all but `note` optional.
+ * @param WP_Post $note  The note.
+ * @param array   $input array( 'note' => int, 'ask' => int, 'titles' => string[], 'excerpt' => string,
+ *                       'tags' => string[], 'categories' => string[], 'reason' => string ), all but `note` optional.
  * @return array|WP_Error array( 'pass' => string, 'suggestions' => int[] ).
  */
-function wfw_ability_suggest_details( $input ) {
-    $note = wfw_agent_note( $input['note'] );
-    if ( is_wp_error( $note ) ) {
-        return $note;
-    }
-    foreach ( isset( $input['categories'] ) ? $input['categories'] : array() as $name ) {
+function wfw_ability_suggest_details( $note, $input ) {
+    foreach ( $input['categories'] ?? array() as $name ) {
         if ( ! get_term_by( 'name', $name, 'category' ) ) {
             /* translators: %s: the name of a category. */
             return wfw_agent_error( 'not_found', sprintf( __( 'Category %s was not found.', 'wordpress-for-writers' ), $name ) );
@@ -469,44 +455,34 @@ function wfw_ability_suggest_details( $input ) {
                     'field' => $field,
                     'value' => $input[ $field ],
                 ),
-                'reason' => isset( $input['reason'] ) ? $input['reason'] : '',
+                'reason' => $input['reason'] ?? '',
             );
         }
     }
     if ( ! $suggestions ) {
         return wfw_agent_error( 'invalid_args', __( 'One of titles, excerpt, tags or categories is required.', 'wordpress-for-writers' ) );
     }
-    return wfw_suggestions_create( $note->ID, array(
-        // Stored in English, as agents read it back: the pass's label in abilities.md.
-        'label' => 'Details',
-        'ask'   => isset( $input['ask'] ) ? (int) $input['ask'] : 0,
-    ), $suggestions );
+    // Stored in English, as agents read it back: the pass's label in abilities.md.
+    return wfw_suggestions_create( $note->ID, wfw_ability_pass( 'Details', $input ), $suggestions );
 }
 
 /**
  * `writer/comment`: a remark on a passage, with no change proposed, in a pass
  * of its own labelled "Comment".
  *
- * @param array $input array( 'note' => int, 'ask' => int, 'path' => int[], 'quote' => string, 'occurrence' => int,
- *                     'text' => string ); the passage as for an edit.
+ * @param WP_Post $note  The note.
+ * @param array   $input array( 'note' => int, 'ask' => int, 'path' => int[], 'quote' => string, 'occurrence' => int,
+ *                       'text' => string ); the passage as for an edit.
  * @return array|WP_Error array( 'pass' => string, 'suggestions' => int[] ).
  */
-function wfw_ability_comment( $input ) {
-    $note = wfw_agent_note( $input['note'] );
-    if ( is_wp_error( $note ) ) {
-        return $note;
-    }
-    $read   = wfw_note_read( $note );
-    $ask_id = isset( $input['ask'] ) ? (int) $input['ask'] : 0;
-    $place  = wfw_ability_passage( $note, $read['blocks'], $input, $ask_id );
+function wfw_ability_comment( $note, $input ) {
+    // Stored in English, as agents read it back: the pass's label in abilities.md.
+    $pass  = wfw_ability_pass( 'Comment', $input );
+    $place = wfw_ability_passage( $note, wfw_note_read( $note ), $input, $pass['ask'] );
     if ( is_wp_error( $place ) ) {
         return $place;
     }
-    return wfw_suggestions_create( $note->ID, array(
-        // Stored in English, as agents read it back: the pass's label in abilities.md.
-        'label' => 'Comment',
-        'ask'   => $ask_id,
-    ), array(
+    return wfw_suggestions_create( $note->ID, $pass, array(
         array(
             'kind'   => 'comment',
             'anchor' => $place['anchor'],
@@ -518,11 +494,12 @@ function wfw_ability_comment( $input ) {
 /**
  * `writer/suggestions-withdraw`.
  *
- * @param array $input array( 'note' => int, 'suggestions' => int[] ).
+ * @param WP_Post $note  The note.
+ * @param array   $input array( 'note' => int, 'suggestions' => int[] ).
  * @return array|WP_Error array( 'withdrawn' => int[] ).
  */
-function wfw_ability_suggestions_withdraw( $input ) {
-    return wfw_suggestions_withdraw( $input['note'], $input['suggestions'] );
+function wfw_ability_suggestions_withdraw( $note, $input ) {
+    return wfw_suggestions_withdraw( $note->ID, $input['suggestions'] );
 }
 
 // ---- The registry ----------------------------------------------------------------
@@ -551,12 +528,12 @@ add_action( 'wp_abilities_api_init', function () {
     $pass    = array(
         'type'        => 'string',
         'minLength'   => 1,
-        'maxLength'   => 40,
+        'maxLength'   => WFW_PASS_LABEL_MAX,
         'description' => 'The label the writer sees: "Proofread", "Tighten".',
     );
     $reason  = array(
         'type'        => 'string',
-        'maxLength'   => 300,
+        'maxLength'   => WFW_REASON_MAX,
         'description' => 'Why. Shown to the writer.',
     );
     $passage = array(
@@ -572,7 +549,7 @@ add_action( 'wp_abilities_api_init', function () {
         'quote'      => array(
             'type'        => 'string',
             'minLength'   => 1,
-            'maxLength'   => 2000,
+            'maxLength'   => WFW_QUOTE_MAX,
             'description' => 'The passage, exactly as it reads in the block\'s text. Required unless ask is given: the passage is then the ask\'s.',
         ),
         'occurrence' => array(
@@ -680,7 +657,7 @@ add_action( 'wp_abilities_api_init', function () {
                         'properties'           => $passage + array(
                             'replacement' => array(
                                 'type'        => 'string',
-                                'maxLength'   => 4000,
+                                'maxLength'   => WFW_REPLACEMENT_MAX,
                                 'description' => 'What replaces the passage. The empty string removes it. It may hold the inline formatting a block\'s html shows: strong, em, a with href, code, s, sub, sup. Anything else is removed.',
                             ),
                             'reason'      => $reason,
@@ -724,7 +701,7 @@ add_action( 'wp_abilities_api_init', function () {
                             ),
                             'markup' => array(
                                 'type'        => 'string',
-                                'maxLength'   => 20000,
+                                'maxLength'   => WFW_MARKUP_MAX,
                                 'description' => 'The block markup to insert, of blocks the Writer editor offers.',
                             ),
                             'reason' => $reason,
@@ -744,13 +721,13 @@ add_action( 'wp_abilities_api_init', function () {
             'properties'  => array(
                 'note'       => $note,
                 'ask'        => $ask,
-                'titles'     => $strings( 5, 200, 'Options for the title. The writer picks one or keeps theirs.' ),
+                'titles'     => $strings( 5, WFW_TITLE_MAX, 'Options for the title. The writer picks one or keeps theirs.' ),
                 'excerpt'    => array(
                     'type'      => 'string',
-                    'maxLength' => 600,
+                    'maxLength' => WFW_EXCERPT_MAX,
                 ),
-                'tags'       => $strings( 10, 100, 'Tags to add, by name.' ),
-                'categories' => $strings( 5, 100, 'Categories to add, by name. Each must exist.' ),
+                'tags'       => $strings( 10, WFW_TERM_MAX, 'Tags to add, by name.' ),
+                'categories' => $strings( 5, WFW_TERM_MAX, 'Categories to add, by name. Each must exist.' ),
                 'reason'     => $reason,
             ),
             'required'    => array( 'note' ),
@@ -767,7 +744,7 @@ add_action( 'wp_abilities_api_init', function () {
                 'text' => array(
                     'type'        => 'string',
                     'minLength'   => 1,
-                    'maxLength'   => 600,
+                    'maxLength'   => WFW_COMMENT_MAX,
                     'description' => 'The remark.',
                 ),
             ),
@@ -792,13 +769,21 @@ add_action( 'wp_abilities_api_init', function () {
     );
 
     foreach ( $abilities as $name => $ability ) {
+        $execute = $ability['execute'];
+        // An ability that names a note is given it, or answers that it was not found.
+        if ( isset( $ability['properties']['note'] ) ) {
+            $execute = function ( $input ) use ( $ability ) {
+                $note = wfw_agent_note( $input['note'] );
+                return is_wp_error( $note ) ? $note : call_user_func( $ability['execute'], $note, $input );
+            };
+        }
         $args = array(
             'label'               => $ability['label'],
             'description'         => $ability['description'],
             'category'            => 'writer',
             'ability_class'       => 'WFW_Ability',
-            'execute_callback'    => $ability['execute'],
-            // Who may call (surface.md). The note an ability names is checked where it is read: wfw_agent_note().
+            'execute_callback'    => $execute,
+            // Who may call (surface.md). The note an ability names is read above: wfw_agent_note().
             'permission_callback' => function () {
                 return is_user_logged_in() && wfw_user_can_write();
             },

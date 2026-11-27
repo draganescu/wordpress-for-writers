@@ -36,6 +36,21 @@ const WFW_SUGGESTIONS_MAX_OPEN = 200;
 const WFW_STYLE_SHEET_MAX = 5000;
 
 /**
+ * The longest each text of a suggestion may be, in characters: what the
+ * abilities' schemas say (includes/abilities.php) and what the store checks
+ * again, whoever calls it.
+ */
+const WFW_PASS_LABEL_MAX  = 40;
+const WFW_REASON_MAX      = 300;
+const WFW_COMMENT_MAX     = 600;
+const WFW_QUOTE_MAX       = 2000;
+const WFW_REPLACEMENT_MAX = 4000;
+const WFW_MARKUP_MAX      = 20000;
+const WFW_TITLE_MAX       = 200;
+const WFW_TERM_MAX        = 100;
+const WFW_EXCERPT_MAX     = 600;
+
+/**
  * The inline tags a block's rich text is read with: its `html` keeps them and
  * every other tag ends a run of text.
  */
@@ -138,21 +153,21 @@ function wfw_note_not_found( $note_id ) {
  * @return string
  */
 function wfw_sanitize_style_sheet( $value ) {
-    $value = is_string( $value ) ? wfw_plain_text( sanitize_textarea_field( $value ) ) : '';
-    return mb_substr( $value, 0, WFW_STYLE_SHEET_MAX );
+    return mb_substr( is_string( $value ) ? wfw_plain_text( $value, true ) : '', 0, WFW_STYLE_SHEET_MAX );
 }
 
 /**
  * The style sheet a writer keeps for agents (spec/agent/README.md, Q3): how
  * they want their notes worked on, returned by `writer/guide` as `style`.
  * Stored in the user meta `wfw_style_sheet`, which the app saves through the
- * REST API as it saves the appearance.
+ * REST API as it saves the appearance, sanitised as it is stored
+ * (wfw_sanitize_style_sheet()).
  *
  * @return string The current user's style sheet, or the empty string.
  */
 function wfw_get_style_sheet() {
     $user_id = get_current_user_id();
-    return $user_id ? wfw_sanitize_style_sheet( get_user_meta( $user_id, 'wfw_style_sheet', true ) ) : '';
+    return $user_id ? (string) get_user_meta( $user_id, 'wfw_style_sheet', true ) : '';
 }
 
 add_action( 'init', function () {
@@ -224,6 +239,16 @@ function wfw_rich_text_plain( $html ) {
 }
 
 /**
+ * A block's text, from its own HTML: what an agent is given as its `text`.
+ *
+ * @param string $raw A block's own HTML, without its inner blocks'.
+ * @return string
+ */
+function wfw_block_text( $raw ) {
+    return wfw_rich_text_plain( wfw_rich_text_html( $raw ) );
+}
+
+/**
  * Every named block of a note's content, depth-first, each with its path and
  * what the parser gave for it. Blocks with no name are left out and do not
  * count in a path.
@@ -232,6 +257,16 @@ function wfw_rich_text_plain( $html ) {
  * @return array[] Each array( 'path' => int[], 'name' => string, 'attrs' => array, 'raw' => string ), `raw` being the block's own HTML.
  */
 function wfw_note_walk( $content ) {
+    return wfw_blocks_walk( parse_blocks( (string) $content ) );
+}
+
+/**
+ * wfw_note_walk(), of content already parsed.
+ *
+ * @param array[] $blocks Blocks, as parse_blocks() returns them.
+ * @return array[] As wfw_note_walk().
+ */
+function wfw_blocks_walk( $blocks ) {
     $found = array();
     $walk  = function ( $blocks, $prefix ) use ( &$walk, &$found ) {
         $index = 0;
@@ -252,7 +287,7 @@ function wfw_note_walk( $content ) {
             ++$index;
         }
     };
-    $walk( parse_blocks( (string) $content ), array() );
+    $walk( $blocks, array() );
     return $found;
 }
 
@@ -349,7 +384,7 @@ function wfw_block_at( $blocks, $path ) {
  *
  * @param array[] $blocks     The note's blocks, as wfw_note_blocks() returns them.
  * @param int[]   $path       The block.
- * @param string  $quote      The passage, as it reads in the block's `text`: 1 to 2000 characters.
+ * @param string  $quote      The passage, as it reads in the block's `text`: 1 to WFW_QUOTE_MAX characters.
  * @param int     $occurrence Which one, when the quote occurs more than once; 0 when not given.
  * @return array|WP_Error array( 'block' => array, 'start' => int, 'length' => int ), in characters of the block's text.
  *                        `not_found` when the block or the passage is missing; `invalid_args` for a quote that is
@@ -362,8 +397,9 @@ function wfw_suggestion_locate( $blocks, $path, $quote, $occurrence = 0 ) {
     }
     $quote  = (string) $quote;
     $length = mb_strlen( $quote );
-    if ( $length < 1 || $length > 2000 ) {
-        return wfw_agent_error( 'invalid_args', __( 'quote must be 1 to 2000 characters.', 'wordpress-for-writers' ) );
+    if ( $length < 1 || $length > WFW_QUOTE_MAX ) {
+        /* translators: %d: a number of characters. */
+        return wfw_agent_error( 'invalid_args', sprintf( __( 'quote must be 1 to %d characters.', 'wordpress-for-writers' ), WFW_QUOTE_MAX ) );
     }
     $label  = wfw_path_label( $block['path'] );
     $starts = array();
@@ -442,7 +478,7 @@ function wfw_block_anchor( $blocks, $path ) {
  * integers, and reads a bare number too.
  */
 function wfw_block_note_ids( $attrs ) {
-    $ids = isset( $attrs['metadata']['noteId'] ) ? $attrs['metadata']['noteId'] : array();
+    $ids = $attrs['metadata']['noteId'] ?? array();
     return array_values( array_filter( array_map( 'intval', is_array( $ids ) ? $ids : array( $ids ) ) ) );
 }
 
@@ -462,87 +498,99 @@ function wfw_block_note_ids( $attrs ) {
 function wfw_note_marked_passages( $content ) {
     $passages = array();
     $blocks   = wfw_note_walk( $content );
-    foreach ( $blocks as $block ) {
-        if ( false === strpos( $block['raw'], 'wp-note' ) || ! preg_match_all( '~<mark\b[^>]*>~i', $block['raw'], $openers ) ) {
-            continue;
-        }
-        foreach ( array_unique( $openers[0] ) as $opener ) {
-            // Parsed, not matched as a literal: core writes data-id before class, and either may be quoted either way.
-            $tag = new WP_HTML_Tag_Processor( $opener );
-            if ( ! $tag->next_tag( 'mark' ) || ! $tag->has_class( 'wp-note' ) ) {
-                continue;
-            }
-            $id = (int) $tag->get_attribute( 'data-id' );
-            if ( ! $id || isset( $passages[ $id ] ) ) {
-                continue;
-            }
-            /*
-             * The marker's two ends become two control characters that pass
-             * through the reading untouched, so the passage is found in the same
-             * text an agent is given, wherever other tags and markers fall.
-             */
-            $marked = '';
-            $stack  = array();
-            $rest   = $block['raw'];
-            while ( preg_match( '~<(/?)mark\b[^>]*>~i', $rest, $found, PREG_OFFSET_CAPTURE ) ) {
-                $marked .= substr( $rest, 0, $found[0][1] );
-                $rest    = substr( $rest, $found[0][1] + strlen( $found[0][0] ) );
-                if ( '/' === $found[1][0] ) {
-                    $marked .= array_pop( $stack ) ? "\x03" : $found[0][0];
-                } else {
-                    $ours    = $found[0][0] === $opener;
-                    $stack[] = $ours;
-                    $marked .= $ours ? "\x02" : $found[0][0];
-                }
-            }
-            $text  = wfw_rich_text_plain( wfw_rich_text_html( $marked . $rest ) );
-            $start = strpos( $text, "\x02" );
-            $end   = false === $start ? false : strpos( $text, "\x03", $start );
-            if ( false === $end ) {
-                continue;
-            }
-            $ends   = array( "\x02", "\x03" );
-            $inside = str_replace( $ends, '', substr( $text, $start, $end - $start ) );
-            $before = str_replace( $ends, '', substr( $text, 0, $start ) );
-            if ( '' === $inside ) {
-                continue;
-            }
-            $passages[ $id ] = array(
-                'anchor' => wfw_anchor_at(
-                    array(
-                        'path' => $block['path'],
-                        'name' => $block['name'],
-                        'text' => str_replace( $ends, '', $text ),
-                    ),
-                    mb_strlen( $before ),
-                    mb_strlen( $inside )
+    $passage  = function ( $block, $text, $start, $length ) {
+        return array(
+            'anchor' => wfw_anchor_at(
+                array(
+                    'path' => $block['path'],
+                    'name' => $block['name'],
+                    'text' => $text,
                 ),
-                'start'  => mb_strlen( $before ),
-            );
+                $start,
+                $length
+            ),
+            'start'  => $start,
+        );
+    };
+    foreach ( $blocks as $block ) {
+        foreach ( wfw_block_markers( $block['raw'] ) as $id => $at ) {
+            if ( ! isset( $passages[ $id ] ) ) {
+                $passages[ $id ] = $passage( $block, $at['text'], $at['start'], $at['length'] );
+            }
         }
     }
     // What is left names a whole block.
     foreach ( $blocks as $block ) {
         foreach ( wfw_block_note_ids( $block['attrs'] ) as $id ) {
-            if ( isset( $passages[ $id ] ) ) {
-                continue;
+            if ( ! isset( $passages[ $id ] ) ) {
+                $text            = wfw_block_text( $block['raw'] );
+                $passages[ $id ] = $passage( $block, $text, 0, mb_strlen( $text ) );
             }
-            $text            = wfw_rich_text_plain( wfw_rich_text_html( $block['raw'] ) );
-            $passages[ $id ] = array(
-                'anchor' => wfw_anchor_at(
-                    array(
-                        'path' => $block['path'],
-                        'name' => $block['name'],
-                        'text' => $text,
-                    ),
-                    0,
-                    mb_strlen( $text )
-                ),
-                'start'  => 0,
-            );
         }
     }
     return $passages;
+}
+
+/**
+ * The core note markers in a block's own HTML, each with where its passage is
+ * in the block's text. A marker with no text inside, or with no end, is left
+ * out; of two with one id, the first that has a passage counts.
+ *
+ * @param string $raw A block's own HTML, markers included.
+ * @return array<int, array> By core note id, each array( 'text' => string, the block's text, 'start' => int,
+ *                           'length' => int ), the two in characters.
+ */
+function wfw_block_markers( $raw ) {
+    $markers = array();
+    if ( false === strpos( $raw, 'wp-note' ) || ! preg_match_all( '~<mark\b[^>]*>~i', $raw, $openers ) ) {
+        return $markers;
+    }
+    $ends = array( "\x02", "\x03" );
+    foreach ( array_unique( $openers[0] ) as $opener ) {
+        // Parsed, not matched as a literal: core writes data-id before class, and either may be quoted either way.
+        $tag = new WP_HTML_Tag_Processor( $opener );
+        if ( ! $tag->next_tag( 'mark' ) || ! $tag->has_class( 'wp-note' ) ) {
+            continue;
+        }
+        $id = (int) $tag->get_attribute( 'data-id' );
+        if ( ! $id || isset( $markers[ $id ] ) ) {
+            continue;
+        }
+        /*
+         * The marker's two ends become two control characters that pass
+         * through the reading untouched, so the passage is found in the same
+         * text an agent is given, wherever other tags and markers fall.
+         */
+        $marked = '';
+        $stack  = array();
+        $rest   = $raw;
+        while ( preg_match( '~<(/?)mark\b[^>]*>~i', $rest, $found, PREG_OFFSET_CAPTURE ) ) {
+            $marked .= substr( $rest, 0, $found[0][1] );
+            $rest    = substr( $rest, $found[0][1] + strlen( $found[0][0] ) );
+            if ( '/' === $found[1][0] ) {
+                $marked .= array_pop( $stack ) ? "\x03" : $found[0][0];
+            } else {
+                $ours    = $found[0][0] === $opener;
+                $stack[] = $ours;
+                $marked .= $ours ? "\x02" : $found[0][0];
+            }
+        }
+        $text  = wfw_block_text( $marked . $rest );
+        $start = strpos( $text, "\x02" );
+        $end   = false === $start ? false : strpos( $text, "\x03", $start );
+        if ( false === $end ) {
+            continue;
+        }
+        $inside = str_replace( $ends, '', substr( $text, $start, $end - $start ) );
+        if ( '' !== $inside ) {
+            $markers[ $id ] = array(
+                'text'   => str_replace( $ends, '', $text ),
+                'start'  => mb_strlen( str_replace( $ends, '', substr( $text, 0, $start ) ) ),
+                'length' => mb_strlen( $inside ),
+            );
+        }
+    }
+    return $markers;
 }
 
 // ---- Asks ------------------------------------------------------------------------
@@ -573,27 +621,27 @@ function wfw_asks_query( $note_id ) {
 
 /**
  * The asks of a note that are not resolved, each with its passage in the note
- * as the user reads it (wfw_note_read()).
+ * as the user reads it.
  *
- * @param WP_Post $note The note.
+ * @param WP_Post $note    The note.
+ * @param string  $content Its content as the user reads it: wfw_note_read()'s `content`.
  * @return array[] Each array( 'id' => int, 'text' => string, 'path' => int[]|null, 'quote' => string, 'replies' => int ).
  *                 `path` is null and `quote` empty for an ask the note no longer names. `replies` leaves out the
  *                 empty children core adds to record a resolve or a reopen (they carry `_wp_note_status`).
  */
-function wfw_note_asks( $note ) {
+function wfw_note_asks( $note, $content ) {
     $asks = get_comments( wfw_asks_query( $note->ID ) );
     if ( ! $asks ) {
         return array();
     }
-    $read     = wfw_note_read( $note );
-    $passages = wfw_note_marked_passages( $read['content'] );
+    $passages = wfw_note_marked_passages( $content );
     return array_map( function ( $ask ) use ( $passages ) {
         $id = (int) $ask->comment_ID;
         return array(
             'id'      => $id,
             'text'    => wfw_rich_text_plain( $ask->comment_content ),
-            'path'    => isset( $passages[ $id ] ) ? $passages[ $id ]['anchor']['path'] : null,
-            'quote'   => isset( $passages[ $id ] ) ? $passages[ $id ]['anchor']['quote'] : '',
+            'path'    => $passages[ $id ]['anchor']['path'] ?? null,
+            'quote'   => $passages[ $id ]['anchor']['quote'] ?? '',
             'replies' => (int) get_comments( array(
                 'post_id'    => (int) $ask->comment_post_ID,
                 'type'       => 'note',
@@ -650,20 +698,20 @@ function wfw_ask_get( $note_id, $ask_id ) {
  * The passage an ask is about, for a suggestion that answers it and quotes
  * nothing (surface.md, Placing).
  *
- * @param WP_Post $note   The note.
- * @param int     $ask_id The ask.
+ * @param WP_Post $note    The note.
+ * @param int     $ask_id  The ask.
+ * @param string  $content The note's content as the user reads it: wfw_note_read()'s `content`.
  * @return array|WP_Error array( 'anchor' => array, as wfw_anchor_at() returns it, 'start' => int, where the
  *                        passage starts in its block's text, in characters ); `not_found` when the ask does not
  *                        exist ("Ask {id} was not found.") or its marker is no longer in the note
  *                        ("The passage of ask {id} was not found. Read the note again.").
  */
-function wfw_ask_passage( $note, $ask_id ) {
+function wfw_ask_passage( $note, $ask_id, $content ) {
     $ask = wfw_ask_get( $note->ID, $ask_id );
     if ( is_wp_error( $ask ) ) {
         return $ask;
     }
-    $read     = wfw_note_read( $note );
-    $passages = wfw_note_marked_passages( $read['content'] );
+    $passages = wfw_note_marked_passages( $content );
     if ( ! isset( $passages[ (int) $ask_id ] ) ) {
         /* translators: %d: the id of an ask. */
         return wfw_agent_error( 'not_found', sprintf( __( 'The passage of ask %d was not found. Read the note again.', 'wordpress-for-writers' ), (int) $ask_id ) );
@@ -692,16 +740,19 @@ function wfw_note_has_core_note( $note_id ) {
 // ---- Sanitising ------------------------------------------------------------------
 
 /**
- * Plain text as it was typed, once core has sanitised it. Core's text
- * sanitisers write a `<` that opens no tag as `&lt;`, for text on its way into
- * HTML. A reason, a title or a style sheet is never set as HTML: it is shown
- * as text, where the entity would show as it is.
+ * Plain text as it was typed: what core's text sanitisers leave of it, with
+ * the `<` they wrote as `&lt;` put back. They write one that opens no tag so,
+ * for text on its way into HTML. A label, a reason, a title or a style sheet
+ * is never set as HTML: it is shown as text, where the entity would show as
+ * it is.
  *
- * @param string $text What sanitize_text_field() or sanitize_textarea_field() returned.
+ * @param string $raw       What was sent.
+ * @param bool   $multiline Whether its line breaks are kept (sanitize_textarea_field()) or it is one line
+ *                          (sanitize_text_field()).
  * @return string
  */
-function wfw_plain_text( $text ) {
-    return str_replace( '&lt;', '<', $text );
+function wfw_plain_text( $raw, $multiline = false ) {
+    return str_replace( '&lt;', '<', $multiline ? sanitize_textarea_field( $raw ) : sanitize_text_field( $raw ) );
 }
 
 /**
@@ -738,21 +789,23 @@ function wfw_sanitize_block_markup( $markup ) {
  * A suggestion's change, in the shape abilities.md gives for its kind, with
  * every value sanitised and nothing else kept:
  *
- * - `edit`: array( 'replacement' => string ), at most 4000 characters.
+ * - `edit`: array( 'replacement' => string ), at most WFW_REPLACEMENT_MAX characters.
  * - `blocks`: array( 'op' => 'insert', 'after' => int, 'markup' => string ),
  *   array( 'op' => 'remove', 'block' => int ) or array( 'op' => 'move', 'block' => int, 'after' => int ).
- *   Markup is at most 20000 characters, and holds blocks and nothing between them.
+ *   Markup is at most WFW_MARKUP_MAX characters, and holds blocks the Writer editor offers and nothing
+ *   between them.
  * - `details`: array( 'field' => 'titles'|'tags'|'categories', 'value' => string[] ) or
- *   array( 'field' => 'excerpt', 'value' => string ). A title is at most 200 characters, a tag or a
- *   category 100, the excerpt 600.
+ *   array( 'field' => 'excerpt', 'value' => string ). A title is at most WFW_TITLE_MAX characters, a tag or a
+ *   category WFW_TERM_MAX, the excerpt WFW_EXCERPT_MAX.
  * - `comment`: array().
  *
- * It does not check a block against the note, a block name against what the
- * editor offers, or a category against the site: the ability does.
+ * It does not check a block against the note or a category against the site:
+ * the ability does.
  *
  * @param string $kind   The suggestion's kind.
  * @param mixed  $change What was sent.
- * @return array|WP_Error The change, or `invalid_args` naming the field.
+ * @return array|WP_Error The change, `invalid_args` naming the field, or `not_allowed` for markup with a block
+ *                        the Writer editor does not offer.
  */
 function wfw_sanitize_suggestion_change( $kind, $change ) {
     $change = is_array( $change ) ? $change : array();
@@ -760,13 +813,14 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
         return array();
     }
     if ( 'edit' === $kind ) {
-        if ( ! isset( $change['replacement'] ) || ! is_string( $change['replacement'] ) || mb_strlen( $change['replacement'] ) > 4000 ) {
-            return wfw_agent_error( 'invalid_args', __( 'replacement must be a string of at most 4000 characters.', 'wordpress-for-writers' ) );
+        if ( ! isset( $change['replacement'] ) || ! is_string( $change['replacement'] ) || mb_strlen( $change['replacement'] ) > WFW_REPLACEMENT_MAX ) {
+            /* translators: %d: a number of characters. */
+            return wfw_agent_error( 'invalid_args', sprintf( __( 'replacement must be a string of at most %d characters.', 'wordpress-for-writers' ), WFW_REPLACEMENT_MAX ) );
         }
         return array( 'replacement' => wfw_sanitize_replacement( $change['replacement'] ) );
     }
     if ( 'blocks' === $kind ) {
-        $op    = isset( $change['op'] ) ? $change['op'] : '';
+        $op    = $change['op'] ?? '';
         $clean = array( 'op' => $op );
         if ( ! in_array( $op, array( 'insert', 'remove', 'move' ), true ) ) {
             return wfw_agent_error( 'invalid_args', __( 'op must be insert, remove or move.', 'wordpress-for-writers' ) );
@@ -785,46 +839,63 @@ function wfw_sanitize_suggestion_change( $kind, $change ) {
         }
         if ( 'insert' === $op ) {
             $markup = isset( $change['markup'] ) && is_string( $change['markup'] ) ? $change['markup'] : '';
-            if ( mb_strlen( $markup ) > 20000 ) {
-                return wfw_agent_error( 'invalid_args', __( 'markup must be at most 20000 characters.', 'wordpress-for-writers' ) );
+            if ( mb_strlen( $markup ) > WFW_MARKUP_MAX ) {
+                /* translators: %d: a number of characters. */
+                return wfw_agent_error( 'invalid_args', sprintf( __( 'markup must be at most %d characters.', 'wordpress-for-writers' ), WFW_MARKUP_MAX ) );
             }
             $clean['markup'] = wfw_sanitize_block_markup( $markup );
-            if ( ! wfw_note_walk( $clean['markup'] ) ) {
+            $parsed          = parse_blocks( $clean['markup'] );
+            $named           = false;
+            $loose           = false;
+            foreach ( $parsed as $block ) {
+                if ( ! empty( $block['blockName'] ) ) {
+                    $named = true;
+                } elseif ( '' !== trim( $block['innerHTML'] ) ) {
+                    $loose = true;
+                }
+            }
+            if ( ! $named ) {
                 return wfw_agent_error( 'invalid_args', __( 'markup holds no block.', 'wordpress-for-writers' ) );
             }
             // What stands between blocks has no name: the editor would make a Classic block of it, which it does not offer.
-            foreach ( parse_blocks( $clean['markup'] ) as $block ) {
-                if ( empty( $block['blockName'] ) && '' !== trim( $block['innerHTML'] ) ) {
-                    return wfw_agent_error( 'invalid_args', __( 'markup holds text outside a block.', 'wordpress-for-writers' ) );
+            if ( $loose ) {
+                return wfw_agent_error( 'invalid_args', __( 'markup holds text outside a block.', 'wordpress-for-writers' ) );
+            }
+            $offered = wfw_allowed_block_types( true );
+            foreach ( wfw_blocks_walk( $parsed ) as $block ) {
+                if ( ! in_array( $block['name'], $offered, true ) ) {
+                    /* translators: %s: the name of a block, such as core/columns. */
+                    return wfw_agent_error( 'not_allowed', sprintf( __( 'The Writer editor does not offer the block %s.', 'wordpress-for-writers' ), $block['name'] ) );
                 }
             }
         }
         return $clean;
     }
     if ( 'details' === $kind ) {
-        $field = isset( $change['field'] ) ? $change['field'] : '';
-        $value = isset( $change['value'] ) ? $change['value'] : null;
+        $field = $change['field'] ?? '';
+        $value = $change['value'] ?? null;
         if ( 'excerpt' === $field ) {
             if ( ! is_string( $value ) ) {
                 return wfw_agent_error( 'invalid_args', __( 'excerpt must be a string.', 'wordpress-for-writers' ) );
             }
-            if ( mb_strlen( $value ) > 600 ) {
-                return wfw_agent_error( 'invalid_args', __( 'excerpt must be at most 600 characters.', 'wordpress-for-writers' ) );
+            if ( mb_strlen( $value ) > WFW_EXCERPT_MAX ) {
+                /* translators: %d: a number of characters. */
+                return wfw_agent_error( 'invalid_args', sprintf( __( 'excerpt must be at most %d characters.', 'wordpress-for-writers' ), WFW_EXCERPT_MAX ) );
             }
             return array(
                 'field' => $field,
-                'value' => wfw_plain_text( sanitize_textarea_field( $value ) ),
+                'value' => wfw_plain_text( $value, true ),
             );
         }
         if ( ! in_array( $field, array( 'titles', 'tags', 'categories' ), true ) ) {
             return wfw_agent_error( 'invalid_args', __( 'field must be titles, excerpt, tags or categories.', 'wordpress-for-writers' ) );
         }
-        $values = array_values( array_filter( array_map( 'wfw_plain_text', array_map( 'sanitize_text_field', array_filter( (array) $value, 'is_string' ) ) ), 'strlen' ) );
+        $values = array_values( array_filter( array_map( 'wfw_plain_text', array_filter( (array) $value, 'is_string' ) ), 'strlen' ) );
         if ( ! $values ) {
             /* translators: %s: the name of a field, such as tags. */
             return wfw_agent_error( 'invalid_args', sprintf( __( '%s must hold at least one string.', 'wordpress-for-writers' ), $field ) );
         }
-        $longest = 'titles' === $field ? 200 : 100;
+        $longest = 'titles' === $field ? WFW_TITLE_MAX : WFW_TERM_MAX;
         foreach ( $values as $one ) {
             if ( mb_strlen( $one ) > $longest ) {
                 /* translators: 1: the name of a field, such as tags, 2: a number of characters. */
@@ -854,8 +925,8 @@ function wfw_sanitize_anchor( $anchor ) {
         'path'   => array_map( 'intval', array_values( $anchor['path'] ) ),
         'name'   => (string) $anchor['name'],
         'quote'  => (string) $anchor['quote'],
-        'prefix' => isset( $anchor['prefix'] ) ? (string) $anchor['prefix'] : '',
-        'suffix' => isset( $anchor['suffix'] ) ? (string) $anchor['suffix'] : '',
+        'prefix' => (string) ( $anchor['prefix'] ?? '' ),
+        'suffix' => (string) ( $anchor['suffix'] ?? '' ),
     );
     // A move's anchor also names the block it goes after.
     $after = isset( $anchor['after'] ) ? wfw_sanitize_anchor( array_diff_key( (array) $anchor['after'], array( 'after' => 1 ) ) ) : null;
@@ -924,19 +995,20 @@ function wfw_suggestion_content( $kind, $change, $reason ) {
  * The caller has already checked each suggestion against the note and worked
  * out its anchor (wfw_anchor_at(), wfw_block_anchor(), wfw_ask_passage()).
  * This checks who is asking, the ask, the label and the limit, and sanitises
- * every value on the way in.
+ * every value on the way in (wfw_sanitize_suggestion_change()).
  *
  * @param int   $note_id     The note.
- * @param array $pass        array( 'label' => string, 1 to 40 characters; 'ask' => int, the ask the pass answers, 0 or
+ * @param array $pass        array( 'label' => string, 1 to WFW_PASS_LABEL_MAX characters; 'ask' => int, the ask the pass answers, 0 or
  *                           left out for none ). The current user makes it.
  * @param array $suggestions 1 or more of array( 'kind' => 'edit'|'blocks'|'details'|'comment';
  *                           'anchor' => array|null, required for `edit` and `comment`, null for `details` and for a
  *                           block inserted at the start of the note; 'change' => array, as
- *                           wfw_sanitize_suggestion_change() takes it; 'reason' => string, at most 300 characters,
- *                           or for a `comment` the remark itself, 1 to 600 characters ).
+ *                           wfw_sanitize_suggestion_change() takes it; 'reason' => string, at most WFW_REASON_MAX
+ *                           characters, or for a `comment` the remark itself, 1 to WFW_COMMENT_MAX characters ).
  * @return array|WP_Error array( 'pass' => string (a UUID), 'suggestions' => int[] (the ids, in the order given) ).
- *                        `not_found` for the note or the ask, `invalid_args` for a value, `too_many` past the
- *                        limit, `failed` when the database refused a write (nothing is then left stored).
+ *                        `not_found` for the note or the ask, `invalid_args` for a value, `not_allowed` for a
+ *                        block the Writer editor does not offer, `too_many` past the limit, `failed` when the
+ *                        database refused a write (nothing is then left stored).
  */
 function wfw_suggestions_create( $note_id, $pass, $suggestions ) {
     $pass    = is_array( $pass ) ? $pass : array();
@@ -946,9 +1018,10 @@ function wfw_suggestions_create( $note_id, $pass, $suggestions ) {
         return $note;
     }
 
-    $label = isset( $pass['label'] ) && is_string( $pass['label'] ) ? sanitize_text_field( $pass['label'] ) : '';
-    if ( '' === $label || mb_strlen( $label ) > 40 ) {
-        return wfw_agent_error( 'invalid_args', __( 'pass must be 1 to 40 characters.', 'wordpress-for-writers' ) );
+    $label = isset( $pass['label'] ) && is_string( $pass['label'] ) ? wfw_plain_text( $pass['label'] ) : '';
+    if ( '' === $label || mb_strlen( $label ) > WFW_PASS_LABEL_MAX ) {
+        /* translators: %d: a number of characters. */
+        return wfw_agent_error( 'invalid_args', sprintf( __( 'pass must be 1 to %d characters.', 'wordpress-for-writers' ), WFW_PASS_LABEL_MAX ) );
     }
     // The way in this request came through.
     $source = defined( 'WP_CLI' ) && WP_CLI ? 'cli' : 'abilities';
@@ -965,25 +1038,28 @@ function wfw_suggestions_create( $note_id, $pass, $suggestions ) {
     }
     $rows = array();
     foreach ( array_values( $suggestions ) as $suggestion ) {
-        $kind   = is_array( $suggestion ) && isset( $suggestion['kind'] ) ? $suggestion['kind'] : '';
-        $change = wfw_sanitize_suggestion_change( $kind, is_array( $suggestion ) && isset( $suggestion['change'] ) ? $suggestion['change'] : null );
+        $suggestion = is_array( $suggestion ) ? $suggestion : array();
+        $kind       = $suggestion['kind'] ?? '';
+        $change     = wfw_sanitize_suggestion_change( $kind, $suggestion['change'] ?? null );
         if ( is_wp_error( $change ) ) {
             return $change;
         }
-        $anchor = 'details' === $kind ? null : wfw_sanitize_anchor( isset( $suggestion['anchor'] ) ? $suggestion['anchor'] : null );
+        $anchor = 'details' === $kind ? null : wfw_sanitize_anchor( $suggestion['anchor'] ?? null );
         if ( ! $anchor && in_array( $kind, array( 'edit', 'comment' ), true ) ) {
             return wfw_agent_error( 'invalid_args', __( 'path and quote are required.', 'wordpress-for-writers' ) );
         }
         $reason = isset( $suggestion['reason'] ) && is_string( $suggestion['reason'] ) ? $suggestion['reason'] : '';
         if ( 'comment' === $kind ) {
-            $reason = wfw_plain_text( sanitize_textarea_field( $reason ) );
-            if ( '' === $reason || mb_strlen( $reason ) > 600 ) {
-                return wfw_agent_error( 'invalid_args', __( 'text must be 1 to 600 characters.', 'wordpress-for-writers' ) );
+            $reason = wfw_plain_text( $reason, true );
+            if ( '' === $reason || mb_strlen( $reason ) > WFW_COMMENT_MAX ) {
+                /* translators: %d: a number of characters. */
+                return wfw_agent_error( 'invalid_args', sprintf( __( 'text must be 1 to %d characters.', 'wordpress-for-writers' ), WFW_COMMENT_MAX ) );
             }
         } else {
-            $reason = wfw_plain_text( sanitize_text_field( $reason ) );
-            if ( mb_strlen( $reason ) > 300 ) {
-                return wfw_agent_error( 'invalid_args', __( 'reason must be at most 300 characters.', 'wordpress-for-writers' ) );
+            $reason = wfw_plain_text( $reason );
+            if ( mb_strlen( $reason ) > WFW_REASON_MAX ) {
+                /* translators: %d: a number of characters. */
+                return wfw_agent_error( 'invalid_args', sprintf( __( 'reason must be at most %d characters.', 'wordpress-for-writers' ), WFW_REASON_MAX ) );
             }
         }
         $rows[] = compact( 'kind', 'change', 'anchor', 'reason' );
@@ -1102,9 +1178,9 @@ function wfw_suggestion_get( $id ) {
  *
  * @param int   $note_id The note.
  * @param array $args    array( 'status' => 'any' (the default), one of `open`, `accepted`, `dismissed`, `withdrawn`,
- *                       or an array of them; 'since' => int, a Unix timestamp: with it, a suggestion that is not
- *                       `open` is left out unless it was settled at or after that time; 'number' => int, how many
- *                       at most, 100 by default, 0 for all ).
+ *                       or an array of them; 'since' => int, a Unix timestamp: with it, only those settled at or
+ *                       after that time, so none that is `open`; 'number' => int, how many at most, 100 by
+ *                       default, 0 for all ).
  * @return array[] Suggestions, as wfw_suggestion_from_comment() gives them.
  */
 function wfw_suggestions_get( $note_id, $args = array() ) {
@@ -1113,7 +1189,8 @@ function wfw_suggestions_get( $note_id, $args = array() ) {
         'since'  => 0,
         'number' => 100,
     ) );
-    $statuses = array_values( array_intersect( array( 'open', 'accepted', 'dismissed', 'withdrawn' ), 'any' === $args['status'] ? array( 'open', 'accepted', 'dismissed', 'withdrawn' ) : (array) $args['status'] ) );
+    $all      = array( 'open', 'accepted', 'dismissed', 'withdrawn' );
+    $statuses = 'any' === $args['status'] ? $all : array_values( array_intersect( $all, (array) $args['status'] ) );
     if ( ! $statuses ) {
         return array();
     }
@@ -1129,22 +1206,12 @@ function wfw_suggestions_get( $note_id, $args = array() ) {
         ),
     );
     if ( $args['since'] ) {
-        $settled = array(
+        $meta[] = array(
             'key'     => '_wfw_settled',
             'value'   => (int) $args['since'],
             'compare' => '>=',
             'type'    => 'UNSIGNED',
         );
-        $meta[]  = in_array( 'open', $statuses, true )
-            ? array(
-                'relation' => 'OR',
-                array(
-                    'key'   => '_wfw_status',
-                    'value' => 'open',
-                ),
-                $settled,
-            )
-            : $settled;
     }
     $comments = get_comments( array(
         'post_id'    => (int) $note_id,
@@ -1176,12 +1243,41 @@ function wfw_suggestions_count_open( $note_id ) {
 }
 
 /**
+ * Writes a suggestion's status with the time it was settled, which the two
+ * always change together: `_wfw_settled` takes the time a suggestion leaves
+ * `open` and is removed when it is open again.
+ *
+ * @param int    $id     The suggestion.
+ * @param string $status `open`, `accepted`, `dismissed` or `withdrawn`.
+ */
+function wfw_suggestion_write_status( $id, $status ) {
+    update_comment_meta( $id, '_wfw_status', $status );
+    if ( 'open' === $status ) {
+        delete_comment_meta( $id, '_wfw_settled' );
+    } else {
+        update_comment_meta( $id, '_wfw_settled', time() );
+    }
+}
+
+/**
+ * Sets a comment's own status and emails nobody. Core emails a post's author
+ * when a comment of theirs is approved; settling a suggestion is no news.
+ *
+ * @param int    $id     The comment.
+ * @param string $status `hold` or `approve`, as wp_set_comment_status() takes it.
+ */
+function wfw_comment_set_status_quietly( $id, $status ) {
+    add_filter( 'notify_post_author', '__return_false', 999 );
+    wp_set_comment_status( $id, $status );
+    remove_filter( 'notify_post_author', '__return_false', 999 );
+}
+
+/**
  * Sets a suggestion's status, and nothing of the note: the note is changed by
  * the editor, never here. It checks nothing about who asks.
  *
- * `_wfw_settled` takes the time a suggestion leaves `open` and is removed when
- * it is open again. The comment's own status is kept in step, as core reads a
- * core note: approved (resolved) once settled, on hold while open.
+ * The comment's own status is kept in step, as core reads a core note:
+ * approved (resolved) once settled, on hold while open.
  *
  * @param int    $id     The suggestion.
  * @param string $status `open`, `accepted`, `dismissed` or `withdrawn`; the caller has checked it is one of them.
@@ -1193,16 +1289,8 @@ function wfw_suggestion_set_status( $id, $status ) {
         return wfw_suggestion_not_found( $id );
     }
     // The meta first: the transition_comment_status hook below then finds nothing to do.
-    update_comment_meta( $id, '_wfw_status', $status );
-    if ( 'open' === $status ) {
-        delete_comment_meta( $id, '_wfw_settled' );
-    } else {
-        update_comment_meta( $id, '_wfw_settled', time() );
-    }
-    // Core emails a post's author when a comment of theirs is approved. Settling a suggestion is no news: nobody is emailed.
-    add_filter( 'notify_post_author', '__return_false', 999 );
-    wp_set_comment_status( $id, 'open' === $status ? 'hold' : 'approve' );
-    remove_filter( 'notify_post_author', '__return_false', 999 );
+    wfw_suggestion_write_status( $id, $status );
+    wfw_comment_set_status_quietly( $id, 'open' === $status ? 'hold' : 'approve' );
     return wfw_suggestion_get( $id );
 }
 
@@ -1223,8 +1311,10 @@ function wfw_suggestions_withdraw( $note_id, $ids ) {
     if ( is_wp_error( $note ) ) {
         return $note;
     }
+    $ids  = array_unique( array_map( 'intval', (array) $ids ) );
     $open = array();
-    foreach ( array_unique( array_map( 'intval', (array) $ids ) ) as $id ) {
+    _prime_comment_caches( $ids, true );
+    foreach ( $ids as $id ) {
         $suggestion = wfw_suggestion_get( $id );
         if ( ! $suggestion || $suggestion['note'] !== $note->ID ) {
             return wfw_suggestion_not_found( $id );
@@ -1237,9 +1327,11 @@ function wfw_suggestions_withdraw( $note_id, $ids ) {
             $open[] = $id;
         }
     }
+    wp_defer_comment_counting( true );
     foreach ( $open as $id ) {
         wfw_suggestion_set_status( $id, 'withdrawn' );
     }
+    wp_defer_comment_counting( false );
     return array( 'withdrawn' => $open );
 }
 
@@ -1255,16 +1347,12 @@ add_action( 'transition_comment_status', function ( $new_status, $old_status, $c
     }
     $status = get_comment_meta( $comment->comment_ID, '_wfw_status', true );
     if ( 'approved' === $new_status && 'open' === $status ) {
-        update_comment_meta( $comment->comment_ID, '_wfw_status', 'dismissed' );
-        update_comment_meta( $comment->comment_ID, '_wfw_settled', time() );
+        wfw_suggestion_write_status( $comment->comment_ID, 'dismissed' );
     } elseif ( 'unapproved' === $new_status && 'dismissed' === $status ) {
-        update_comment_meta( $comment->comment_ID, '_wfw_status', 'open' );
-        delete_comment_meta( $comment->comment_ID, '_wfw_settled' );
+        wfw_suggestion_write_status( $comment->comment_ID, 'open' );
     } elseif ( 'unapproved' === $new_status && in_array( $status, array( 'accepted', 'withdrawn' ), true ) ) {
         // An accepted edit is in the note, and a withdrawn suggestion is its maker's: neither is reopened from there.
-        add_filter( 'notify_post_author', '__return_false', 999 );
-        wp_set_comment_status( $comment->comment_ID, 'approve' );
-        remove_filter( 'notify_post_author', '__return_false', 999 );
+        wfw_comment_set_status_quietly( $comment->comment_ID, 'approve' );
     }
 }, 10, 3 );
 
@@ -1275,7 +1363,7 @@ add_action( 'transition_comment_status', function ( $new_status, $old_status, $c
  * how wp-admin's editor resolves and reopens it.
  */
 add_filter( 'rest_preprocess_comment', function ( $prepared, $request ) {
-    $id = isset( $request['id'] ) ? (int) $request['id'] : 0;
+    $id = (int) ( $request['id'] ?? 0 );
     if ( is_wp_error( $prepared ) || ! $id || ! metadata_exists( 'comment', $id, '_wfw_kind' ) ) {
         return $prepared;
     }
@@ -1303,7 +1391,7 @@ add_action( 'rest_api_init', function () {
     /*
      * The note's suggestions that are open, and those settled in the last day
      * (so the editor can still take an accept or a dismissal back): of these,
-     * the newest 100.
+     * the newest 100. And the ids of its open asks.
      */
     register_rest_route( 'wfw/v1', '/notes/(?P<id>\d+)/suggestions', array(
         'methods'             => 'GET',
@@ -1329,6 +1417,8 @@ add_action( 'rest_api_init', function () {
             } );
             return array(
                 'suggestions' => array_map( 'wfw_suggestion_for_rest', $suggestions ),
+                // The note's open asks, by id: Review reads the asks themselves from core's comments route.
+                'asks'        => array_map( 'intval', get_comments( wfw_asks_query( (int) $request['id'] ) + array( 'fields' => 'ids' ) ) ),
                 // When a way in was last used, and the server's clock to read it against.
                 'seen'        => wfw_agent_seen(),
                 'now'         => time(),
@@ -1425,6 +1515,8 @@ add_filter( 'heartbeat_received', function ( $response, $data ) {
  * - `domain` (string) and `translations` (object|null): Review's strings, in
  *   the shape wp.i18n.setLocaleData() takes, since a script loaded on demand
  *   gets none from WordPress.
+ * - `inlineTags` (string[]): WFW_INLINE_TAGS, the tags a block's text is read
+ *   with, so Review reads a block as the store does.
  *
  * @param WP_Post $post The note the editor shows.
  * @return array
@@ -1443,16 +1535,13 @@ function wfw_agent_editor_data( $post ) {
     wp_register_script( 'wfw-suggest', WFW_URL . 'assets/suggest.js', array(), wfw_asset_version( 'assets/suggest.js' ), true );
     $domain       = wfw_text_domain();
     $translations = json_decode( (string) load_script_textdomain( 'wfw-suggest', $domain ), true );
-    $locale_data  = null;
-    if ( isset( $translations['locale_data'] ) ) {
-        $locale_data = isset( $translations['locale_data'][ $domain ] ) ? $translations['locale_data'][ $domain ] : ( isset( $translations['locale_data']['messages'] ) ? $translations['locale_data']['messages'] : null );
-    }
 
     return $data + array(
         'script'       => add_query_arg( 'ver', wfw_asset_version( 'assets/suggest.js' ), WFW_URL . 'assets/suggest.js' ),
         'style'        => add_query_arg( 'ver', wfw_asset_version( 'assets/suggest.css' ), WFW_URL . 'assets/suggest.css' ),
         'domain'       => $domain,
-        'translations' => $locale_data,
+        'translations' => $translations['locale_data'][ $domain ] ?? $translations['locale_data']['messages'] ?? null,
+        'inlineTags'   => explode( '|', WFW_INLINE_TAGS ),
     );
 }
 

@@ -88,15 +88,23 @@ function wfw_test_read( $note_id ) {
  */
 function wfw_test_asks( $note_id ) {
     $note = wfw_agent_note( (int) $note_id );
-    return is_wp_error( $note ) ? $note : wfw_note_asks( $note );
+    if ( is_wp_error( $note ) ) {
+        return $note;
+    }
+    $read = wfw_note_read( $note );
+    return wfw_note_asks( $note, $read['content'] );
 }
 
 /**
  * The anchor of an ask's passage, by ids (wfw_ask_passage() takes the post).
  */
 function wfw_test_ask_anchor( $note_id, $ask_id ) {
-    $note    = wfw_agent_note( (int) $note_id );
-    $passage = is_wp_error( $note ) ? $note : wfw_ask_passage( $note, (int) $ask_id );
+    $note = wfw_agent_note( (int) $note_id );
+    if ( is_wp_error( $note ) ) {
+        return $note;
+    }
+    $read    = wfw_note_read( $note );
+    $passage = wfw_ask_passage( $note, (int) $ask_id, $read['content'] );
     return is_wp_error( $passage ) ? $passage : $passage['anchor'];
 }
 
@@ -107,6 +115,22 @@ function wfw_test_ask_anchor( $note_id, $ask_id ) {
 function wfw_test_anchor( $blocks, $path, $quote, $occurrence = 0 ) {
     $place = wfw_suggestion_locate( $blocks, $path, $quote, $occurrence );
     return is_wp_error( $place ) ? $place : wfw_anchor_at( $place['block'], $place['start'], $place['length'] );
+}
+
+/**
+ * Runs one ability whole (schema, permission and callback), by its name
+ * without `writer/`, as the current user.
+ */
+function wfw_test_ability( $name, $input ) {
+    return wp_get_ability( 'writer/' . $name )->execute( $input );
+}
+
+/**
+ * Rewrites a suggestion's change as stored, past the store's checks, to test
+ * what the editor does with one the store would not take.
+ */
+function wfw_test_change( $comment_id, $change ) {
+    return update_comment_meta( (int) $comment_id, '_wfw_change', wp_slash( wp_json_encode( $change, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) ) );
 }
 
 /**

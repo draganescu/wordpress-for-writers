@@ -157,6 +157,7 @@ test.describe( 'A site no agent has used pays nothing', () => {
         expect( hook.postId ).toBe( note );
         expect( hook.config ).toEqual( [
             'domain',
+            'inlineTags',
             'notes',
             'now',
             'script',
@@ -173,7 +174,9 @@ test.describe( 'A site no agent has used pays nothing', () => {
             const { createElement, Fragment } = ( window as any ).wp.element;
             const { Fill } = ( window as any ).wp.components;
             const { useSelect } = ( window as any ).wp.data;
-            ( window as any ).wfwAgent.start( function Review( { agent }: any ) {
+            // Review is given no props: it finds the editor in window.wfwAgent, as suggest.js does.
+            const agent = ( window as any ).wfwAgent;
+            agent.start( function Review() {
                 const title = useSelect(
                     ( select: any ) =>
                         select( 'core/editor' ).getEditedPostAttribute( 'title' ),
