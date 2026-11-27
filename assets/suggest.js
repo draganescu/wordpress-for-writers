@@ -160,6 +160,10 @@
     // Where the anchor's quote is in a text with the same 32 characters before it and after it: on both sides, on one at least, or wherever it is (`sides` is 2, 1 or 0).
     function quoteStarts( text, anchor, sides ) {
         const starts = [];
+        // A block with no text (an image an ask is on) gives an empty quote: nowhere, not everywhere.
+        if ( ! anchor.quote ) {
+            return starts;
+        }
         for ( let at = text.indexOf( anchor.quote ); at !== -1; at = text.indexOf( anchor.quote, at + 1 ) ) {
             const before = () => lastPoints( text, 32, at ) === anchor.prefix;
             const after = () => firstPoints( text, 32, at + anchor.quote.length ) === anchor.suffix;
