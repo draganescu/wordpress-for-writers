@@ -59,6 +59,8 @@ These live in `plugins/` and are separate plugins. Install each by copying its f
 
 Companion plugins can add links to the user menu in the Writer sidebar with the `wfw_sidebar_links` filter. Each item is `array( 'label' => '', 'url' => '', 'icon' => '' )`; `icon` is optional and names one of the app's icons.
 
+Plugins can make their own blocks insertable in notes with the `wfw_allowed_block_types` filter (add block names to the array). Each writer sees those blocks under **Blocks from plugins** in Appearance and can turn any of them off; Writer's own blocks stay on. `allowed_block_types_all` can still remove any block for everyone.
+
 They can also add a **Visibility** picker to the note's settings with the `wfw_visibility_options` filter (items are `array( 'value' => '', 'label' => '' )`). The choice is saved to the post meta named by `wfw_visibility_meta_key` (default `wmem_tier`), which must be registered with `show_in_rest`. With no options, there is no picker.
 
 ## Themes

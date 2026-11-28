@@ -1271,6 +1271,16 @@
             applyAppearance();
             return;
         }
+        if ( type === 'blocks' ) {
+            // The plugin blocks the writer turned off leave the inserter; turned back on, they return.
+            if ( Array.isArray( config.offeredBlocks ) && Array.isArray( event.data.hidden ) ) {
+                const hidden = event.data.hidden;
+                dispatch( editorStore ).updateEditorSettings( {
+                    allowedBlockTypes: config.offeredBlocks.filter( ( name ) => ! hidden.includes( name ) ),
+                } );
+            }
+            return;
+        }
         if ( type === 'visibility' ) {
             setHidden( !! event.data.hidden );
             outOfSight = !! event.data.hidden;
