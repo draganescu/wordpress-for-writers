@@ -240,15 +240,28 @@ function wfw_editor_settings( $post ) {
  * Only the inserter and transforms are limited: a note that already holds a
  * left-out block still shows and edits it.
  *
+ * Each writer can turn off the blocks plugins add (see
+ * wfw_plugin_block_types()); Writer's own list is always offered.
+ *
  * @param bool|string[] $allowed What allowed_block_types_all decided.
+ * @param int           $user_id Whose choices to apply; the current user by default.
  * @return bool|string[]
  */
-function wfw_allowed_block_types( $allowed ) {
-    if ( false === $allowed ) {
+function wfw_allowed_block_types( $allowed, $user_id = 0 ) {
+    $blocks = wfw_offered_block_types( $allowed );
+    if ( false === $blocks ) {
         return false;
     }
+    return array_values( array_diff( $blocks, wfw_hidden_block_types( $user_id ) ) );
+}
 
-    $blocks = array(
+/**
+ * Writer's own list of blocks, before plugins add theirs.
+ *
+ * @return string[]
+ */
+function wfw_builtin_block_types() {
+    return array(
         // Text.
         'core/paragraph',
         'core/heading',
@@ -283,22 +296,115 @@ function wfw_allowed_block_types( $allowed ) {
         'writer-members/paywall',
         'writer-subscribe/form',
     );
+}
+
+/**
+ * Writer's blocks plus the ones plugins add, as allowed_block_types_all
+ * leaves them, before the writer's own choices.
+ *
+ * @param bool|string[] $allowed What allowed_block_types_all decided.
+ * @return bool|string[]
+ */
+function wfw_offered_block_types( $allowed = true ) {
+    if ( false === $allowed ) {
+        return false;
+    }
 
     /**
      * The blocks the Writer editor offers. Add a plugin's block names here to
      * make them insertable in notes; allowed_block_types_all can still take
-     * any of them away again.
+     * any of them away again, and each writer can turn them off in Writer's
+     * Appearance settings.
      *
      * @param string[] $blocks Block names, such as 'core/paragraph'.
      */
     $blocks = array_values( array_unique( array_filter(
-        (array) apply_filters( 'wfw_allowed_block_types', $blocks ),
+        (array) apply_filters( 'wfw_allowed_block_types', wfw_builtin_block_types() ),
         function ( $name ) {
             return is_string( $name ) && '' !== $name;
         }
     ) ) );
 
     return is_array( $allowed ) ? array_values( array_intersect( $blocks, $allowed ) ) : $blocks;
+}
+
+/**
+ * The blocks plugins added with the `wfw_allowed_block_types` filter: the
+ * ones a writer can turn off.
+ *
+ * @return string[]
+ */
+function wfw_plugin_block_types() {
+    return array_values( array_diff( (array) wfw_offered_block_types(), wfw_builtin_block_types() ) );
+}
+
+/**
+ * The plugin blocks a writer turned off. Writer's own blocks can't be.
+ *
+ * @param int $user_id The current user by default.
+ * @return string[]
+ */
+function wfw_hidden_block_types( $user_id = 0 ) {
+    $user_id = $user_id ? $user_id : get_current_user_id();
+    if ( ! $user_id ) {
+        return array();
+    }
+    $hidden = wfw_sanitize_hidden_block_types( get_user_meta( $user_id, 'wfw_hidden_blocks', true ) );
+    return array_values( array_diff( $hidden, wfw_builtin_block_types() ) );
+}
+
+/**
+ * Block names, unique, in core's namespace/name form.
+ *
+ * @param mixed $value What's stored or sent.
+ * @return string[]
+ */
+function wfw_sanitize_hidden_block_types( $value ) {
+    return array_values( array_unique( array_filter( (array) $value, function ( $name ) {
+        return is_string( $name ) && preg_match( '#^[a-z0-9-]+/[a-z0-9-]+$#', $name );
+    } ) ) );
+}
+
+add_action( 'init', function () {
+    register_meta( 'user', 'wfw_hidden_blocks', array(
+        'type'              => 'array',
+        'single'            => true,
+        'default'           => array(),
+        'sanitize_callback' => 'wfw_sanitize_hidden_block_types',
+        'show_in_rest'      => array(
+            'schema' => array(
+                'type'    => 'array',
+                'context' => array( 'edit' ),
+                'items'   => array( 'type' => 'string' ),
+            ),
+        ),
+    ) );
+} );
+
+/**
+ * The plugin blocks, as the app's settings list them: name, title and what
+ * the block is for, from its registration when the server knows it.
+ *
+ * @return array[]
+ */
+function wfw_plugin_blocks_client_data() {
+    $registry = WP_Block_Type_Registry::get_instance();
+    $blocks   = array();
+    foreach ( wfw_plugin_block_types() as $name ) {
+        $type     = $registry->get_registered( $name );
+        $blocks[] = array(
+            'name'        => $name,
+            'title'       => $type && $type->title ? $type->title : $name,
+            'description' => $type && $type->description ? $type->description : '',
+        );
+    }
+    usort( $blocks, function ( $a, $b ) {
+        return strcasecmp( $a['title'], $b['title'] );
+    } );
+    return array(
+        'blocks' => $blocks,
+        'hidden' => wfw_hidden_block_types(),
+    );
 }
 
 /**
@@ -442,6 +548,8 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
         'postId'         => $post->ID,
         'postType'       => $post->post_type,
         'settings'       => $settings,
+        // The blocks before the writer's choices, so turning a plugin's block back on reaches an open note.
+        'offeredBlocks'  => wfw_offered_block_types( get_allowed_block_types( new WP_Block_Editor_Context( array( 'post' => $post ) ) ) ),
         'initialEdits'   => (object) $initial_edits,
         'appearance'     => wfw_get_appearance(),
         // The links above the title open the app's featured image panel and categories and tags form.
