@@ -37,7 +37,12 @@ test.describe( 'Asks', () => {
     test( 'Ask on a selection makes a core note in core\'s shape', async ( { page, requestUtils } ) => {
         await openEditor( page, note );
         await select( page, 0, 10, 28 );
-        await page.locator( '.wfw-pill .wfw-ask-button' ).click();
+        // Core's note icon, named "Ask", and no text.
+        const ask = page.locator( '.wfw-pill .wfw-ask-button' );
+        await expect( ask ).toHaveAccessibleName( 'Ask' );
+        await expect( ask ).toHaveText( '' );
+        await expect( ask.locator( 'svg' ) ).toBeVisible();
+        await ask.click();
 
         const field = page.locator( '.wfw-ask-field textarea' );
         await expect( field ).toBeFocused();

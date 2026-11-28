@@ -300,6 +300,17 @@
     margin-top: 2px;
 }
 
+/* Copy a reference: apart from what settles the suggestion. */
+.wfw-review .wfw-card__actions .wfw-card__refer {
+    margin-left: auto;
+    color: var( --wfw-muted );
+}
+
+.wfw-review .wfw-card__actions .wfw-card__refer:hover,
+.wfw-review .wfw-card__actions .wfw-card__refer:focus-visible {
+    color: var( --wfw-accent );
+}
+
 .wfw-review .wfw-card__actions .components-button.is-primary,
 .wfw-ed .wfw-ask-field .components-button.is-primary {
     background: var( --wfw-accent );

@@ -10,7 +10,7 @@ Everything here is drawn by Review (`assets/suggest.js`, `assets/suggest.css`), 
 |---|---|---|---|
 | W1 | Passage | The passage a suggestion is about is highlighted in `--wfw-mark`. For an edit it is also struck through. The mark is drawn over the canvas with the CSS Custom Highlight API (spike S2) and is never part of the note's content | For each open suggestion that has a passage and is not out of date |
 | W2 | Card | One card per open suggestion, in a rail beside the note, in the order of their passages; details and out-of-date suggestions come last. A card shows its kind, the proposal and the reason | While the note has open suggestions or unresolved asks |
-| W3 | Pass header | Above the cards of a pass: its label, "Agent", the time, and "Accept all" | For each pass with an open suggestion |
+| W3 | Pass header | Above the cards of a pass: its label, "Agent", the time, "Accept all", "Peek" and "Copy" | For each pass with an open suggestion |
 | W4 | Chip | Beside Save: "{n} suggestions". A click opens the rail, or the sheet on a narrow pane | While the note has open suggestions |
 | W5 | List count | A dot and the count on the note's row in the note list | While the note has open suggestions. The editor tells the app with a `suggestions` message; for notes not open, the app reads the `wfw_suggestions` REST field |
 | W6 | Ask | Core's own marker on the passage, and a card "You asked" with the question, its replies and Resolve | For each unresolved ask |
@@ -59,7 +59,7 @@ Two open edits whose passages overlap: accepting one makes the other out of date
 
 ## Asks
 
-- With text selected, the formatting pill offers **Ask**. It opens a field at the selection: the question, at most 600 characters, and "Leave for an agent". Enter sends; Esc closes it, and so does the focus leaving it. The field is in the editor's own popover.
+- With text selected, the formatting pill offers **Ask**: core's icon for a note, labelled "Ask". It opens a field at the selection: the question, at most 600 characters, and "Leave for an agent". Enter sends; Esc closes it, and so does the focus leaving it. The field is in the editor's own popover.
 - Sending makes a core note on the selection, as core's editor does (spike S1): the comment through core's REST route with the status `hold` (an open core note), core's marker in the block (`<mark data-id="N" class="wp-note">`) and the id added to the block's `metadata.noteId`, an array. The marker and the attribute are an edit of the note, saved with it like any other.
 - With no selection and the caret in a block, Ask is about the whole block: the id goes in `metadata.noteId` alone.
 - An agent's answer shows under the ask as a reply. A reply that is a suggestion has W1 on its passage and Accept and Dismiss on its card, as any suggestion.
@@ -67,6 +67,16 @@ Two open edits whose passages overlap: accepting one makes the other out of date
 - Ask is offered only once a way in has been used on the site, or once the note has a core note (`README.md`, Q2).
 
 There is no model on the site and nothing here calls one: an ask waits until an agent reads the note.
+
+## Referring to a suggestion
+
+Nothing reaches an agent from the editor: the writer carries it. To have a suggestion changed, they copy a reference to it and paste it where they talk to their agent, then say what they want.
+
+- The active card has a control, "Copy a reference for your agent", beside its actions. W3 has "Copy", for every open suggestion of the pass.
+- The reference is plain text on the clipboard, in the site's language, ending in a blank line for the writer to type after. For one suggestion: `About suggestion {id} on note {id} (“{title}”), from the pass “{label}”:` and, on the next line, what it proposes: for an edit, `“{quote}” → “{replacement}”`. For a pass: `About the pass “{label}” on note {id} (“{title}”):` and a line for each, `Suggestion {id}: …`. A quoted passage is on one line and at most 160 characters.
+- The ids are the ones the abilities take. The guide tells an agent what a named suggestion means: withdraw it and suggest again (`abilities.md`, Guide).
+- A snackbar says "Copied. Paste it to your agent and say what to change."
+- It is offered when the note is locked too: it changes nothing.
 
 ## Peek with a pass applied
 
@@ -88,5 +98,6 @@ Between the editor frame and the app, in the shapes the two already use (`source
 - The chip has `data-wfw-suggestions` with the count.
 - A card has `data-wfw-suggestion` with the id, and `data-wfw-state` of `open`, `active` or `stale`.
 - An ask's card has `data-wfw-ask` with the ask's id.
+- The control that copies a reference has the class `wfw-card__refer` on a card and `wfw-pass__refer` in a pass header.
 - The Ask button in the block toolbar has the class `wfw-ask-button`.
 - The canvas document's root has `data-wfw-marks` with the number of W1 marks drawn.

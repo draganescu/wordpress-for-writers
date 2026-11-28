@@ -425,6 +425,10 @@
         return changed;
     }
 
+    // Core's icon for a note (`comment` of @wordpress/icons), as its own "Add note" has.
+    const NOTE_ICON = el( 'svg', { viewBox: '0 0 24 24', xmlns: 'http://www.w3.org/2000/svg', width: 24, height: 24, 'aria-hidden': true, focusable: false },
+        el( 'path', { d: 'M18 4H6c-1.1 0-2 .9-2 2v12.9c0 .6.5 1.1 1.1 1.1.3 0 .5-.1.8-.3L8.5 17H18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm.5 11c0 .3-.2.5-.5.5H7.9l-2.4 2.4V6c0-.3.2-.5.5-.5h12c.3 0 .5.2.5.5v9z' } ) );
+
     /*
      * Ask, in the formatting pill, for the selected block. The pill is the
      * block's toolbar, so the button is a fill of its controls. Review adds
@@ -434,7 +438,7 @@
     const withAsk = ( onAsk ) => wp.compose.createHigherOrderComponent( ( BlockEdit ) => ( props ) => el( Fragment, null,
         el( BlockEdit, props ),
         props.isSelected && el( wp.blockEditor.BlockControls, { group: 'other' },
-            el( ToolbarButton, { className: 'wfw-ask-button', onClick: () => onAsk( props.clientId ) }, __( 'Ask', 'wordpress-for-writers' ) ) )
+            el( ToolbarButton, { className: 'wfw-ask-button', icon: NOTE_ICON, label: __( 'Ask', 'wordpress-for-writers' ), onClick: () => onAsk( props.clientId ) } ) )
     ), 'withAsk' );
 
     // ---- Marks ---------------------------------------------------------------
@@ -515,6 +519,86 @@
     // Whether a suggestion has an Accept: a comment has Resolve, and titles are chosen from.
     function hasAccept( suggestion ) {
         return ! [ 'comment', 'titles' ].includes( kindOf( suggestion ) );
+    }
+
+    // A passage as a reference quotes it: on one line, and no longer than a reader needs to know it.
+    function quoted( text ) {
+        const line = text.replace( /\s+/g, ' ' ).trim();
+        /* translators: %s: a passage of the note. */
+        return sprintf( __( '“%s”', 'wordpress-for-writers' ), line.length > 160 ? line.slice( 0, 160 ).trimEnd() + '…' : line );
+    }
+
+    // What a suggestion proposes, in a line of plain text.
+    function proposalText( suggestion ) {
+        const { anchor, change } = suggestion;
+        const kind = kindOf( suggestion );
+        switch ( kind ) {
+            case 'edit':
+                return quoted( anchor.quote ) + ' → ' + ( change.replacement === '' ? __( '(removed)', 'wordpress-for-writers' ) : quoted( plainText( change.replacement ) ) );
+            case 'comment':
+                return quoted( anchor.quote ) + ' — ' + suggestion.reason;
+            case 'insert':
+                return KINDS[ kind ]() + ': ' + quoted( plainText( change.markup.replace( /<!--[\s\S]*?-->/g, '' ) ) );
+            case 'remove':
+            case 'move':
+                return KINDS[ kind ]() + ': ' + quoted( anchor.quote );
+            default:
+                return KINDS[ kind ]() + ': ' + [].concat( change.value ).join( ', ' );
+        }
+    }
+
+    /*
+     * A reference to suggestions that the writer pastes to their agent, where
+     * they say what they want of them (editor.md, Referring to a suggestion).
+     * It names the note and each suggestion by its id, which is what the
+     * abilities take, and quotes each so that the writer sees what they pasted.
+     */
+    function referenceTo( label, suggestions ) {
+        const title = select( editorStore ).getEditedPostAttribute( 'title' );
+        const note = title
+            /* translators: 1: a note's id, 2: its title. */
+            ? sprintf( __( 'note %1$d (“%2$s”)', 'wordpress-for-writers' ), agent.postId, title )
+            /* translators: %d: a note's id. */
+            : sprintf( __( 'note %d', 'wordpress-for-writers' ), agent.postId );
+        if ( suggestions.length === 1 ) {
+            /* translators: 1: a suggestion's id, 2: the note, as "note 214 (“Its title”)", 3: the label of a pass, such as Proofread. */
+            return sprintf( __( 'About suggestion %1$d on %2$s, from the pass “%3$s”:', 'wordpress-for-writers' ), suggestions[ 0 ].id, note, label ) + '\n' + proposalText( suggestions[ 0 ] ) + '\n\n';
+        }
+        /* translators: 1: the label of a pass, such as Proofread, 2: the note, as "note 214 (“Its title”)". */
+        return sprintf( __( 'About the pass “%1$s” on %2$s:', 'wordpress-for-writers' ), label, note ) + '\n' + suggestions.map( ( suggestion ) =>
+            /* translators: 1: a suggestion's id, 2: what it proposes. */
+            sprintf( __( 'Suggestion %1$d: %2$s', 'wordpress-for-writers' ), suggestion.id, proposalText( suggestion ) ) ).join( '\n' ) + '\n\n';
+    }
+
+    /*
+     * The async clipboard needs a secure context, and a browser may still
+     * refuse it to a frame, as the editor is in the app ("Write permission
+     * denied"). Where it is missing or refuses, the text is copied the old
+     * way, which asks no permission.
+     */
+    function writeClipboard( text ) {
+        const legacy = () => {
+            const field = document.createElement( 'textarea' );
+            const focused = document.activeElement;
+            field.value = text;
+            field.setAttribute( 'readonly', '' );
+            field.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+            document.body.appendChild( field );
+            field.select();
+            field.setSelectionRange( 0, text.length );
+            const copied = document.execCommand( 'copy' );
+            field.remove();
+            if ( focused ) {
+                focused.focus( { preventScroll: true } );
+            }
+            if ( ! copied ) {
+                throw new Error( __( 'The reference couldn’t be copied.', 'wordpress-for-writers' ) );
+            }
+        };
+        if ( window.isSecureContext && navigator.clipboard ) {
+            return navigator.clipboard.writeText( text ).catch( legacy );
+        }
+        return new Promise( ( resolve ) => resolve( legacy() ) );
     }
 
     // The terms of a suggestion that accepting leaves out: those not on the site that the user may not make.
@@ -620,12 +704,13 @@
         isActive && el( 'div', { className: 'wfw-card__actions' },
             canAccept && el( Button, { variant: 'primary', size: 'compact', disabled: locked, onClick: () => onAccept() }, __( 'Accept', 'wordpress-for-writers' ) ),
             el( Button, { variant: 'tertiary', size: 'compact', disabled: locked, onClick: onDismiss },
-                kind === 'comment' && ! stale ? __( 'Resolve', 'wordpress-for-writers' ) : kind === 'titles' && ! stale ? __( 'Keep mine', 'wordpress-for-writers' ) : __( 'Dismiss', 'wordpress-for-writers' ) )
+                kind === 'comment' && ! stale ? __( 'Resolve', 'wordpress-for-writers' ) : kind === 'titles' && ! stale ? __( 'Keep mine', 'wordpress-for-writers' ) : __( 'Dismiss', 'wordpress-for-writers' ) ),
+            el( Button, { className: 'wfw-card__refer', icon: 'admin-page', size: 'compact', label: __( 'Copy a reference for your agent', 'wordpress-for-writers' ), onClick: () => actions.current.refer( suggestion.label, [ suggestion ] ) } )
         ) );
     }, ( was, now ) => was.card.suggestion === now.card.suggestion && was.card.stale === now.card.stale && was.card.canAccept === now.card.canAccept && was.isActive === now.isActive && was.locked === now.locked && was.actions === now.actions );
 
     // The cards of a pass under its header: the label, who (an agent, never which), when, and what to do with all of them.
-    function Pass( { pass, locked, onAcceptAll, onPeek, children } ) {
+    function Pass( { pass, locked, onAcceptAll, onPeek, onRefer, children } ) {
         return el( 'section', { className: 'wfw-pass' },
             el( 'header', { className: 'wfw-pass__header' },
                 el( 'strong', null, pass.label ),
@@ -633,7 +718,8 @@
                     __( 'Agent', 'wordpress-for-writers' ), ' · ', el( 'time', { dateTime: pass.date + 'Z' }, wp.date.humanTimeDiff( pass.date + 'Z' ) ) ),
                 el( 'span', { className: 'wfw-pass__actions' },
                     el( Button, { variant: 'link', disabled: locked || ! pass.cards.some( ( card ) => card.canAccept ), onClick: onAcceptAll }, __( 'Accept all', 'wordpress-for-writers' ) ),
-                    el( Button, { variant: 'link', onClick: onPeek }, __( 'Peek', 'wordpress-for-writers' ) ) )
+                    el( Button, { variant: 'link', onClick: onPeek }, __( 'Peek', 'wordpress-for-writers' ) ),
+                    el( Button, { variant: 'link', className: 'wfw-pass__refer', label: __( 'Copy a reference to these suggestions for your agent', 'wordpress-for-writers' ), showTooltip: true, onClick: onRefer }, __( 'Copy', 'wordpress-for-writers' ) ) )
             ),
             children );
     }
@@ -1180,6 +1266,18 @@
             } );
         }
 
+        /*
+         * Nothing reaches an agent from here: the writer carries it. A
+         * reference to the suggestions goes to the clipboard, and the writer
+         * pastes it where they talk to their agent and says what they want.
+         */
+        function refer( label, list ) {
+            writeClipboard( referenceTo( label, list ) ).then( () => dispatch( noticesStore ).createSuccessNotice(
+                __( 'Copied. Paste it to your agent and say what to change.', 'wordpress-for-writers' ),
+                { type: 'snackbar', id: SNACKBAR }
+            ) ).catch( fail );
+        }
+
         // ---- Asks ------------------------------------------------------------------
 
         /*
@@ -1253,9 +1351,9 @@
 
         // What a card asks of Surface, as it is in this render.
         const actions = useRef();
-        actions.current = { reveal, focus: setActive, accept: acceptOne, dismiss, move };
+        actions.current = { reveal, focus: setActive, accept: acceptOne, dismiss, move, refer };
 
-        const renderPass = ( pass ) => el( Pass, { key: pass.id, pass, locked, onAcceptAll: () => acceptAll( pass ), onPeek: () => peek( pass ) },
+        const renderPass = ( pass ) => el( Pass, { key: pass.id, pass, locked, onAcceptAll: () => acceptAll( pass ), onPeek: () => peek( pass ), onRefer: () => refer( pass.label, pass.cards.map( ( card ) => card.suggestion ) ) },
             pass.cards.map( ( card ) => el( Card, { key: card.key, card, locked, isActive: active === card.key, actions } ) ) );
         const at = keys.indexOf( active );
 

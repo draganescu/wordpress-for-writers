@@ -390,6 +390,51 @@ test.describe( 'Review', () => {
         }
     } );
 
+    test( 'copies a reference to a suggestion, and to a pass, for the writer to paste to their agent', async ( { page, requestUtils, context } ) => {
+        await context.grantPermissions( [ 'clipboard-read', 'clipboard-write' ] );
+        const { result } = await seedSuggestions( requestUtils, note, [
+            { kind: 'edit', place: { path: [ 0 ], quote: 'rereading anything' }, change: { replacement: 'rereading' } },
+            { kind: 'edit', place: { path: [ 2 ], quote: ' and last' }, change: { replacement: '' } },
+            { kind: 'comment', place: { path: [ 1 ], quote: 'bold claim' }, reason: 'Is it?' },
+        ] );
+        const [ first, second, comment ] = result!.suggestions;
+        await openEditor( page, note );
+        const before = await content( page );
+        const title: string = await page.evaluate( () => ( window as any ).wp.data.select( 'core/editor' ).getEditedPostAttribute( 'title' ) );
+        const label = ( await call( requestUtils, 'wfw_suggestion_get', [ first ] ) ).result.label;
+        const where = `note ${ note } (“${ title }”)`;
+        const copied = () => page.evaluate( () => navigator.clipboard.readText() );
+
+        // One suggestion, by its id: what the abilities take.
+        await card( page, first ).click();
+        await card( page, first ).locator( '.wfw-card__refer' ).click();
+        await expect( page.locator( '.wfw-toast' ) ).toContainText( 'Copied. Paste it to your agent and say what to change.' );
+        expect( await copied() ).toBe( `About suggestion ${ first } on ${ where }, from the pass “${ label }”:\n“rereading anything” → “rereading”\n\n` );
+
+        // The pass, each of its suggestions on a line, in the order of the cards.
+        await page.locator( '.wfw-pass' ).filter( { has: card( page, first ) } ).locator( '.wfw-pass__refer' ).click();
+        expect( await copied() ).toBe( [
+            `About the pass “${ label }” on ${ where }:`,
+            `Suggestion ${ first }: “rereading anything” → “rereading”`,
+            `Suggestion ${ comment }: “bold claim” — Is it?`,
+            `Suggestion ${ second }: “and last” → (removed)`,
+            '',
+            '',
+        ].join( '\n' ) );
+
+        // A browser that refuses the async clipboard, as some do to a frame: the text is copied the old way.
+        await page.evaluate( () => {
+            navigator.clipboard.writeText = () => Promise.reject( new DOMException( 'Write permission denied.', 'NotAllowedError' ) );
+        } );
+        await card( page, second ).click();
+        await card( page, second ).locator( '.wfw-card__refer' ).click();
+        await expect.poll( copied ).toContain( `About suggestion ${ second } on` );
+
+        // Nothing was changed by it.
+        expect( await content( page ) ).toBe( before );
+        expect( await statusOf( requestUtils, first ) ).toBe( 'open' );
+    } );
+
     test( 'dismisses with a snackbar and Undo, and a comment has Resolve only', async ( { page, requestUtils } ) => {
         const edit = await seedEdit( requestUtils, note, 'rereading anything', 'rereading' );
         const { result } = await seedSuggestions( requestUtils, note, [
@@ -411,7 +456,8 @@ test.describe( 'Review', () => {
 
         await card( page, comment ).click();
         await expect( card( page, comment ) ).toContainText( 'Is it the last?' );
-        await expect( card( page, comment ).getByRole( 'button' ) ).toHaveText( [ 'Resolve' ] );
+        // Beside it only the control that copies a reference, which settles nothing.
+        await expect( card( page, comment ).locator( 'button:not(.wfw-card__refer)' ) ).toHaveText( [ 'Resolve' ] );
         await card( page, comment ).getByRole( 'button', { name: 'Resolve' } ).click();
         await expect.poll( () => statusOf( requestUtils, comment ) ).toBe( 'dismissed' );
     } );
@@ -450,7 +496,7 @@ test.describe( 'Review', () => {
         await expect( card( page, overlapping ) ).toContainText( 'The text has changed since this was suggested.' );
         await expect( marks( page ) ).toHaveAttribute( 'data-wfw-marks', '0' );
         await card( page, overlapping ).click();
-        await expect( card( page, overlapping ).getByRole( 'button' ) ).toHaveText( [ 'Dismiss' ] );
+        await expect( card( page, overlapping ).locator( 'button:not(.wfw-card__refer)' ) ).toHaveText( [ 'Dismiss' ] );
 
         // Undo brings both back.
         await page.locator( '.wfw-toast' ).getByRole( 'button', { name: 'Undo' } ).click();
@@ -574,7 +620,7 @@ test.describe( 'Review', () => {
         await expect( page.locator( '.wfw-pill .wfw-ask-button' ) ).toBeVisible();
     } );
 
-    test( 'tells the app the count, and hands it the note with a pass applied', async ( { page, requestUtils } ) => {
+    test( 'tells the app the count, and hands it the note with a pass applied', async ( { page, requestUtils, context } ) => {
         const ask = await requestUtils.rest( { method: 'POST', path: '/wp/v2/comments', data: { post: note, type: 'note', status: 'hold', content: 'Clear?' } } );
         await requestUtils.rest( {
             method: 'POST',
@@ -624,6 +670,13 @@ test.describe( 'Review', () => {
         // The app shows it as a peek, beside the editor.
         await expect( page.locator( '.wfw-peek .wfw-peek__body' ) ).toContainText( 'I stopped rereading until I reached the end.' );
         await page.locator( '.wfw-peek [data-action="peek-close"]' ).click();
+
+        // A reference is copied from the editor in its frame, with no permission asked of the browser.
+        await frame.locator( '.wfw-pass__refer' ).first().click();
+        await expect( frame.locator( '.wfw-toast' ) ).toContainText( 'Copied.' );
+        await context.grantPermissions( [ 'clipboard-read' ] );
+        await page.bringToFront();
+        await expect.poll( () => page.evaluate( () => navigator.clipboard.readText() ) ).toContain( `Suggestion ${ edit }: ` );
 
         await frame.locator( `[data-wfw-suggestion="${ edit }"]` ).click();
         await frame.locator( `[data-wfw-suggestion="${ edit }"]` ).getByRole( 'button', { name: 'Dismiss' } ).click();
