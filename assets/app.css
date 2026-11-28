@@ -941,6 +941,24 @@ body.wfw-takeover #wpbody-content {
     color: var( --wfw-status-draft );
 }
 
+/* Suggestions waiting on the note: a dot and their count, in the theme's accent. */
+.wfw-note__suggestions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var( --wfw-accent );
+}
+
+.wfw-note__suggestions::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
 /* Centered on the title line, so in rows without an excerpt they stay clear of the status icon. */
 .wfw-note__actions {
     position: absolute;
@@ -1301,6 +1319,37 @@ body.wfw-takeover #wpbody-content {
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+    color: var( --wfw-muted );
+}
+
+/* The style sheet: a page of the writer's own words, in the editor's colours. */
+.wfw .wfw-style-sheet {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 10px 12px;
+    resize: vertical;
+    border: 1px solid var( --wfw-border );
+    border-radius: 8px;
+    box-shadow: none;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var( --wfw-text );
+    background: var( --wfw-editor-bg );
+}
+
+.wfw .wfw-style-sheet:focus {
+    border-color: var( --wfw-accent );
+    box-shadow: 0 0 0 1px var( --wfw-accent );
+    outline: none;
+}
+
+.wfw-sheet__help {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
     color: var( --wfw-muted );
 }
 

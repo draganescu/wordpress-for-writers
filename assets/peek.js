@@ -8,6 +8,12 @@
  * few notes as tabs. A peeked note can step back through its past
  * versions, and swap places with the note in the editor.
  *
+ * One of those tabs can be a pass: the note in the editor as it would read
+ * with a pass of an agent's suggestions accepted (spec/agent/editor.md). Its
+ * text is the editor's, handed over, and belongs to no saved note: it is
+ * read like any other, under the pass's label, and is never loaded, kept
+ * across reloads, pinned, swapped or stepped through versions.
+ *
  * The sheet shows the note as saved (the site's rendered content, cleaned
  * of anything that runs), set as in the editor (note-flow.css, shared with
  * the canvas). It is the app's own markup rather than another editor, so it
@@ -64,6 +70,7 @@ window.wfwPeek = function ( app ) {
     const peekSaved = loadPref( 'peek', {} ) || {};
     const peek = {
         // { id, title, html, loading, failed, stale, pinned, versions: null | { list, index, cache, stale } }; the pinned ones first.
+        // A pass has its label as `pass` too, and the id of the note it is a reading of.
         items: peekIds( peekSaved.pins ).map( ( id ) => newPeekItem( id, '', true ) ),
         at: 0,
         dock: DOCKS.includes( peekSaved.dock ) ? peekSaved.dock : null, // null: wherever there is room
@@ -98,6 +105,9 @@ window.wfwPeek = function ( app ) {
         const versions = item?.versions;
         return versions?.list && versions.index >= 0 ? versions.cache.get( versions.list[ versions.index ].id ) || null : null;
     }
+
+    // What a note goes by in the header and the menu: its title, or for a pass the pass's label.
+    const peekName = ( item ) => item.pass || item.title || __( 'Untitled', 'wordpress-for-writers' );
 
     const pinnedFirst = ( items ) => [ ...items.filter( ( item ) => item.pinned ), ...items.filter( ( item ) => ! item.pinned ) ];
     const ownPeeks = () => peek.items.filter( ( item ) => ! item.pinned );
@@ -298,7 +308,7 @@ window.wfwPeek = function ( app ) {
     // The note in front gets its text when it has none yet, or when it has been saved since.
     function freshen() {
         const item = peekItem();
-        if ( ! item || ! el || peek.folded ) {
+        if ( ! item || item.pass || ! el || peek.folded ) {
             return;
         }
         // The note as it is now, unless a past version is in front of it.
@@ -312,7 +322,7 @@ window.wfwPeek = function ( app ) {
 
     // Notes that came back with a tab or a reload have no title yet: one request for all of them.
     async function loadTitles() {
-        const untitled = peek.items.filter( ( item ) => ! item.title && ! item.html );
+        const untitled = peek.items.filter( ( item ) => ! item.title && ! item.html && ! item.pass );
         if ( ! untitled.length ) {
             return;
         }
@@ -348,8 +358,7 @@ window.wfwPeek = function ( app ) {
     }
 
     function peekMenuHtml() {
-        const untitled = __( 'Untitled', 'wordpress-for-writers' );
-        return peek.items.map( ( item, i ) => `<button class="wfw-menu__item${ item.title ? '' : ' is-empty' }" role="menuitemradio" aria-checked="${ i === peek.at }" tabindex="-1" data-action="peek-tab" data-index="${ i }">${ i === peek.at ? icon( 'check' ) : '<span class="wfw-menu__spacer"></span>' }<span>${ esc( item.title || untitled ) }</span></button>` ).join( '' );
+        return peek.items.map( ( item, i ) => `<button class="wfw-menu__item${ item.title || item.pass ? '' : ' is-empty' }" role="menuitemradio" aria-checked="${ i === peek.at }" tabindex="-1" data-action="peek-tab" data-index="${ i }">${ i === peek.at ? icon( 'check' ) : '<span class="wfw-menu__spacer"></span>' }<span>${ esc( peekName( item ) ) }</span></button>` ).join( '' );
     }
 
     // From the keyboard focus goes to the note in view; otherwise to the menu itself, so its keys work from the start.
@@ -383,7 +392,7 @@ window.wfwPeek = function ( app ) {
             return;
         }
         const untitled = __( 'Untitled', 'wordpress-for-writers' );
-        el.querySelector( '.wfw-peek__tabs' ).innerHTML = peek.items.map( ( other, i ) => `<button class="wfw-peek__tab${ i === peek.at ? ' is-active' : '' }${ other.pinned ? ' is-pinned' : '' }" role="tab" aria-selected="${ i === peek.at }" data-action="peek-tab" data-index="${ i }">${ esc( other.title || untitled ) }</button>` ).join( '' );
+        el.querySelector( '.wfw-peek__tabs' ).innerHTML = peek.items.map( ( other, i ) => `<button class="wfw-peek__tab${ i === peek.at ? ' is-active' : '' }${ other.pinned ? ' is-pinned' : '' }" role="tab" aria-selected="${ i === peek.at }" data-action="peek-tab" data-index="${ i }">${ esc( peekName( other ) ) }</button>` ).join( '' );
         el.querySelector( '.wfw-peek__switch-count' ).textContent = peek.items.length;
         fitPeekTabs();
         if ( peekMenuOpen ) {
@@ -409,12 +418,15 @@ window.wfwPeek = function ( app ) {
             }
             runPeekFind();
         }
-        // Its tools: past versions, and swapping (not with itself).
+        // Its tools: past versions, and swapping (not with itself). A pass is only read.
         const versions = el.querySelector( '.wfw-peek__versions' );
         versions.hidden = ! item.versions;
-        el.querySelector( '[data-action="peek-versions"]' ).setAttribute( 'aria-pressed', String( !! item.versions ) );
-        el.querySelector( '[data-action="peek-swap"]' ).disabled = ! app.current() || app.current().id === item.id || app.panel();
+        const versionsToggle = el.querySelector( '[data-action="peek-versions"]' );
+        versionsToggle.setAttribute( 'aria-pressed', String( !! item.versions ) );
+        versionsToggle.disabled = !! item.pass;
+        el.querySelector( '[data-action="peek-swap"]' ).disabled = !! item.pass || ! app.current() || app.current().id === item.id || app.panel();
         const pin = el.querySelector( '[data-action="peek-pin"]' );
+        pin.disabled = !! item.pass;
         pin.setAttribute( 'aria-pressed', String( item.pinned ) );
         setLabel( pin, item.pinned ? __( 'Keep in this tab only', 'wordpress-for-writers' ) : __( 'Keep in every tab', 'wordpress-for-writers' ) );
         if ( item.versions ) {
@@ -441,18 +453,23 @@ window.wfwPeek = function ( app ) {
         }
     }
 
+    // A sheet holds PEEK_MAX items: a new one takes the oldest's place.
+    function addPeekItem( item ) {
+        if ( peek.items.length >= PEEK_MAX ) {
+            peek.items.shift();
+        }
+        peek.items.push( item );
+    }
+
     // Opens a note in the sheet, or brings it forward if it's there already.
     function peekNote( id, { versions = false } = {} ) {
         if ( ! id ) {
             return;
         }
         loadBlockStyles();
-        let at = peek.items.findIndex( ( item ) => item.id === id );
+        let at = peek.items.findIndex( ( item ) => item.id === id && ! item.pass );
         if ( at < 0 ) {
-            if ( peek.items.length >= PEEK_MAX ) {
-                peek.items.shift();
-            }
-            peek.items.push( newPeekItem( id, app.titleOf( id ) ) );
+            addPeekItem( newPeekItem( id, app.titleOf( id ) ) );
             at = peek.items.length - 1;
         }
         peek.at = at;
@@ -468,6 +485,28 @@ window.wfwPeek = function ( app ) {
         savePeek();
         layoutPeek();
         freshen();
+    }
+
+    /*
+     * Opens a pass: the note `id`, in the editor, as it would read with the
+     * pass accepted. `title` and `content` are the editor's (content is the
+     * note's markup, cleaned like any note's) and `label` is the pass's. A
+     * sheet holds one pass: the next takes its place.
+     */
+    function peekPass( id, { title, content, label } ) {
+        loadBlockStyles();
+        const item = { ...newPeekItem( id, title ), html: content, loading: false, pass: label };
+        const at = peek.items.findIndex( ( other ) => other.pass );
+        if ( at >= 0 ) {
+            peek.items[ at ] = item;
+        } else {
+            addPeekItem( item );
+        }
+        peek.at = peek.items.indexOf( item );
+        peek.folded = false;
+        closePeekFind();
+        layoutPeek();
+        renderPeek();
     }
 
     function closePeek( index = peek.at ) {
@@ -503,7 +542,7 @@ window.wfwPeek = function ( app ) {
     async function swapPeek() {
         const item = peekItem();
         const leaving = app.current();
-        if ( ! item || ! leaving || leaving.id === item.id || app.panel() ) {
+        if ( ! item || item.pass || ! leaving || leaving.id === item.id || app.panel() ) {
             return;
         }
         const leavingId = leaving.id;
@@ -1258,7 +1297,8 @@ window.wfwPeek = function ( app ) {
     function savedPeeks( tab ) {
         const mine = tab === app.current();
         // Its own: the pinned ones are everyone's, and kept apart.
-        const own = mine ? ownPeeks() : tab.peeks?.items || [];
+        // Nor is a pass: its text was the editor's, and is gone with the page.
+        const own = ( mine ? ownPeeks() : tab.peeks?.items || [] ).filter( ( item ) => ! item.pass );
         const at = mine ? Math.max( 0, own.indexOf( peekItem() ) ) : tab.peeks?.at || 0;
         return own.length ? { peeks: own.map( ( item ) => item.id ), at } : null;
     }
@@ -1285,6 +1325,7 @@ window.wfwPeek = function ( app ) {
     return {
         init: initPeek, // once the app's shell is in the page
         open: peekNote, // ( id, { versions } )
+        openPass: peekPass, // ( id, { title, content, label } ): the note in the editor with a pass accepted
         closeAll: closeAllPeeks,
         isOpen: () => peek.items.length > 0,
         action: onPeekAction, // ( data-action, element, click ): true when it was the sheet's

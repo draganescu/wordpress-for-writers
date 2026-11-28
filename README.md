@@ -25,6 +25,7 @@ It still runs on the block editor, so your posts stay ordinary WordPress posts. 
   - The formatting toolbar floats at the bottom, and save/publish sits at the top right.
   - No block inserters or "Type / to choose a block" coaching.
   - Hover the title for a row of quiet links: featured image, categories and tags. Each shows what the note has and opens a form in place of the editor, where you pick an image from your library or upload one, tick categories (and add new ones), and type tags with suggestions from the ones you use most. Changes save straight to the note.
+- **Agents:** an AI agent connected to the site can read your notes and suggest changes to them; it never changes a note. Suggestions wait beside the note in the editor, each marked on its passage with a card: accept one and it is an edit like any other, with Undo, or dismiss it. Select a passage and choose Ask to leave a question on it for an agent. The note list counts the suggestions waiting on each note, a pass can be read applied in a Peek before you accept it, and a style sheet under the user menu tells agents how you want your notes worked on. Agents reach the site through the Abilities API (the MCP Adapter plugin carries it over MCP) or `wp writer` under WP-CLI. A site no agent has used adds nothing to the editor unless a note already has a core note. The spec is in `spec/agent/`.
 - **Autosave for drafts:** drafts save themselves as you type. Published posts still need an explicit Update.
 - **Live titles:** the note list updates as you type a title.
 - **Appearance:** 10 themes (System, Red Graphite, Charcoal, Toothpaste, Paper, Solarized Light/Dark, Dracula, Nord, and WordPress in wp-admin's Modern colours), plus font (serif, sans, mono), text size and line width. Choices are saved per user and apply live.
@@ -94,6 +95,13 @@ npx wp-env start   # http://localhost:8890/wp-admin (admin / password)
 npx wp-env stop
 ```
 
+The end-to-end tests run against wp-env's second site, the tests one, on port 8891, so they never touch the development site: each run deletes every post there. `tests/e2e/plugin`, the helper plugin they drive the site with, is active only on that site.
+
+```bash
+npx wp-env start
+npm run test:e2e   # WP_BASE_URL=http://localhost:8891 by default
+```
+
 ### Layout
 
 - `wordpress-for-writers.php`: admin takeover, redirects and the app's assets.
@@ -101,11 +109,15 @@ npx wp-env stop
 - `includes/appearance.php`: theme palettes, font/size/width options, user meta, and generated CSS tokens.
 - `includes/pinned-terms.php`: the user meta for categories and tags pinned to the main menu.
 - `includes/site-scheme.php`: applies the chosen colour scheme to themes that support `wfw-color-schemes`.
+- `includes/suggestions.php`: the agent surface's store: suggestions as core notes, reading and placing, the editor's REST routes.
+- `includes/abilities.php`, `includes/abilities-cli.php`: the abilities agents call, and `wp writer`.
 - `assets/app.js`, `assets/app.css`: the three-pane app.
 - `assets/editor.js`, `assets/editor.css`: the Writer editor. Its layout (save and publish, the formatting pill, notices, the settings and publish sheets), messaging with the app, draft autosave and the iOS keyboard handling.
 - `assets/editor-content.css`: the default writing surface inside the editor canvas.
+- `assets/suggest.js`, `assets/suggest.css`: Review, what the writer sees of an agent in the editor. Loaded on demand.
 - `blueprint.json`, `playground/demo-content.php`: the Playground demo.
 - `themes/`: the three reading themes. wp-env mounts them, so `npx wp-env run cli wp theme activate writer-essay` switches between them.
+- `tests/e2e/`: Playwright tests, run on wp-env's tests site (`npm run test:e2e`) and on every pull request.
 
 ## Releases
 

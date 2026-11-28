@@ -43,6 +43,12 @@ require_once __DIR__ . '/includes/thumbnails.php';
 require_once __DIR__ . '/includes/site-scheme.php';
 require_once __DIR__ . '/includes/pwa.php';
 require_once __DIR__ . '/includes/editor.php';
+// The agent surface (spec/agent): the store, the abilities, and `wp writer` under WP-CLI.
+require_once __DIR__ . '/includes/suggestions.php';
+require_once __DIR__ . '/includes/abilities.php';
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    require_once __DIR__ . '/includes/abilities-cli.php';
+}
 
 /**
  * The plugin's text domain, read from its own Text Domain header, so the
@@ -302,6 +308,8 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
             // Categories and tags pinned to the main menu, and the user meta key that stores them.
             'pinnedTerms'       => wfw_pinned_terms_client_data(),
             'pinnedTermsKey'    => wfw_pinned_terms_key(),
+            // The agent surface: whether an agent has used the site, and the user's style sheet (see wfw_agent_app_data()).
+            'agent'             => wfw_agent_app_data(),
             /**
              * Extra links for the sidebar's user menu, so companion plugins can
              * surface their screens. Each item: array( 'label' => '', 'url' => '', 'icon' => '' ).

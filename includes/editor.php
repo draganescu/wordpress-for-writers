@@ -533,7 +533,8 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
 
     wp_enqueue_style( 'wfw-editor', WFW_URL . 'assets/editor.css', array( 'wp-components', 'wp-block-editor', 'wp-editor', 'wp-format-library', 'wp-block-library' ), wfw_asset_version( 'assets/editor.css' ) );
     wp_add_inline_style( 'wfw-editor', wfw_appearance_css() );
-    $deps = array( 'wp-api-fetch', 'wp-block-editor', 'wp-block-library', 'wp-blocks', 'wp-components', 'wp-compose', 'wp-core-data', 'wp-data', 'wp-editor', 'wp-element', 'wp-format-library', 'wp-html-entities', 'wp-i18n', 'wp-keyboard-shortcuts', 'wp-plugins', 'wp-preferences', 'wp-theme', 'wp-wordcount' );
+    // wp-date, wp-hooks, wp-rich-text and wp-url are for Review (assets/suggest.js), which the editor loads on demand.
+    $deps = array( 'wp-api-fetch', 'wp-block-editor', 'wp-block-library', 'wp-blocks', 'wp-components', 'wp-compose', 'wp-core-data', 'wp-data', 'wp-date', 'wp-editor', 'wp-element', 'wp-format-library', 'wp-hooks', 'wp-html-entities', 'wp-i18n', 'wp-keyboard-shortcuts', 'wp-plugins', 'wp-preferences', 'wp-rich-text', 'wp-theme', 'wp-url', 'wp-wordcount' );
     wp_enqueue_script(
         'wfw-editor',
         WFW_URL . 'assets/editor.js',
@@ -559,6 +560,8 @@ function wfw_editor_enqueue( $post, $settings, $initial_edits ) {
         'visibility'     => wfw_visibility(),
         // wp-admin's own editor, for what this one leaves out (meta boxes, plugin sidebars, revisions).
         'fullEditorUrl'  => get_edit_post_link( $post->ID, 'raw' ),
+        // The agent surface: whether the stub in editor.js loads Review, and from where (see wfw_agent_editor_data()).
+        'agent'          => wfw_agent_editor_data( $post ),
     ) );
 
     // Plugins' block editor assets: their blocks, formats and document setting panels.

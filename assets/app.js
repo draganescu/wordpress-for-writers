@@ -146,6 +146,9 @@
     // Phones show one pane at a time; a peek sheet only docks under the editor there.
     const phoneLayout = window.matchMedia( '(max-width: 700px)' );
 
+    // What the app shows of an agent (spec/agent): only on a site one has used.
+    const agentShown = () => !! settings.agent.seen;
+
     /*
      * The open editors, listed under Editing now: the one in view, and those
      * opened with "Open in new tab", which keep running out of sight so each
@@ -355,6 +358,10 @@
         }
         // Each note's permalink, for View post and Copy link in its context menu.
         params._fields += ',link';
+        // And how many suggestions wait on it.
+        if ( agentShown() ) {
+            params._fields += ',wfw_suggestions';
+        }
         if ( ! append && ! keep ) {
             renderListItems();
         }
@@ -566,6 +573,7 @@
                     ${ menuItem( settings.adminUrl + 'index.php?wfw_classic=1', 'dashboard', __( 'Go to admin', 'wordpress-for-writers' ) ) }
                     ${ menuItem( settings.adminUrl + 'profile.php', 'profile', __( 'Edit profile', 'wordpress-for-writers' ) ) }
                     ${ ( settings.links || [] ).map( ( l ) => menuItem( l.url, Object.prototype.hasOwnProperty.call( ICONS, l.icon ) ? l.icon : 'dashboard', l.label ) ).join( '' ) }
+                    ${ agentShown() ? `<button class="wfw-menu__item" role="menuitem" tabindex="-1" data-action="style-sheet">${ icon( 'notes' ) }<span>${ esc( __( 'Style sheet', 'wordpress-for-writers' ) ) }</span></button>` : '' }
                     <div class="wfw-menu__separator" role="separator"></div>
                     ${ menuItem( settings.logoutUrl, 'logout', sprintf( __( 'Log out %s', 'wordpress-for-writers' ), settings.userName ) ) }
                 </div>
@@ -824,6 +832,16 @@
         }
     }
 
+    // A dot and the count, on the row of a note that has open suggestions, where the app shows anything of an agent.
+    function suggestionsHtml( count ) {
+        if ( ! count || ! agentShown() ) {
+            return '';
+        }
+        /* translators: %d: how many suggestions wait on a note. */
+        const text = sprintf( _n( '%d suggestion', '%d suggestions', count, 'wordpress-for-writers' ), count );
+        return `<span class="wfw-note__suggestions" role="img" title="${ esc( text ) }" aria-label="${ esc( text ) }">${ esc( count ) }</span>`;
+    }
+
     function noteHtml( note ) {
         const title = note.title.raw || htmlToText( note.title.rendered );
         // A note without a title (a status, say) goes by its post format, or Untitled, and
@@ -852,7 +870,7 @@
                 <div class="wfw-note__title${ title ? '' : ' is-empty' }">${ esc( title || untitledLabel( note.format ) ) }</div>
                 ${ excerpt ? `<div class="wfw-note__excerpt${ title ? '' : ' is-lead' }"${ leadLines }>${ esc( excerpt ) }</div>` : '' }
                 ${ FEATURED && thumb?.source === 'featured' ? `<button class="wfw-note__thumb-btn" data-action="featured" data-id="${ note.id }" title="${ esc( __( 'Change featured image', 'wordpress-for-writers' ) ) }">${ thumbImg }</button>` : thumbImg }
-                <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ statusIcon }</div>
+                <div class="wfw-note__meta"><span>${ esc( formatDate( date ) ) }</span>${ suggestionsHtml( note.wfw_suggestions ) }${ statusIcon }</div>
                 <div class="wfw-note__actions">${ actions }</div>
             </div>`;
     }
@@ -1440,6 +1458,31 @@
                 // Cmd/Ctrl+K in the editor in view; focus goes back to it when the palette closes.
                 if ( tab === current ) {
                     openPalette( tab.frame );
+                }
+                break;
+            }
+            case 'suggestions': {
+                // The open note's count comes from its editor, which knows of a change first.
+                if ( data.count && ! settings.agent.seen ) {
+                    // An agent has used the site since the app loaded: the list and the account menu catch up.
+                    settings.agent.seen = Math.round( Date.now() / 1000 );
+                    renderSidebar();
+                }
+                const listed = state.notes.find( ( n ) => n.id === tab.id );
+                if ( listed ) {
+                    listed.wfw_suggestions = data.count;
+                    const meta = root.querySelector( `.wfw-note[data-id="${ tab.id }"] .wfw-note__meta` );
+                    if ( meta ) {
+                        meta.querySelector( '.wfw-note__suggestions' )?.remove();
+                        meta.firstElementChild.insertAdjacentHTML( 'afterend', suggestionsHtml( data.count ) );
+                    }
+                }
+                break;
+            }
+            case 'peek-pass': {
+                // The note as it would read with a pass accepted, worked out by its editor: a sheet beside it, to read.
+                if ( tab === current && ! state.panel ) {
+                    PEEK.openPass( tab.id, data );
                 }
                 break;
             }
@@ -2221,21 +2264,16 @@
             </div>`;
 
         return `
-            <div class="wfw-sheet__card" role="dialog" aria-modal="true" aria-label="${ esc( __( 'Appearance', 'wordpress-for-writers' ) ) }">
-                <div class="wfw-sheet__head">
-                    <span>${ esc( __( 'Appearance', 'wordpress-for-writers' ) ) }</span>
-                    <button class="wfw-icon-btn" data-action="close-sheet" title="${ esc( __( 'Close', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</button>
-                </div>
-                <div class="wfw-sheet__label">${ esc( __( 'Theme', 'wordpress-for-writers' ) ) }</div>
-                <div class="wfw-themes">${ themes }</div>
-                ${ segmented( 'font', __( 'Font', 'wordpress-for-writers' ) ) }
-                ${ segmented( 'size', __( 'Text size', 'wordpress-for-writers' ) ) }
-                ${ segmented( 'width', __( 'Line width', 'wordpress-for-writers' ) ) }
-                ${ renderBlocksSection() }
-            </div>`;
+            <div class="wfw-sheet__label">${ esc( __( 'Theme', 'wordpress-for-writers' ) ) }</div>
+            <div class="wfw-themes">${ themes }</div>
+            ${ segmented( 'font', __( 'Font', 'wordpress-for-writers' ) ) }
+            ${ segmented( 'size', __( 'Text size', 'wordpress-for-writers' ) ) }
+            ${ segmented( 'width', __( 'Line width', 'wordpress-for-writers' ) ) }
+            ${ renderBlocksSection() }`;
     }
 
-    function openAppearance() {
+    // One sheet at a time, over the app: Appearance, or the style sheet. A card with its title and Close, then `body`.
+    function openSheet( title, body ) {
         let sheet = root.querySelector( '.wfw-sheet' );
         if ( ! sheet ) {
             sheet = document.createElement( 'div' );
@@ -2243,10 +2281,22 @@
             sheet.dataset.action = 'close-sheet';
             root.appendChild( sheet );
         }
-        sheet.innerHTML = renderAppearanceSheet();
+        sheet.innerHTML = `
+            <div class="wfw-sheet__card" role="dialog" aria-modal="true" aria-label="${ esc( title ) }">
+                <div class="wfw-sheet__head">
+                    <span>${ esc( title ) }</span>
+                    <button class="wfw-icon-btn" data-action="close-sheet" title="${ esc( __( 'Close', 'wordpress-for-writers' ) ) }">${ icon( 'close' ) }</button>
+                </div>
+                ${ body }
+            </div>`;
+        return sheet;
     }
 
-    function closeAppearance() {
+    function openAppearance() {
+        openSheet( __( 'Appearance', 'wordpress-for-writers' ), renderAppearanceSheet() );
+    }
+
+    function closeSheet() {
         root.querySelector( '.wfw-sheet' )?.remove();
     }
 
@@ -2255,6 +2305,37 @@
         applyAppearance();
         saveAppearance();
         openAppearance();
+    }
+
+    // ---- Style sheet -------------------------------------------------------
+
+    /*
+     * The writer's style sheet: how they want their notes worked on, in their
+     * own words. An agent is given it with the guide (spec/agent/abilities.md),
+     * so it is only offered where the app shows anything of an agent. Kept
+     * per user, and saved as the appearance is.
+     */
+    const saveStyleSheet = debounce( () => {
+        apiFetch( { path: '/wp/v2/users/me', method: 'POST', data: { meta: { wfw_style_sheet: settings.agent.styleSheet } } } ).catch( () => {
+            // The text stays in the field, so the writer can change it again to try again.
+            showToast( __( 'The style sheet couldn’t be saved', 'wordpress-for-writers' ) );
+        } );
+    }, 400 );
+
+    function openStyleSheet() {
+        const title = __( 'Style sheet', 'wordpress-for-writers' );
+        const max = settings.agent.styleSheetMax;
+        /* translators: %s: the most characters a style sheet holds, as a number. */
+        const help = sprintf( __( 'How you want your notes worked on: your voice, your spelling, what to leave alone. An agent reads it before it suggests anything. Up to %s characters.', 'wordpress-for-writers' ), max.toLocaleString() );
+        const field = openSheet( title, `
+            <textarea class="wfw-style-sheet" rows="10" maxlength="${ max }" aria-label="${ esc( title ) }" aria-describedby="wfw-style-sheet-help"></textarea>
+            <p class="wfw-sheet__help" id="wfw-style-sheet-help">${ esc( help ) }</p>` ).querySelector( 'textarea' );
+        field.value = settings.agent.styleSheet;
+        field.addEventListener( 'input', () => {
+            settings.agent.styleSheet = field.value;
+            saveStyleSheet();
+        } );
+        field.focus();
     }
 
     // ---- Account menu ------------------------------------------------------
@@ -3389,6 +3470,10 @@
             case 'menu-item':
                 closeUserMenu();
                 break;
+            case 'style-sheet':
+                closeUserMenu( false );
+                openStyleSheet();
+                break;
             case 'context-item':
                 if ( target.dataset.command ) {
                     runContextCommand( target.dataset.command );
@@ -3404,7 +3489,7 @@
                 break;
             case 'close-sheet':
                 if ( event.target === target || target.classList.contains( 'wfw-icon-btn' ) ) {
-                    closeAppearance();
+                    closeSheet();
                 }
                 break;
         }
@@ -3474,7 +3559,7 @@
         } else if ( event.key === 'Escape' && newMenuOpen() ) {
             toggleNewMenu( false );
         } else if ( event.key === 'Escape' && root.querySelector( '.wfw-sheet' ) ) {
-            closeAppearance();
+            closeSheet();
         } else if ( event.key === 'Escape' && state.panel && ! event.defaultPrevented ) {
             openNote( state.panel.id );
         } else if ( event.key === 'Escape' && state.focus ) {
