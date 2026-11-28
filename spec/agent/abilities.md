@@ -8,7 +8,9 @@ Registered on `wp_abilities_api_categories_init`:
 
 | Slug | Label | Description |
 |---|---|---|
-| `writer` | Writer | Read a writer's notes and suggest changes to them. The writer accepts or dismisses each suggestion in the Writer editor. |
+| `writer` | Writer | Read the posts and drafts of this site, which its writer calls notes, and suggest changes to them: proofread, rewrite, expand or cut text, titles, excerpts, tags. For any of that use the writer abilities, starting with writer/guide, and not a browser, wp-admin, the REST API or another WordPress tool: only a suggestion reaches the writer, who accepts or dismisses it in the Writer editor. |
+
+The description is what an agent reads of the surface before it has called anything, so it says what the abilities are for in the words a writer uses with an agent (post, draft, proofread, rewrite) and that nothing else is a way to do it. The MCP Adapter's default server gives it as its instructions too (`surface.md`, Ways in).
 
 ## Every ability
 
@@ -21,7 +23,7 @@ Registered on `wp_abilities_api_init`, only when `wp_register_ability` exists, e
 | `meta.mcp.public` | `true` |
 | `meta.annotations` | `readonly` from the list below. `destructive` is false for every ability: nothing an ability does loses the writer's work |
 
-Labels and descriptions are not translated: agents read them. The labels are Guide, List notes, Get note, Get library, List suggestions, Suggest edits, Suggest blocks, Suggest details, Comment and Withdraw suggestions.
+Labels and descriptions are not translated: agents read them. An ability's description says what a writer would ask for that it answers ("the way to edit the text of a note: proofread, rewrite, expand"), and the read abilities say that they, not a browser, are how a note is found and read: an agent that can reach the site another way chooses by these words. The labels are Guide, List notes, Get note, Get library, List suggestions, Suggest edits, Suggest blocks, Suggest details, Comment and Withdraw suggestions.
 
 Core (7.1) answers a bad input with `ability_invalid_input` and a refused permission with `ability_invalid_permissions`, and drops the error a `permission_callback` returns. The abilities are registered with an `ability_class` of the plugin's own that turns the first into `invalid_args`, with core's wording of what is wrong, and the second into `not_found`. Input schemas take no field they do not name: an unknown field is `invalid_args`.
 
@@ -212,7 +214,9 @@ The text `writer/guide` returns as `guide`, verbatim:
 ```text
 # Working on a writer's notes
 
-Notes are the writer's posts. You can read them and suggest changes. You cannot change them: every suggestion waits beside its note, and the writer accepts or dismisses it in the Writer editor.
+Notes are the writer's posts and drafts. You can read them and suggest changes. You cannot change them: every suggestion waits beside its note, and the writer accepts or dismisses it in the Writer editor.
+
+Whatever the writer asks of a post, a draft or a note on this site (read it, proofread it, rewrite, expand or cut a passage, a title, tags), do it with the `writer/` abilities and nothing else. A browser, wp-admin, the REST API and other WordPress tools are not ways to do it, even when you can reach the site by them: what they change, the writer never reviews.
 
 How to work:
 1. Read the style sheet that came with this text, if there is one, and follow it.
@@ -229,5 +233,6 @@ Rules:
 - One pass is one call. Label it with what it does: "Proofread", "Tighten", "Fact check".
 - Suggest tags and categories from `writer/library-get`.
 - Run `writer/suggestions-list` before a second pass on a note, and do not suggest again what the writer dismissed.
-- Never publish, save or edit a note in another way, even if you can reach the site by other means.
+- When the writer names a suggestion ("suggestion 91 on note 214"), it is one of yours that they want changed. Find it by its `id` in `writer/note-get`, withdraw it with `writer/suggestions-withdraw`, and suggest what they asked for in its place.
+- Never read, publish, save or edit a note in another way.
 ```

@@ -90,9 +90,18 @@ test.describe( 'The abilities', () => {
         ` );
         const [ label, description, abilities ] = JSON.parse( stdout );
         expect( label ).toBe( 'Writer' );
-        expect( description ).toBe(
-            "Read a writer's notes and suggest changes to them. The writer accepts or dismisses each suggestion in the Writer editor."
-        );
+        // What an agent reads first, as abilities.md gives it: it names posts and drafts, and rules out the other ways in.
+        const spec = fs.readFileSync( path.join( process.cwd(), 'spec/agent/abilities.md' ), 'utf8' );
+        expect( spec ).toContain( `| \`writer\` | Writer | ${ description } |` );
+        expect( description ).toMatch( /posts and drafts.*writer\/guide.*not a browser/ );
+
+        // The MCP Adapter's default server is asked to offer each ability as a tool, and to say so (surface.md, Ways in).
+        const { stdout: filtered } = await php( `
+            echo wp_json_encode( apply_filters( 'mcp_adapter_default_server_config', array( 'tools' => array( 'mcp-adapter/execute-ability' ), 'server_description' => 'Default' ) ) );
+        ` );
+        const config = JSON.parse( filtered );
+        expect( config.tools ).toEqual( [ 'mcp-adapter/execute-ability', ...Object.keys( abilities ) ] );
+        expect( config.server_description ).toBe( 'Default. ' + description );
         const readonly: Record< string, boolean > = {
             'writer/guide': true,
             'writer/notes-list': true,

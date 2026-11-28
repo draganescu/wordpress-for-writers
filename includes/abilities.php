@@ -16,6 +16,49 @@ if ( ! function_exists( 'wp_register_ability' ) ) {
     return;
 }
 
+/*
+ * What the surface is, in the words an agent reads before it has called
+ * anything: the category's description, and the instructions of the MCP
+ * Adapter's default server (abilities.md, Category). Not translated.
+ */
+const WFW_AGENT_ABOUT = 'Read the posts and drafts of this site, which its writer calls notes, and suggest changes to them: proofread, rewrite, expand or cut text, titles, excerpts, tags. For any of that use the writer abilities, starting with writer/guide, and not a browser, wp-admin, the REST API or another WordPress tool: only a suggestion reaches the writer, who accepts or dismisses it in the Writer editor.';
+
+/*
+ * The MCP Adapter's default server offers three tools that name no ability
+ * (discover, get info, execute), so an agent learns that this site has notes
+ * only if it thinks to look. The abilities are offered beside them as tools of
+ * their own, and the server's instructions say what they are for
+ * (surface.md, Ways in). Without the adapter nothing calls this.
+ */
+add_filter( 'mcp_adapter_default_server_config', function ( $config ) {
+    if ( ! is_array( $config ) ) {
+        return $config;
+    }
+    $config['tools']              = array_values( array_unique( array_merge( (array) ( $config['tools'] ?? array() ), wfw_ability_names() ) ) );
+    $config['server_description'] = trim( ( $config['server_description'] ?? '' ) . '. ' . WFW_AGENT_ABOUT, '. ' ) . '.';
+    return $config;
+} );
+
+/**
+ * The closed list, by name (abilities.md).
+ *
+ * @return string[]
+ */
+function wfw_ability_names() {
+    return array(
+        'writer/guide',
+        'writer/notes-list',
+        'writer/note-get',
+        'writer/library-get',
+        'writer/suggestions-list',
+        'writer/suggest-edits',
+        'writer/suggest-blocks',
+        'writer/suggest-details',
+        'writer/comment',
+        'writer/suggestions-withdraw',
+    );
+}
+
 /**
  * The guide `writer/guide` and `wp writer guide` give an agent, verbatim from
  * spec/agent/abilities.md. Not translated: agents read it.
@@ -26,7 +69,9 @@ function wfw_agent_guide() {
     return <<<'GUIDE'
 # Working on a writer's notes
 
-Notes are the writer's posts. You can read them and suggest changes. You cannot change them: every suggestion waits beside its note, and the writer accepts or dismisses it in the Writer editor.
+Notes are the writer's posts and drafts. You can read them and suggest changes. You cannot change them: every suggestion waits beside its note, and the writer accepts or dismisses it in the Writer editor.
+
+Whatever the writer asks of a post, a draft or a note on this site (read it, proofread it, rewrite, expand or cut a passage, a title, tags), do it with the `writer/` abilities and nothing else. A browser, wp-admin, the REST API and other WordPress tools are not ways to do it, even when you can reach the site by them: what they change, the writer never reviews.
 
 How to work:
 1. Read the style sheet that came with this text, if there is one, and follow it.
@@ -43,7 +88,8 @@ Rules:
 - One pass is one call. Label it with what it does: "Proofread", "Tighten", "Fact check".
 - Suggest tags and categories from `writer/library-get`.
 - Run `writer/suggestions-list` before a second pass on a note, and do not suggest again what the writer dismissed.
-- Never publish, save or edit a note in another way, even if you can reach the site by other means.
+- When the writer names a suggestion ("suggestion 91 on note 214"), it is one of yours that they want changed. Find it by its `id` in `writer/note-get`, withdraw it with `writer/suggestions-withdraw`, and suggest what they asked for in its place.
+- Never read, publish, save or edit a note in another way.
 GUIDE;
 }
 
@@ -507,7 +553,7 @@ function wfw_ability_suggestions_withdraw( $note, $input ) {
 add_action( 'wp_abilities_api_categories_init', function () {
     wp_register_ability_category( 'writer', array(
         'label'       => 'Writer',
-        'description' => 'Read a writer\'s notes and suggest changes to them. The writer accepts or dismisses each suggestion in the Writer editor.',
+        'description' => WFW_AGENT_ABOUT,
     ) );
 } );
 
@@ -574,13 +620,13 @@ add_action( 'wp_abilities_api_init', function () {
     $abilities = array(
         'writer/guide'                => array(
             'label'       => 'Guide',
-            'description' => 'How to work on this site: the steps and the rules for suggesting changes to a writer\'s notes, and the writer\'s style sheet. Read it first.',
+            'description' => 'Start here, before any other writer ability and before reaching this site another way. How to read the writer\'s posts and drafts, which are called notes, and suggest changes to them (proofread, rewrite, expand, cut, titles, tags), with the rules and the writer\'s style sheet. Use the writer abilities for all of it, not a browser, wp-admin or the REST API.',
             'execute'     => 'wfw_ability_guide',
             'readonly'    => true,
         ),
         'writer/notes-list'           => array(
             'label'       => 'List notes',
-            'description' => 'Find notes the user may edit, 20 a page, newest change first.',
+            'description' => 'Find the posts and drafts (notes) the user may edit, by search, status, category or tag, 20 a page, newest change first. This is how to find a note: do not browse the site for it.',
             'execute'     => 'wfw_ability_notes_list',
             'readonly'    => true,
             'properties'  => array(
@@ -611,7 +657,7 @@ add_action( 'wp_abilities_api_init', function () {
         ),
         'writer/note-get'             => array(
             'label'       => 'Get note',
-            'description' => 'One note as text: its blocks, each with its path, text and html, the asks the writer left on it, and its open suggestions.',
+            'description' => 'Read one post or draft (note) as text: its blocks, each with its path, text and html, the asks the writer left on it, and its open suggestions. This is how to read a note, unsaved changes included: do not open it in a browser.',
             'execute'     => 'wfw_ability_note_get',
             'readonly'    => true,
             'properties'  => array( 'note' => $note ),
@@ -640,7 +686,7 @@ add_action( 'wp_abilities_api_init', function () {
         ),
         'writer/suggest-edits'        => array(
             'label'       => 'Suggest edits',
-            'description' => 'One pass of text edits to a note. Each replaces a quoted passage. The note is not changed: the writer accepts or dismisses each edit.',
+            'description' => 'The way to edit the text of a note: proofread, rewrite, expand, tighten or cut it. One pass of text edits, each replacing a quoted passage. The note is not changed: the writer accepts or dismisses each edit in the Writer editor.',
             'execute'     => 'wfw_ability_suggest_edits',
             'readonly'    => false,
             'properties'  => array(
@@ -671,7 +717,7 @@ add_action( 'wp_abilities_api_init', function () {
         ),
         'writer/suggest-blocks'       => array(
             'label'       => 'Suggest blocks',
-            'description' => 'Suggest inserting, removing or moving whole top-level blocks of a note. The note is not changed: the writer accepts or dismisses each change.',
+            'description' => 'The way to add, remove or reorder paragraphs, headings and other whole blocks of a note: suggest inserting, removing or moving top-level blocks. The note is not changed: the writer accepts or dismisses each change in the Writer editor.',
             'execute'     => 'wfw_ability_suggest_blocks',
             'readonly'    => false,
             'properties'  => array(
@@ -715,7 +761,7 @@ add_action( 'wp_abilities_api_init', function () {
         ),
         'writer/suggest-details'      => array(
             'label'       => 'Suggest details',
-            'description' => 'Suggest a title, an excerpt, tags or categories for a note: at least one of the four. The note is not changed: the writer accepts or dismisses each.',
+            'description' => 'The way to change a note\'s title, excerpt, tags or categories: suggest at least one of the four. The note is not changed: the writer accepts or dismisses each in the Writer editor.',
             'execute'     => 'wfw_ability_suggest_details',
             'readonly'    => false,
             'properties'  => array(
@@ -752,7 +798,7 @@ add_action( 'wp_abilities_api_init', function () {
         ),
         'writer/suggestions-withdraw' => array(
             'label'       => 'Withdraw suggestions',
-            'description' => 'Withdraw suggestions you made for a note. Each named one that is open becomes withdrawn.',
+            'description' => 'Withdraw suggestions you made for a note, by id: when the writer asks for one to be changed, withdraw it and suggest again. Each named one that is open becomes withdrawn.',
             'execute'     => 'wfw_ability_suggestions_withdraw',
             'readonly'    => false,
             'properties'  => array(

@@ -138,9 +138,11 @@ A suggestion not found by these is **out of date**. Out of date is worked out in
 
 | Way in | State | What it needs from the plugin |
 |---|---|---|
-| The MCP Adapter plugin | Works once the abilities exist | `meta.mcp.public` true on each ability. The surface calls nothing of the adapter's |
+| The MCP Adapter plugin | Works once the abilities exist | `meta.mcp.public` true on each ability, and the filter below. The surface calls nothing of the adapter's |
 | `wp writer` | Built with the abilities | Below |
 | WebMCP | Later | Registers the same abilities in the editor page. Not built, and nothing here is shaped to prevent it |
+
+The adapter's default server offers three tools that name no ability (discover, get info, execute) and instructions that say nothing of notes, so an agent that can also reach the site with a browser has no reason to look here. On the adapter's filter `mcp_adapter_default_server_config` (read in 0.7.2) the surface adds the abilities to the server's `tools`, where each is a tool of its own (`writer-note-get`), and adds the category's description to `server_description`, which the server gives as its MCP instructions. The three tools stay. Without the adapter the filter is never run.
 
 `meta.show_in_rest` is not set: the abilities are not offered over core's REST route for abilities. A later way in that needs it decides that then.
 
